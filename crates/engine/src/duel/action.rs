@@ -36,6 +36,16 @@ pub enum Action {
         card: ObjectId,
         targets: Vec<Target>,
     },
+    /// Use the activated ability `abilities[ability]` of the permanent
+    /// `source`. The engine pays its mana by tapping sources itself and
+    /// taps the permanent if the cost says so; `sacrifice` is the creature
+    /// given up, when the cost asks for one.
+    ActivateAbility {
+        source: ObjectId,
+        ability: usize,
+        targets: Vec<Target>,
+        sacrifice: Option<ObjectId>,
+    },
     /// Add a creature to the attack being declared.
     Attack {
         creature: ObjectId,
@@ -191,6 +201,19 @@ pub enum GameEvent {
     },
     AbilityResolved {
         ability: ObjectId,
+    },
+    /// An activated ability of `source` went on the stack as `ability`.
+    AbilityActivated {
+        player: PlayerId,
+        source: ObjectId,
+        ability: ObjectId,
+        targets: Vec<Target>,
+    },
+    /// A player sacrificed a permanent. If it was a creature, its death
+    /// follows.
+    PermanentSacrificed {
+        player: PlayerId,
+        permanent: ObjectId,
     },
     /// A creature got +`power`/+`toughness` until end of turn.
     PowerToughnessChanged {

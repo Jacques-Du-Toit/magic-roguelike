@@ -102,7 +102,7 @@ describe('promptText', () => {
     expect(prompt({ stack: [spell('P1')] }, { topOfStack: 'Shock' })).toContain('Your Shock')
     expect(prompt({})).toContain('Your main phase')
     expect(prompt({ step: 'declare_attackers', active_player: 'P2' })).toBe(
-      "Attackers are declared (the opponent's turn). Cast a spell, or pass.",
+      "Attackers are declared (the opponent's turn). Cast a spell or use an ability, or pass.",
     )
   })
 
@@ -116,6 +116,10 @@ describe('promptText', () => {
         { mode: { kind: 'blocking', blockerName: 'Wind Drake' } },
       ),
     ).toContain('Wind Drake should block')
+    const activating = (step: 'sacrifice' | 'target') =>
+      prompt({}, { mode: { kind: 'activating', sourceName: 'Viscera Seer', step } })
+    expect(activating('sacrifice')).toBe('Choose a creature to sacrifice to Viscera Seer, or cancel.')
+    expect(activating('target')).toBe("Choose a target for Viscera Seer's ability, or cancel.")
   })
 
   it('explains why blocks cannot be confirmed', () => {

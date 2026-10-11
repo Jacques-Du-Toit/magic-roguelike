@@ -59,6 +59,7 @@ export type PromptMode =
   | { kind: 'idle' }
   | { kind: 'casting'; cardName: string }
   | { kind: 'blocking'; blockerName: string }
+  | { kind: 'activating'; sourceName: string; step: 'sacrifice' | 'target' }
 
 export interface PromptInput {
   view: PlayerView
@@ -88,6 +89,11 @@ export function promptText({
   }
   if (mode.kind === 'casting') return `Choose a target for ${mode.cardName}, or cancel.`
   if (mode.kind === 'blocking') return `Click the attacker ${mode.blockerName} should block.`
+  if (mode.kind === 'activating') {
+    return mode.step === 'sacrifice'
+      ? `Choose a creature to sacrifice to ${mode.sourceName}, or cancel.`
+      : `Choose a target for ${mode.sourceName}'s ability, or cancel.`
+  }
 
   switch (decision.type) {
     case 'mulligan':
@@ -131,7 +137,7 @@ export function promptText({
         return 'Your second main phase: play a land or cast spells, then end the turn.'
       }
       const whose = yours ? 'your turn' : "the opponent's turn"
-      return `${PRIORITY_MOMENTS[view.step]} (${whose}). Cast a spell, or pass.`
+      return `${PRIORITY_MOMENTS[view.step]} (${whose}). Cast a spell or use an ability, or pass.`
     }
   }
 }

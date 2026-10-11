@@ -1,0 +1,36 @@
+{
+  "id": "prodigal_pyromancer",
+  "name": "Prodigal Pyromancer",
+  "mana_cost": "{2}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Wizard"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "oracle_text": "{T}: This creature deals 1 damage to any target.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 1,
+          "target": {
+            "any_target": {}
+          }
+        }
+      ]
+    }
+  ]
+}

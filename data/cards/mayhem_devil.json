@@ -1,0 +1,36 @@
+{
+  "id": "mayhem_devil",
+  "name": "Mayhem Devil",
+  "mana_cost": "{1}{B}{R}",
+  "colors": [
+    "B",
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Devil"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "oracle_text": "Whenever a player sacrifices a permanent, this creature deals 1 damage to any target.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "sacrifice"
+      },
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 1,
+          "target": {
+            "any_target": {}
+          }
+        }
+      ]
+    }
+  ]
+}

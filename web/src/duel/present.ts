@@ -142,6 +142,14 @@ export function describeEvent(event: GameEvent, context: NameContext): LogEntry 
       return line(`${face(event.card)} is countered`)
     case 'ability_triggered':
       return line(`${object(event.source)}'s ability triggers`)
+    case 'ability_activated': {
+      const at = event.targets.length > 0 ? ` targeting ${event.targets.map(target).join(', ')}` : ''
+      return line(
+        `${who(event.player)} ${verb(event.player, 'use')} ${object(event.source)}'s ability${at}`,
+      )
+    }
+    case 'permanent_sacrificed':
+      return line(`${who(event.player)} ${verb(event.player, 'sacrifice')} ${object(event.permanent)}`)
     case 'power_toughness_changed':
       return line(
         `${object(event.permanent)} gets ${signed(event.power)}/${signed(event.toughness)} until end of turn`,
@@ -222,6 +230,8 @@ function holdFor(event: GameEvent, viewer: PlayerId): number {
       return theirs(event.player, hold.spellCast)
     case 'ability_triggered':
       return hold.abilityTriggered
+    case 'ability_activated':
+      return theirs(event.player, hold.abilityTriggered)
     case 'permanent_entered':
     case 'token_created':
       return hold.permanentEntered

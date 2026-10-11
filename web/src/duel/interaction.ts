@@ -133,6 +133,95 @@ export function clickAimTarget(actions: Action[], chosen: Target[], target: Targ
   return done ? { kind: 'send', action: done } : { kind: 'aim', chosen: next }
 }
 
+type Activate = Extract<Action, { type: 'activate_ability' }>
+
+/** A permanent whose ability is being activated, with what has been picked for it so far. */
+export interface Activating {
+  source: number
+  chosen: Target[]
+}
+
+/**
+ * What activating needs picked, in the order it is clicked: the creature to
+ * sacrifice, if the cost asks for one, and then the targets.
+ */
+function activationChoices(action: Activate): Target[] {
+  const sacrifice: Target[] =
+    action.sacrifice === null ? [] : [{ type: 'object', object: action.sacrifice }]
+  return [...sacrifice, ...action.targets]
+}
+
+function activationsMatching(actions: Action[], activating: Activating): Activate[] {
+  return actions.filter(
+    (action): action is Activate =>
+      action.type === 'activate_ability' &&
+      action.source === activating.source &&
+      activating.chosen.every((target, index) => {
+        const other = activationChoices(action).at(index)
+        return other !== undefined && targetKey(other) === targetKey(target)
+      }),
+  )
+}
+
+/** Whether the permanent has an ability that could be activated now. */
+export function canActivate(actions: Action[], source: number): boolean {
+  return actions.some((action) => action.type === 'activate_ability' && action.source === source)
+}
+
+/** What could be picked next for the ability being activated. */
+export function nextActivationChoices(actions: Action[], activating: Activating): Target[] {
+  const seen = new Map<string, Target>()
+  for (const action of activationsMatching(actions, activating)) {
+    const next = activationChoices(action).at(activating.chosen.length)
+    if (next) seen.set(targetKey(next), next)
+  }
+  return [...seen.values()]
+}
+
+/** Whether the next pick is the creature to sacrifice or a target. */
+export function activationStep(actions: Action[], activating: Activating): 'sacrifice' | 'target' {
+  const [first] = activationsMatching(actions, activating)
+  return first && first.sacrifice !== null && activating.chosen.length === 0
+    ? 'sacrifice'
+    : 'target'
+}
+
+export type ActivateClick =
+  | { kind: 'send'; action: Action }
+  /** Something is still to be picked. */
+  | { kind: 'activate'; activating: Activating }
+  | { kind: 'nothing' }
+
+function activationClick(actions: Action[], activating: Activating): ActivateClick {
+  const matching = activationsMatching(actions, activating)
+  if (matching.length === 0) return { kind: 'nothing' }
+  const done = matching.find(
+    (action) => activationChoices(action).length === activating.chosen.length,
+  )
+  return done ? { kind: 'send', action: done } : { kind: 'activate', activating }
+}
+
+/** Clicking one of your permanents when it has an ability to activate. */
+export function clickAbilitySource(actions: Action[], source: number): ActivateClick {
+  return activationClick(actions, { source, chosen: [] })
+}
+
+/** Clicking something lit while an ability is being activated. */
+export function clickActivationChoice(
+  actions: Action[],
+  activating: Activating,
+  target: Target,
+): ActivateClick {
+  const legal = nextActivationChoices(actions, activating).some(
+    (option) => targetKey(option) === targetKey(target),
+  )
+  if (!legal) return { kind: 'nothing' }
+  return activationClick(actions, {
+    source: activating.source,
+    chosen: [...activating.chosen, target],
+  })
+}
+
 /** Clicking one of your creatures while declaring attackers. */
 export function clickAttacker(actions: Action[], creature: number): Click {
   const action = actions.find(

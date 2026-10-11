@@ -49,6 +49,14 @@ pub(super) fn creature_value(state: &DuelState, creature: ObjectId) -> Result<i3
     {
         value += 1;
     }
+    // Something it can do every turn is worth having around.
+    if def
+        .abilities
+        .iter()
+        .any(|ability| matches!(ability, AbilityDef::Activated { .. }))
+    {
+        value += 2;
+    }
     // A creature that can neither attack nor block is worth little.
     if state.is_restricted(creature, Restricted::Attack)?
         && state.is_restricted(creature, Restricted::Block)?

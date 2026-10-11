@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { Action } from '../engine/types/Action.ts'
 import type { Target } from '../engine/types/Target.ts'
 import {
+  activationStep,
   blockOptions,
+  canActivate,
   cardActions,
+  clickAbilitySource,
+  clickActivationChoice,
   clickAimTarget,
   clickAttacker,
   clickBlockedAttacker,
@@ -12,6 +16,7 @@ import {
   clickTarget,
   completedCast,
   isAiming,
+  nextActivationChoices,
   nextAimTargets,
   nextTargets,
   simpleAction,
@@ -151,5 +156,70 @@ describe('aiming a triggered ability', () => {
     expect(nextAimTargets(two, [object(50)])).toEqual([player('P2'), player('P1')])
     expect(nextAimTargets(two, [object(51)])).toEqual([player('P2')])
     expect(clickAimTarget(two, [object(50)], player('P1'))).toEqual({ kind: 'send', action: two[1] })
+  })
+})
+
+describe('activating an ability', () => {
+  const use = (source: number, targets: Target[] = [], sacrifice: number | null = null): Action => ({
+    type: 'activate_ability',
+    source,
+    ability: 0,
+    targets,
+    sacrifice,
+  })
+  // A pump with no choices, a ping with a target, and a sacrifice outlet
+  // (60) whose devil-style follow-up needs nothing more.
+  const pump = use(40)
+  const pings = [use(41, [player('P2')]), use(41, [object(50)])]
+  const outlet = [use(60, [], 60), use(60, [], 61)]
+  const both = [use(70, [player('P2')], 61), use(70, [player('P1')], 61), use(70, [player('P2')], 62)]
+  const legal = [pass, pump, ...pings, ...outlet, ...both]
+
+  it('knows which permanents have an ability to use', () => {
+    expect(canActivate(legal, 40)).toBe(true)
+    expect(canActivate(legal, 50)).toBe(false)
+  })
+
+  it('uses an ability with nothing to choose at once', () => {
+    expect(clickAbilitySource(legal, 40)).toEqual({ kind: 'send', action: pump })
+    expect(clickAbilitySource(legal, 50)).toEqual({ kind: 'nothing' })
+  })
+
+  it('asks for a target', () => {
+    const activating = { source: 41, chosen: [] }
+    expect(clickAbilitySource(legal, 41)).toEqual({ kind: 'activate', activating })
+    expect(activationStep(legal, activating)).toBe('target')
+    expect(nextActivationChoices(legal, activating)).toEqual([player('P2'), object(50)])
+    expect(clickActivationChoice(legal, activating, object(50))).toEqual({
+      kind: 'send',
+      action: pings[1],
+    })
+    expect(clickActivationChoice(legal, activating, object(51))).toEqual({ kind: 'nothing' })
+  })
+
+  it('asks what to sacrifice, which may be the permanent itself', () => {
+    const activating = { source: 60, chosen: [] }
+    expect(activationStep(legal, activating)).toBe('sacrifice')
+    expect(nextActivationChoices(legal, activating)).toEqual([object(60), object(61)])
+    expect(clickActivationChoice(legal, activating, object(60))).toEqual({
+      kind: 'send',
+      action: outlet[0],
+    })
+  })
+
+  it('asks for the sacrifice first and the target after', () => {
+    const start = { source: 70, chosen: [] }
+    expect(activationStep(legal, start)).toBe('sacrifice')
+    const picked = { source: 70, chosen: [object(61)] }
+    expect(clickActivationChoice(legal, start, object(61))).toEqual({
+      kind: 'activate',
+      activating: picked,
+    })
+    expect(activationStep(legal, picked)).toBe('target')
+    expect(nextActivationChoices(legal, picked)).toEqual([player('P2'), player('P1')])
+    expect(clickActivationChoice(legal, picked, player('P1'))).toEqual({
+      kind: 'send',
+      action: both[1],
+    })
   })
 })

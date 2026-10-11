@@ -1,0 +1,33 @@
+{
+  "id": "viscera_seer",
+  "name": "Viscera Seer",
+  "mana_cost": "{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire",
+    "Wizard"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "Sacrifice a creature: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "sacrifice": "creature"
+      },
+      "effects": [
+        {
+          "type": "scry",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

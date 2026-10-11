@@ -617,6 +617,45 @@ fn puts_a_counter_on_its_own_best_creature_not_on_the_enemys() {
     };
     assert_eq!(state.objects[&object].owner, me);
 }
+// ---- Activated abilities ----
+
+#[test]
+fn uses_an_ability_that_gains_something_and_not_one_that_only_costs() {
+    // A ping that kills a creature.
+    let (mut state, me, opponent) = empty_board(1);
+    let pyromancer = put_on_battlefield(&mut state, me, "prodigal_pyromancer");
+    let goblin = put_on_battlefield(&mut state, opponent, "raging_goblin");
+    assert_eq!(
+        choose(&state, me),
+        Action::ActivateAbility {
+            source: pyromancer,
+            ability: 0,
+            targets: vec![at(goblin)],
+            sacrifice: None
+        }
+    );
+
+    // Four spare mana for a card.
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "island", 4);
+    let sailor = put_on_battlefield(&mut state, me, "spectral_sailor");
+    assert_eq!(
+        choose(&state, me),
+        Action::ActivateAbility {
+            source: sailor,
+            ability: 0,
+            targets: vec![],
+            sacrifice: None
+        }
+    );
+
+    // A creature is not worth a scry, nor a pump nobody will feel.
+    let (mut state, me, _) = empty_board(1);
+    put_on_battlefield(&mut state, me, "viscera_seer");
+    put_on_battlefield(&mut state, me, "bloodthrone_vampire");
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    assert_eq!(choose(&state, me), Action::PassPriority);
+}
 // ---- Enchantments ----
 
 #[test]

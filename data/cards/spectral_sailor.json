@@ -1,0 +1,38 @@
+{
+  "id": "spectral_sailor",
+  "name": "Spectral Sailor",
+  "mana_cost": "{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Spirit",
+    "Pirate"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "keywords": [
+    "flash",
+    "flying"
+  ],
+  "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\n{3}{U}: Draw a card.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{3}{U}"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

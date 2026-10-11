@@ -1,0 +1,18 @@
+{
+  "id": "deck_g",
+  "name": "Black-Red sacrifice: tokens, outlets and pings",
+  "cards": [
+    { "card": "bloodthrone_vampire", "count": 2 },
+    { "card": "viscera_seer", "count": 1 },
+    { "card": "mayhem_devil", "count": 2 },
+    { "card": "doomed_dissenter", "count": 2 },
+    { "card": "goblin_instigator", "count": 2 },
+    { "card": "dragon_fodder", "count": 2 },
+    { "card": "prodigal_pyromancer", "count": 1 },
+    { "card": "pitchburn_devils", "count": 1 },
+    { "card": "shivan_dragon", "count": 1 },
+    { "card": "shock", "count": 1 },
+    { "card": "swamp", "count": 5 },
+    { "card": "mountain", "count": 5 }
+  ]
+}

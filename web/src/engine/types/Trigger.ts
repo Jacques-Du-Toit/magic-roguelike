@@ -2,4 +2,4 @@
 import type { CastKind } from "./CastKind";
 import type { TriggerSubject } from "./TriggerSubject";
 
-export type Trigger = { "type": "enters_battlefield", subject: TriggerSubject, } | { "type": "dies", subject: TriggerSubject, } | { "type": "attacks", } | { "type": "deals_damage_to_opponent", } | { "type": "gain_life", } | { "type": "cast_spell", kind: CastKind, } | { "type": "beginning_of_upkeep", };
+export type Trigger = { "type": "enters_battlefield", subject: TriggerSubject, } | { "type": "dies", subject: TriggerSubject, } | { "type": "attacks", } | { "type": "deals_damage_to_opponent", } | { "type": "gain_life", } | { "type": "sacrifice", } | { "type": "cast_spell", kind: CastKind, } | { "type": "beginning_of_upkeep", };

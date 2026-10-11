@@ -7,7 +7,7 @@
 //!
 //! - Mulligans: keep a hand with a sensible number of lands.
 //! - Lands: play one whenever possible.
-//! - Spells: try each castable spell on a copy of the game, let the stack
+//! - Spells and activated abilities: try each one on a copy of the game, let the stack
 //!   (and any combat damage still to come) play out with everyone passing,
 //!   and cast the one that leaves the best position, if any improves on
 //!   doing nothing.
@@ -142,7 +142,10 @@ fn priority(
     let baseline = outcome(state, player, None, LOOKAHEAD)?;
     let mut best: Option<(&Action, i32)> = None;
     for action in actions {
-        if !matches!(action, Action::CastSpell { .. }) {
+        if !matches!(
+            action,
+            Action::CastSpell { .. } | Action::ActivateAbility { .. }
+        ) {
             continue;
         }
         let gain = outcome(state, player, Some(action), LOOKAHEAD)? - baseline;

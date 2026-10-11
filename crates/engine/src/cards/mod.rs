@@ -176,6 +176,12 @@ pub enum AbilityDef {
         #[serde(default)]
         once_each_turn: bool,
     },
+    /// An ability its controller may use whenever they have priority, by
+    /// paying its cost. It uses the stack.
+    Activated {
+        cost: ActivationCost,
+        effects: Vec<Effect>,
+    },
     Static(StaticAbility),
     /// A mana ability; it doesn't use the stack.
     Mana {
@@ -190,6 +196,29 @@ pub enum AbilityDef {
 pub struct AbilityCost {
     #[serde(default)]
     pub tap: bool,
+}
+
+/// What an activated ability costs: any of mana, tapping the permanent and
+/// a sacrifice, and at least one of them.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct ActivationCost {
+    #[serde(default)]
+    #[ts(type = "string")]
+    pub mana: ManaCost,
+    /// `{T}`: for a creature, not while it is summoning sick.
+    #[serde(default)]
+    pub tap: bool,
+    #[serde(default)]
+    pub sacrifice: Option<SacrificeCost>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum SacrificeCost {
+    /// "Sacrifice a creature": any creature of the controller's, the one
+    /// with the ability included.
+    Creature,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -208,6 +237,8 @@ pub enum Trigger {
     DealsDamageToOpponent {},
     /// The controller gains life.
     GainLife {},
+    /// Any player sacrifices a permanent.
+    Sacrifice {},
     /// The controller casts a spell of this kind.
     CastSpell {
         kind: CastKind,
@@ -572,8 +603,8 @@ pub enum CardError {
     NotOnASpell(&'static str),
     #[error("`triggering` needs a trigger that something else sets off")]
     NothingTriggering,
-    #[error("only `enters_battlefield` and `dies` take the subject `creature_you_control`")]
-    BadSubject,
+    #[error("an activated ability needs a cost")]
+    FreeAbility,
     #[error("`{effect}` cannot target `{target}`")]
     BadTarget {
         effect: &'static str,
@@ -682,6 +713,23 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
         AbilityDef::Triggered {
             trigger, effects, ..
         } => validate_triggered(trigger, effects),
+        AbilityDef::Activated { cost, effects } => {
+            if cost.mana.is_empty() && !cost.tap && cost.sacrifice.is_none() {
+                return Err(CardError::FreeAbility);
+            }
+            if effects.is_empty() {
+                return Err(CardError::NoEffects);
+            }
+            // Nothing sets an activated ability off.
+            if effects
+                .iter()
+                .flat_map(Effect::targets)
+                .any(|spec| spec == TargetSpec::Triggering {})
+            {
+                return Err(CardError::NothingTriggering);
+            }
+            validate_effects(effects)
+        }
         AbilityDef::Static(StaticAbility::Restriction { affects, cant }) => {
             if cant.is_empty() {
                 return Err(CardError::EmptyRestriction);
@@ -1233,6 +1281,34 @@ mod tests {
             check(anthem("enchanted")),
             Err(CardError::EnchantedOnNonAura)
         );
+    }
+
+    #[test]
+    fn an_activated_ability_needs_a_cost_and_an_effect() {
+        let ability = |cost: Value| {
+            with(
+                bears(),
+                "abilities",
+                json!([{ "kind": "activated", "cost": cost,
+                    "effects": [{ "type": "draw_cards", "player": "controller", "amount": 1 }] }]),
+            )
+        };
+        assert_eq!(check(ability(json!({ "tap": true }))), Ok(()));
+        assert_eq!(check(ability(json!({ "mana": "{3}{U}" }))), Ok(()));
+        assert_eq!(check(ability(json!({ "sacrifice": "creature" }))), Ok(()));
+        assert_eq!(
+            check(ability(
+                json!({ "mana": "{1}", "tap": true, "sacrifice": "creature" })
+            )),
+            Ok(())
+        );
+        assert_eq!(check(ability(json!({}))), Err(CardError::FreeAbility));
+        let no_effects = with(
+            bears(),
+            "abilities",
+            json!([{ "kind": "activated", "cost": { "tap": true }, "effects": [] }]),
+        );
+        assert_eq!(check(no_effects), Err(CardError::NoEffects));
     }
 
     #[test]

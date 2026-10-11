@@ -88,12 +88,14 @@ test('holding priority stops in steps that are otherwise passed through', async 
 
 // The last two have the human on the drain deck, whose cards trigger on
 // deaths, attacks and life gained, against the tempo deck's bounce and
-// discard; and on the token deck against the drain deck.
+// discard; on the token deck against the drain deck; and on the sacrifice
+// deck, whose creatures have abilities to activate.
 for (const [you, ai, seed] of [
   ['deck_b', 'deck_a', 11],
   ['deck_b', 'deck_c', 12],
   ['deck_e', 'deck_d', 13],
   ['deck_f', 'deck_e', 14],
+  ['deck_g', 'deck_f', 15],
 ] as const) {
   test(`a whole game as ${you} against ${ai} can be clicked through`, async ({ page }) => {
     const errors = watchForErrors(page)
@@ -153,6 +155,39 @@ test('a game with the tempo deck shows a scry and the aiming of an ability', asy
   console.log(`tempo deck, seed ${seed}: saw ${[...seen].join(' ')}`)
   if (process.env.TEMPO_SEED) return
   expect([...seen]).toEqual(expect.arrayContaining(['scry', 'aim']))
+})
+
+// The sacrifice deck's creatures have abilities to activate, some of which
+// ask for a creature to give up. SACRIFICE_SEED=n tries another game.
+test('a game with the sacrifice deck shows an ability being used and a sacrifice chosen', async ({
+  page,
+}) => {
+  const seed = process.env.SACRIFICE_SEED ?? '2'
+  const errors = watchForErrors(page)
+  await start(page, `seed=${seed}&you=deck_g&ai=deck_c&speed=instant`)
+  const seen = new Set<string>()
+  for (let step = 0; step < 1500; step += 1) {
+    await idle(page).waitFor()
+    if (await result(page).isVisible()) break
+    const prompt = await page.getByTestId('prompt').last().innerText()
+    if (prompt.startsWith('Choose a creature to sacrifice')) {
+      expect(await page.locator('.lit-target').count()).toBeGreaterThan(0)
+      if (process.env.SHOTS && !seen.has('sacrifice')) {
+        await page.screenshot({ path: `${process.env.SHOTS}/duel-sacrifice.png` })
+      }
+      seen.add('sacrifice')
+    }
+    await clickSomething(page, step)
+  }
+  await expect(result(page)).toHaveText(/You win|You lose|Draw/)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  expect(errors).toEqual([])
+  const log = await page.getByTestId('log').innerText()
+  if (/You use .* ability/.test(log)) seen.add('used')
+  if (log.includes('You sacrifice')) seen.add('sacrificed')
+  console.log(`sacrifice deck, seed ${seed}: saw ${[...seen].join(' ')}`)
+  if (process.env.SACRIFICE_SEED) return
+  expect([...seen]).toEqual(expect.arrayContaining(['sacrifice', 'used', 'sacrificed']))
 })
 
 test('the same seed can be replayed, and events play with their pauses', async ({ page }) => {

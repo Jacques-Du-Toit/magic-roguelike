@@ -55,7 +55,7 @@ The duel functions above exist as of M1, in `crates/engine/src/duel/` (state, tu
 
 Every `Action` returned by `legal_actions` is concrete and can be passed straight to `apply_action`. The AI and the UI both work only from this list. Two rules keep the list small:
 
-- **Spells and abilities are fully specified.** `CastSpell { card, targets, mode }` and `ActivateAbility { source, ability, targets }` appear once per legal target combination. There is no separate "choose target" step. (X costs, when added, will be an exception: one action carrying the legal X range.) As of M1 only `CastSpell { card, targets }` exists: no card has modes yet, and the only activated abilities are mana abilities, which the auto-payer uses.
+- **Spells and abilities are fully specified.** `CastSpell { card, targets }` and `ActivateAbility { source, ability, targets, sacrifice }` appear once per legal combination of targets and, for an ability whose cost includes a sacrifice, of the creature given up. There is no separate "choose target" step. (X costs, when added, will be an exception: one action carrying the legal X range.) No card has modes yet. Mana abilities are not actions: the auto-payer uses them.
 - **Anything combinatorial is a stepwise pending decision.** The state records "waiting on player P for decision D", and `legal_actions` returns only the next step:
 
 | Decision | Step actions |
@@ -280,8 +280,8 @@ Dual land (one mana ability per colour; it still makes one mana per tap):
 
 ### Ability kinds
 - `spell` — effects when an instant/sorcery resolves.
-- `triggered` — `{ "trigger": {...}, "effects": [...] }`. Built so far: `enters_battlefield` and `dies` (each with `"subject": "self"`, `"creature_you_control"`, which includes the permanent itself, or `"another_creature_you_control"`), `attacks`, `deals_damage_to_opponent`, `gain_life`, `cast_spell` (with `"kind": "instant_or_sorcery"` or `"noncreature"`) and `beginning_of_upkeep`. `"once_each_turn": true` makes it "the first time each turn". Prowess is a keyword, not an ability in the data: the engine supplies its trigger.
-- `activated` — `{ "cost": {...}, "effects": [...] }` costs: mana, tap, sacrifice, pay life.
+- `triggered` — `{ "trigger": {...}, "effects": [...] }`. Built so far: `enters_battlefield` and `dies` (each with `"subject": "self"`, `"creature_you_control"`, which includes the permanent itself, or `"another_creature_you_control"`), `attacks`, `deals_damage_to_opponent`, `gain_life`, `sacrifice` (any player sacrifices a permanent), `cast_spell` (with `"kind": "instant_or_sorcery"` or `"noncreature"`) and `beginning_of_upkeep`. `"once_each_turn": true` makes it "the first time each turn". Prowess is a keyword, not an ability in the data: the engine supplies its trigger.
+- `activated` — `{ "cost": {...}, "effects": [...] }`. The cost is any of `"mana": "{3}{U}"`, `"tap": true` and `"sacrifice": "creature"` (any creature of the controller's, the one with the ability included), and at least one of them. It can be used whenever its controller has priority, it uses the stack, and its controller keeps priority afterwards. A creature can't pay a tap cost while summoning sick. Paying life is not built yet.
 - `static` — continuous effects: `{ "type": "anthem", "affects": ..., "power": 1, "toughness": 1 }` (optionally `"with_keyword": "flying"`), `{ "type": "grant_keyword", "affects": ..., "keyword": ... }` (optionally `"with_counter": true` for "with a +1/+1 counter on it") and `{ "type": "restriction", "affects": "enchanted", "cant": [...] }`. `affects` is `enchanted` (an Aura's creature), `creatures_you_control` or `other_creatures_you_control`.
 - `mana` — mana abilities (don't use the stack).
 
@@ -316,7 +316,7 @@ On load, every card is validated (costs parse, targets exist, keywords known, Au
 The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and an emblem's triggered ability can't have targets (a card's can). A restriction ("can't attack or block") is still for Auras only.
 
 ### Decklists
-`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo), E (white-black drain) and F (green-white tokens) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
+`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo), E (white-black drain), F (green-white tokens) and G (black-red sacrifice) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
 
 ## 5. Duel internals
 
@@ -329,6 +329,7 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 - **Stack**: spells and abilities as stack objects; resolves LIFO when all players pass in succession.
 - **State-based actions**: checked whenever a player would receive priority.
 - **Triggers** (`triggers.rs`): whatever an ability could be waiting for (a permanent entering, a creature about to die, an attacker declared, damage dealt to an opponent, life gained, a spell cast, an upkeep beginning) is reported as a `Happening`; every permanent and emblem is asked whether an ability of its triggers, and those that do wait until a player would next get priority. Creatures that die together are all reported before any leaves, so each sees the others go. An ability whose source has gone by the time it resolves (a "when this dies" ability) still resolves; damage it deals has no deathtouch or lifelink.
+- **Activated abilities** (`abilities.rs`): the ability goes on the stack, then its cost is paid: mana by the auto-payer, the tap, the sacrifice. A sacrificed creature dies, and what triggers on that goes on the stack above the ability.
 - **Simultaneous triggers**: ordered automatically, APNAP then by `ObjectId` of the source.
 - **A spell being cast** triggers abilities too. They go on the stack above the spell, and then the caster has priority again, whoever's turn it is.
 - **Continuous effects**: simplified layer handling — apply in order: base characteristics → P/T setting → P/T modifications (incl. counters) → ability grants. Full layer system is out of scope. Anthems and keyword grants come from emblems and from permanents; `DuelState::static_sources` lists the permanents that have one, so that working out a creature's power doesn't read every card on the battlefield.
@@ -353,7 +354,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 
 - Lives in `engine/ai/`. Uses only `legal_actions` + state evaluation; never cheats with hidden info unless explicitly configured.
 - v1: heuristics (play lands, cast best castable spell, attack if favourable, block to avoid bad trades, remove biggest threat). Mulligan: keep any hand with 2–5 lands, and never go below 5 cards (numbers in `balance.json`).
-- How v1 picks a spell: it tries each castable spell on a copy of the game, lets the stack and any combat damage still to come play out with both players passing, scores the result (life, creatures with their lasting bonuses from anthems and Auras, enchantments, cards in hand), and casts the best one if it beats doing nothing. That one rule covers removal, burn to the face when it matters, combat tricks after blocks, and countering a spell when mana happens to be open. Passing needs no hidden information, so the AI still doesn't cheat.
+- How v1 picks a spell or an activated ability: it tries each one it could cast or use on a copy of the game, lets the stack and any combat damage still to come play out with both players passing, scores the result (life, creatures with their lasting bonuses from anthems and Auras, enchantments, cards in hand), and casts the best one if it beats doing nothing. That one rule covers removal, burn to the face when it matters, combat tricks after blocks, and countering a spell when mana happens to be open. Passing needs no hidden information, so the AI still doesn't cheat.
 - How v1 fights: it attacks with each creature that no single blocker beats, or with everything when that is lethal; it blocks to kill an attacker, to stop damage safely or to trade evenly, and chump-blocks only to survive.
 - v1 is expected to pilot creature and burn decks acceptably and reactive decks badly (it won't hold mana for a counterspell). That's accepted for now; the human plays the control deck in M2.
 - Later: shallow search / Monte Carlo rollouts using engine cloning (determinism makes this easy). This is the planned route to competent control play, rather than piling up heuristics.
@@ -380,7 +381,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 - `web/src/duel/` — the duel's logic on the TypeScript side, all of it free of rules and unit-tested:
   - `controller.ts` runs a duel for the screen. It applies the human's action, then lets the AI act and passes for the human until the human has a decision, one step at a time. Each step's events are played before the view that follows them is shown, and input is ignored meanwhile. An engine error is shown on screen rather than thrown.
   - `present.ts` turns a batch of events into log lines and animation beats. Damage, life changes and deaths are played over the old view, because what they happen to may be gone from the new one; everything else appears with the new view, which is then held long enough to read.
-  - `interaction.ts` maps clicks onto the list from `legal_actions`: which actions use a hand card, which targets can be picked next, which creature can attack or block.
+  - `interaction.ts` maps clicks onto the list from `legal_actions`: which actions use a hand card, which targets can be picked next, which creature can attack or block, which permanent has an ability to activate and what it still needs picked (the creature to sacrifice, then the targets).
   - `prompt.ts` holds the wording: what the game is waiting for and what the buttons say.
 - `web/src/run/` — wording for the run: what just happened, and the names of nodes.
 - `web/src/screens/` — Menu (start a run, or a practice duel), Run and Duel. The run screen shows the map, rewards, rest sites, shops, the boons and the end of the run from the `RunView`, offers the legal run actions and sends one back. While the run is in a duel it shows the duel screen, with a controller driving the run handle's duel.

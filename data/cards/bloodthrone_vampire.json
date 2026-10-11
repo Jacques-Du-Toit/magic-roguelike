@@ -1,0 +1,36 @@
+{
+  "id": "bloodthrone_vampire",
+  "name": "Bloodthrone Vampire",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "Sacrifice a creature: This creature gets +2/+2 until end of turn.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "sacrifice": "creature"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "this": {}
+          },
+          "power": 2,
+          "toughness": 2
+        }
+      ]
+    }
+  ]
+}

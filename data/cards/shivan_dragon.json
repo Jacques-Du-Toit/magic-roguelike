@@ -1,0 +1,39 @@
+{
+  "id": "shivan_dragon",
+  "name": "Shivan Dragon",
+  "mana_cost": "{4}{R}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Dragon"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{R}"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "this": {}
+          },
+          "power": 1,
+          "toughness": 0
+        }
+      ]
+    }
+  ]
+}

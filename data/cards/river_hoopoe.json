@@ -1,0 +1,42 @@
+{
+  "id": "river_hoopoe",
+  "name": "River Hoopoe",
+  "mana_cost": "{G}{U}",
+  "colors": [
+    "U",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Bird"
+  ],
+  "power": 1,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\n{3}{G}{U}: You gain 2 life and draw a card.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{3}{G}{U}"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 2
+        },
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

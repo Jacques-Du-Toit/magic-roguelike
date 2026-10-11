@@ -41,7 +41,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Priority passing, stack LIFO | In | Real priority in engine. |
 | Arena-style auto-pass | In | Engine reports whether the player has a meaningful action; the UI auto-passes on that. Hold-priority toggle in the UI. |
 | Instants, flash | In | |
-| Activated abilities | In | Mana, tap, sacrifice, pay life costs. |
+| Activated abilities | In | Built in M4a with mana, tap and sacrifice-a-creature costs. Pay-life costs when a card needs one. |
 | Mana abilities don't use the stack | In | |
 | Triggered abilities | In | |
 | Ordering simultaneous triggers (APNAP; player orders own) | Simplified | Auto-order: APNAP, then by source `ObjectId`. Manual ordering later. |

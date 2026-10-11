@@ -10,11 +10,17 @@ import { GameOverOverlay, GraveyardOverlay, MulliganOverlay } from '../component
 import { LogPanel, StackPanel } from '../components/SidePanel.tsx'
 import type { DuelController } from '../duel/controller.ts'
 import {
+  type ActivateClick,
+  type Activating,
   type BlockClick,
   type Casting,
   type Click,
+  activationStep,
   blockOptions,
+  canActivate,
   cardActions,
+  clickAbilitySource,
+  clickActivationChoice,
   clickAimTarget,
   clickAttacker,
   clickBlockedAttacker,
@@ -23,6 +29,7 @@ import {
   clickTarget,
   completedCast,
   isAiming,
+  nextActivationChoices,
   nextAimTargets,
   nextTargets,
   simpleAction,
@@ -70,6 +77,8 @@ type Mode =
   | { kind: 'casting'; casting: Casting }
   /** Aiming a triggered ability: the targets picked so far. */
   | { kind: 'aiming'; chosen: Target[] }
+  /** Activating a permanent's ability: what has been picked for it so far. */
+  | { kind: 'activating'; activating: Activating }
   | { kind: 'blocking'; blocker: number }
 
 const IDLE: Mode = { kind: 'idle' }
@@ -214,6 +223,14 @@ export function DuelScreen({
     return click.kind !== 'nothing'
   }
 
+  const resolveActivation = (click: ActivateClick): boolean => {
+    if (click.kind === 'send') send(click.action)
+    else if (click.kind === 'activate') {
+      setMode({ kind: 'activating', activating: click.activating })
+    }
+    return click.kind !== 'nothing'
+  }
+
   const onHandCard = (object: number) => {
     if (mode.kind === 'casting' && mode.casting.card === object) setMode(IDLE)
     else resolve(clickHandCard(actions, object))
@@ -225,18 +242,27 @@ export function DuelScreen({
       if (click.kind === 'send') send(click.action)
       else if (click.kind === 'aim') setMode({ kind: 'aiming', chosen: click.chosen })
     }
+    if (mode.kind === 'activating') {
+      resolveActivation(clickActivationChoice(actions, mode.activating, target))
+    }
   }
   const onPermanent = (permanent: PermanentView) => {
     const object = permanent.object
     if (mode.kind === 'casting' || mode.kind === 'aiming') {
       onTarget({ type: 'object', object })
+    } else if (mode.kind === 'activating') {
+      // Clicking the permanent again, when it isn't itself a choice, puts
+      // its ability down.
+      if (!resolveActivation(clickActivationChoice(actions, mode.activating, { type: 'object', object }))) {
+        if (object === mode.activating.source) setMode(IDLE)
+      }
     } else if (mode.kind === 'blocking') {
       if (!resolve(clickBlockedAttacker(actions, mode.blocker, object))) {
         // Clicking the picked-up creature again puts it down.
         if (object === mode.blocker || !resolve(clickBlocker(actions, object))) setMode(IDLE)
       }
-    } else if (!resolve(clickAttacker(actions, object))) {
-      resolve(clickBlocker(actions, object))
+    } else if (!resolve(clickAttacker(actions, object)) && !resolve(clickBlocker(actions, object))) {
+      resolveActivation(clickAbilitySource(actions, object))
     }
   }
 
@@ -245,7 +271,9 @@ export function DuelScreen({
       ? new Set(nextTargets(actions, mode.casting).map(targetKey))
       : mode.kind === 'aiming'
         ? new Set(nextAimTargets(actions, mode.chosen).map(targetKey))
-        : new Set<string>()
+        : mode.kind === 'activating'
+          ? new Set(nextActivationChoices(actions, mode.activating).map(targetKey))
+          : new Set<string>()
   // What the spells and abilities on the stack are aimed at.
   const aimedAt = new Set(view.stack.flatMap((item) => item.targets.map(targetKey)))
   const blockTargets = mode.kind === 'blocking' ? blockOptions(actions, mode.blocker) : []
@@ -253,13 +281,18 @@ export function DuelScreen({
     if (mode.kind === 'casting' || mode.kind === 'aiming') {
       return targets.has(`o:${object}`) ? 'target' : null
     }
+    if (mode.kind === 'activating') {
+      if (targets.has(`o:${object}`)) return 'target'
+      return object === mode.activating.source ? 'selected' : null
+    }
     if (mode.kind === 'blocking') {
       if (object === mode.blocker) return 'selected'
       return blockTargets.includes(object) ? 'target' : null
     }
     const usable =
       clickAttacker(actions, object).kind !== 'nothing' ||
-      clickBlocker(actions, object).kind !== 'nothing'
+      clickBlocker(actions, object).kind !== 'nothing' ||
+      canActivate(actions, object)
     return usable ? 'action' : null
   }
 
@@ -309,7 +342,13 @@ export function DuelScreen({
         }
       : mode.kind === 'blocking'
         ? { kind: 'blocking', blockerName: permanentName(mode.blocker) }
-        : { kind: 'idle' }
+        : mode.kind === 'activating'
+          ? {
+              kind: 'activating',
+              sourceName: permanentName(mode.activating.source),
+              step: activationStep(actions, mode.activating),
+            }
+          : { kind: 'idle' }
   const top = view.stack.at(-1)
   const prompt = promptText({
     view,

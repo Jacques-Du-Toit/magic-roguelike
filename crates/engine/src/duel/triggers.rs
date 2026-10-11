@@ -23,6 +23,9 @@ pub(crate) enum Happening {
     /// A permanent has dealt damage to an opponent of its controller.
     DealtDamageToOpponent(ObjectId),
     GainedLife(PlayerId),
+    /// A permanent is about to be sacrificed. Like a dying creature, it is
+    /// still on the battlefield.
+    Sacrificed(ObjectId),
     /// A player has cast the spell `spell`, now on the stack.
     CastSpell {
         player: PlayerId,
@@ -168,6 +171,7 @@ fn triggers_on(
         | (Trigger::DealsDamageToOpponent {}, Happening::DealtDamageToOpponent(object)) => {
             is_holder(object).then_some(None)
         }
+        (Trigger::Sacrifice {}, Happening::Sacrificed(_)) => own,
         (Trigger::GainLife {}, Happening::GainedLife(player))
         | (Trigger::BeginningOfUpkeep {}, Happening::Upkeep(player)) => {
             (player == controller).then_some(None)

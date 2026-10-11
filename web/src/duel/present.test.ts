@@ -71,6 +71,18 @@ describe('describeEvent', () => {
     expect(text({ type: 'counters_added', permanent: 1, amount: 2, counters: 2 })).toBe(
       'Hill Giant gets 2 +1/+1 counters',
     )
+    expect(
+      text({
+        type: 'ability_activated',
+        player: 'P2',
+        source: 1,
+        ability: 9,
+        targets: [{ type: 'player', player: 'P1' }],
+      }),
+    ).toBe("Opponent uses Hill Giant's ability targeting you")
+    expect(text({ type: 'permanent_sacrificed', player: 'P1', permanent: 2 })).toBe(
+      'You sacrifice Wind Drake',
+    )
     expect(text({ type: 'card_kept_on_top', player: 'P1' })).toBe('You keep a card on top')
     expect(text({ type: 'card_kept_on_top', player: 'P2' })).toBe('Opponent keeps a card on top')
     // A bounced permanent is shown leaving before the view changes.

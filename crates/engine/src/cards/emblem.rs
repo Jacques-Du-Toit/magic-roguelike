@@ -50,6 +50,9 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
         match ability {
             AbilityDef::Spell { .. } => return Err(EmblemError::UnsupportedAbility("spell")),
             AbilityDef::Mana { .. } => return Err(EmblemError::UnsupportedAbility("mana")),
+            AbilityDef::Activated { .. } => {
+                return Err(EmblemError::UnsupportedAbility("activated"));
+            }
             AbilityDef::Triggered {
                 trigger, effects, ..
             } => {

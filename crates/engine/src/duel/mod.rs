@@ -1,5 +1,8 @@
 //! The duel: state, actions and rules. See `docs/ARCHITECTURE.md` §2 and §5.
 
+mod abilities;
+#[cfg(test)]
+mod ability_tests;
 mod action;
 #[cfg(test)]
 mod aura_tests;
@@ -132,6 +135,27 @@ fn perform(
         }
         (Action::CastSpell { card, targets }, _) => {
             stack::cast_spell(state, &mut events, player, *card, targets)?;
+            turn::open_priority_for(state, &mut events, player)?;
+        }
+        (
+            Action::ActivateAbility {
+                source,
+                ability,
+                targets,
+                sacrifice,
+            },
+            _,
+        ) => {
+            abilities::activate(
+                state,
+                &mut events,
+                player,
+                *source,
+                *ability,
+                targets,
+                *sacrifice,
+            )?;
+            // Like a spell's caster, the player keeps priority.
             turn::open_priority_for(state, &mut events, player)?;
         }
         (Action::Attack { creature }, _) => combat::declare_attacker(state, *creature)?,

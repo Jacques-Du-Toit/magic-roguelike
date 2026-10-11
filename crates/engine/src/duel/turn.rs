@@ -3,6 +3,7 @@
 //! The functions here run the game forward until it needs a decision from a
 //! player (or ends), recording what happened as events.
 
+use super::abilities::legal_activations;
 use super::action::{Action, GameEvent, Target};
 use super::combat;
 use super::damage::{LifeCause, change_life, check_state_based_actions, end_of_turn_cleanup};
@@ -275,6 +276,7 @@ pub(crate) fn legal_priority_actions(
         }
     }
     actions.extend(legal_casts(state, player)?);
+    actions.extend(legal_activations(state, player)?);
     Ok(actions)
 }
 

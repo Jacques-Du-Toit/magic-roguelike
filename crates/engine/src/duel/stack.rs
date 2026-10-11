@@ -104,7 +104,7 @@ fn spell_effects(def: &CardDef) -> &[Effect] {
 /// The targets a list of effects needs chosen, in order. The entries that
 /// stand for something already known (`same`, `this`, `triggering`) are not
 /// choices.
-fn chosen_specs(effects: &[Effect]) -> Vec<TargetSpec> {
+pub(crate) fn chosen_specs(effects: &[Effect]) -> Vec<TargetSpec> {
     effects
         .iter()
         .flat_map(Effect::targets)
@@ -210,7 +210,7 @@ fn creature_passes(
 /// Every way for `player` to choose one target per spec. A spell with no
 /// targets has exactly one way (no targets); a spec nothing fits leaves no
 /// way at all.
-fn target_choices(
+pub(crate) fn target_choices(
     state: &DuelState,
     player: PlayerId,
     specs: &[TargetSpec],
@@ -577,9 +577,11 @@ fn ability_effects(
         TriggeredAbility::Keyword { .. } => usize::MAX,
     };
     match abilities.get(index) {
-        Some(AbilityDef::Triggered { effects, .. }) => Ok(effects.clone()),
+        Some(AbilityDef::Triggered { effects, .. } | AbilityDef::Activated { effects, .. }) => {
+            Ok(effects.clone())
+        }
         _ => Err(InternalError::new(format!(
-            "{ability:?} is not a triggered ability"
+            "{ability:?} is not a triggered or activated ability"
         ))),
     }
 }

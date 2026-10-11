@@ -113,6 +113,25 @@ fn write_replay(
                 };
                 Some(format!("casts {}{at}", named(&state, *card)))
             }
+            Action::ActivateAbility {
+                source,
+                targets,
+                sacrifice,
+                ..
+            } => {
+                let mut line = format!("activates {}", named(&state, *source));
+                if let Some(sacrifice) = sacrifice {
+                    line.push_str(&format!(", sacrificing {}", named(&state, *sacrifice)));
+                }
+                if !targets.is_empty() {
+                    let targets: Vec<String> = targets
+                        .iter()
+                        .map(|target| target_name(&state, target))
+                        .collect();
+                    line.push_str(&format!(", at {}", targets.join(", ")));
+                }
+                Some(line)
+            }
             Action::ChooseTargets { targets } => {
                 let targets: Vec<String> = targets
                     .iter()

@@ -78,6 +78,8 @@ interface Hint {
   creature?: number
   blocker?: number
   attacker?: number
+  source?: number
+  sacrifice?: number | null
   targets?: ({ type: 'player'; player: string } | { type: 'object'; object: number })[]
 }
 
@@ -124,6 +126,13 @@ export async function followHint(page: Page): Promise<void> {
       break
     case 'cast_spell':
       await handCard(action.card).click()
+      for (const target of action.targets ?? []) await clickTarget(target)
+      break
+    case 'activate_ability':
+      await permanent(action.source).click()
+      if (action.sacrifice !== null && action.sacrifice !== undefined) {
+        await permanent(action.sacrifice).click()
+      }
       for (const target of action.targets ?? []) await clickTarget(target)
       break
     case 'choose_targets':
