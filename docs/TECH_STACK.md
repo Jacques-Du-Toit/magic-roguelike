@@ -131,9 +131,10 @@ cargo run --release -p sim -- --runs --games 400
 
 ## Card data from Scryfall
 
-- Scryfall offers free bulk data downloads (see scryfall.com/docs/api/bulk-data). Use the "Oracle Cards" file.
-- A script in `tools/` filters it to cube cards and converts to our card format (`data/cards/`). Card **effects** are still hand-authored (or AI-authored) in our effect format; Scryfall supplies name, cost, types, P/T, oracle text, rarity, and image URIs.
-- Follow Scryfall's API guidelines (rate limits, attribution, don't hotlink in bulk carelessly). For the prototype, text-only cards with a placeholder frame are fine; card images can come later.
+- `tools/scryfall.mjs` is a Node script with no dependencies. It asks Scryfall's API for one card at a time by exact name (the cube is small, so the bulk file isn't needed) and caches each answer in `tools/.scryfall-cache/`, which is not in git.
+- `node tools/scryfall.mjs add "Card Name"` writes `data/cards/<id>.json` with what Scryfall supplies: name, cost, colours, types, P/T, keywords, oracle text and rarity. Card **abilities** are then written by hand in our effect format, along with `enchant` and `enters_tapped`. It refuses cards with two faces and never overwrites a file.
+- `node tools/scryfall.mjs check` compares every card file with Scryfall and fails on a difference; `--refresh` ignores the cache. Rarity is not compared: Scryfall's is per printing, and ours is the cube's own tier, free to change. Oracle text includes Scryfall's reminder text, exactly.
+- Requests are spaced out and back off when Scryfall says to slow down, as its API guidelines ask. For the prototype, text-only cards with a placeholder frame are fine; card images can come later.
 
 ## Git habits
 

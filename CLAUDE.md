@@ -39,6 +39,11 @@ cargo run -p sim -- --replay deck_a deck_c --seed 7   # one game, move by move
 cargo run --release -p sim -- --enemies --games 400   # the run's starting decks against its enemy decks
 cargo run --release -p sim -- --runs --games 400      # whole runs: how often the act is won
 
+# Card data (from repo root; needs the network the first time, then uses its cache)
+node tools/scryfall.mjs add "Card Name"   # writes data/cards/<id>.json from Scryfall, abilities left to write by hand
+node tools/scryfall.mjs check             # every card's name, cost, types, stats, keywords and text against Scryfall
+node --test tools/scryfall.test.mjs       # the tool's own tests
+
 # WASM build (from repo root)
 wasm-pack build crates/engine-wasm --target web --out-dir ../../web/src/wasm
 
@@ -63,7 +68,7 @@ Update this section if commands change.
 
 1. **All game logic lives in `crates/engine`.** The UI never decides what is legal; it asks the engine (`legal_actions`, `run_legal_actions`) and sends actions. That goes for the run too: what a node gives, what a reward holds, what something costs. No rules logic in TypeScript, and that includes mana payment and deciding when to auto-pass.
 2. **The engine is deterministic.** All randomness goes through the seeded RNG in game state. Never use `thread_rng`, system time, or HashMap iteration order for anything gameplay-relevant (use `BTreeMap`/`IndexMap` or sort).
-3. **Cards are data.** New cards are added to `data/cards/*.json` using existing effect primitives. Only add a new effect primitive when a card genuinely can't be expressed; add a test for the primitive. `Custom` effects implemented in Rust are a last resort and must be listed in `docs/ARCHITECTURE.md`.
+3. **Cards are data.** New cards are added to `data/cards/*.json` with `tools/scryfall.mjs add`, then given abilities using existing effect primitives; `tools/scryfall.mjs check` must pass. Only add a new effect primitive when a card genuinely can't be expressed; add a test for the primitive. `Custom` effects implemented in Rust are a last resort and must be listed in `docs/ARCHITECTURE.md`.
 4. **Tests are mandatory for rules.** Every card, keyword, and rules interaction gets a test. Every bug fixed gets a regression test that fails before the fix. Run `cargo test` before declaring work done.
 5. **No magic numbers for balance.** Life totals, opening hand sizes, fatigue, hearts, rewards, prices, boon values, map shape, land share, etc. live in `data/balance.json`, never hard-coded. Content keeps its own numbers beside its text, as cards do: relics, passives and enemy emblems in `data/run/`.
 6. **Stay inside `docs/RULES_SCOPE.md`.** If a card needs a rule marked "out", don't add the card. Ask instead of expanding scope.

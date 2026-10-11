@@ -10,6 +10,7 @@ web/playwright-report/
 
 # Scryfall bulk data downloads
 tools/scryfall-bulk/
+tools/.scryfall-cache/
 *-cards-*.json
 
 # Editor / OS

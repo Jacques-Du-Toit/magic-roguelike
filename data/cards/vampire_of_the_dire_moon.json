@@ -18,6 +18,6 @@
     "deathtouch",
     "lifelink"
   ],
-  "oracle_text": "Deathtouch, lifelink",
+  "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
   "abilities": []
 }
