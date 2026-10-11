@@ -1,0 +1,22 @@
+{
+  "id": "thundering_giant",
+  "name": "Thundering Giant",
+  "mana_cost": "{3}{R}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Giant"
+  ],
+  "power": 4,
+  "toughness": 3,
+  "rarity": "common",
+  "keywords": [
+    "haste"
+  ],
+  "oracle_text": "Haste",
+  "abilities": []
+}

@@ -14,7 +14,7 @@ use super::action::GameEvent;
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::state::DuelState;
-use crate::cards::{AbilityDef, Color, Keyword, ManaCost};
+use crate::cards::{Color, Keyword, ManaCost};
 
 /// Unspent mana. It empties at the end of every step.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
@@ -76,15 +76,24 @@ impl ManaPool {
 }
 
 /// An untapped permanent that can tap for one mana right now.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Source {
     id: ObjectId,
-    color: Color,
+    /// The colours it can make; it makes one of them per tap.
+    colors: Vec<Color>,
     is_creature: bool,
 }
 
-/// The player's usable mana sources: lands first, then creatures, each in
-/// the order they entered the battlefield.
+/// One source tapped for one mana of a colour.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Tap {
+    pub source: ObjectId,
+    pub color: Color,
+}
+
+/// The player's usable mana sources: lands first, then creatures, and
+/// within each those that make one colour before those with a choice, each
+/// in the order they entered the battlefield.
 fn sources(state: &DuelState, player: PlayerId) -> Result<Vec<Source>, InternalError> {
     let mut sources = Vec::new();
     for permanent in state.permanents_of(player) {
@@ -99,42 +108,86 @@ fn sources(state: &DuelState, player: PlayerId) -> Result<Vec<Source>, InternalE
         {
             continue;
         }
-        let color = def.abilities.iter().find_map(|ability| match ability {
-            AbilityDef::Mana { cost, produces } if cost.tap => produces.colored().next(),
-            _ => None,
-        });
-        if let Some(color) = color {
+        let colors = def.mana_colors();
+        if !colors.is_empty() {
             sources.push(Source {
                 id: permanent.id,
-                color,
+                colors,
                 is_creature: def.is_creature(),
             });
         }
     }
-    sources.sort_by_key(|source| source.is_creature);
+    sources.sort_by_key(|source| (source.is_creature, source.colors.len()));
     Ok(sources)
+}
+
+/// Tries to give the coloured symbol `symbol` a source, moving earlier
+/// symbols to other sources if that is what it takes (an augmenting path).
+/// `assigned[i]` is the symbol source `i` pays for.
+fn assign_symbol(
+    symbol: usize,
+    symbols: &[Color],
+    sources: &[Source],
+    assigned: &mut [Option<usize>],
+    visited: &mut [bool],
+) -> bool {
+    for (index, source) in sources.iter().enumerate() {
+        if visited[index] || !source.colors.contains(&symbols[symbol]) {
+            continue;
+        }
+        visited[index] = true;
+        let free = match assigned[index] {
+            None => true,
+            Some(other) => assign_symbol(other, symbols, sources, assigned, visited),
+        };
+        if free {
+            assigned[index] = Some(symbol);
+            return true;
+        }
+    }
+    false
 }
 
 /// Chooses which sources to tap to pay `cost`, or `None` if the player
 /// can't pay. `casting` is the card being cast, if it is in hand.
 ///
-/// The choice is deterministic. Lands are tapped before creatures. Generic
-/// mana comes from the colour the player can best spare: the one with the
-/// most untapped sources left over after what the other cards in hand need.
+/// The choice is deterministic. Coloured symbols are matched to sources so
+/// that a land with a choice of colours never blocks a payment that some
+/// other assignment allows. Lands are tapped before creatures, and sources
+/// of one colour before those with a choice. Generic mana comes from the
+/// colour the player can best spare: the one with the most untapped sources
+/// left over after what the other cards in hand need.
 pub(crate) fn plan_payment(
     state: &DuelState,
     player: PlayerId,
     cost: &ManaCost,
     casting: Option<ObjectId>,
-) -> Result<Option<Vec<ObjectId>>, InternalError> {
+) -> Result<Option<Vec<Tap>>, InternalError> {
     let mut available = sources(state, player)?;
-    let mut chosen = Vec::new();
-    for color in cost.colored() {
-        let Some(position) = available.iter().position(|source| source.color == color) else {
+    let symbols: Vec<Color> = cost.colored().collect();
+    let mut assigned: Vec<Option<usize>> = vec![None; available.len()];
+    for symbol in 0..symbols.len() {
+        let mut visited = vec![false; available.len()];
+        if !assign_symbol(symbol, &symbols, &available, &mut assigned, &mut visited) {
             return Ok(None);
-        };
-        chosen.push(available.remove(position).id);
+        }
     }
+    // In symbol order, so the taps read like the cost.
+    let mut chosen = Vec::new();
+    for (symbol, &color) in symbols.iter().enumerate() {
+        if let Some(index) = assigned.iter().position(|slot| *slot == Some(symbol)) {
+            chosen.push(Tap {
+                source: available[index].id,
+                color,
+            });
+        }
+    }
+    let mut index = 0;
+    available.retain(|_| {
+        let keep = assigned[index].is_none();
+        index += 1;
+        keep
+    });
 
     let generic = cost.generic() as usize;
     if generic > available.len() {
@@ -152,16 +205,29 @@ pub(crate) fn plan_payment(
         }
         for _ in 0..generic {
             let spare = |color: Color| {
-                let untapped = available.iter().filter(|s| s.color == color).count();
+                let untapped = available
+                    .iter()
+                    .filter(|source| source.colors.contains(&color))
+                    .count();
                 untapped as i64 - needed.get(&color).copied().unwrap_or(0)
             };
             let lands_left = available.iter().any(|source| !source.is_creature);
+            // A source with a choice of colours is the most useful one to
+            // keep, so it is only spent when nothing else is left.
+            let fixed_left = available
+                .iter()
+                .any(|source| source.colors.len() == 1 && source.is_creature != lands_left);
             let mut best: Option<(usize, i64)> = None;
             for (position, source) in available.iter().enumerate() {
                 if lands_left && source.is_creature {
                     continue;
                 }
-                let spare = spare(source.color);
+                if fixed_left && source.colors.len() > 1 {
+                    continue;
+                }
+                // The colour it would make: the one the player can best spare.
+                let spare = source.colors.iter().map(|&color| spare(color)).max();
+                let Some(spare) = spare else { continue };
                 if best.is_none_or(|(_, best_spare)| spare > best_spare) {
                     best = Some((position, spare));
                 }
@@ -169,7 +235,17 @@ pub(crate) fn plan_payment(
             let Some((position, _)) = best else {
                 return Ok(None);
             };
-            chosen.push(available.remove(position).id);
+            let mut color = available[position].colors[0];
+            for &candidate in &available[position].colors {
+                if spare(candidate) > spare(color) {
+                    color = candidate;
+                }
+            }
+            let source = available.remove(position);
+            chosen.push(Tap {
+                source: source.id,
+                color,
+            });
         }
     }
     Ok(Some(chosen))
@@ -181,17 +257,24 @@ pub(crate) fn pay_cost(
     events: &mut Vec<GameEvent>,
     player: PlayerId,
     cost: &ManaCost,
-    plan: &[ObjectId],
+    plan: &[Tap],
 ) -> Result<(), InternalError> {
     let usable = sources(state, player)?;
-    for &id in plan {
-        let source = usable
+    for tap in plan {
+        let can_make = usable
             .iter()
-            .find(|source| source.id == id)
-            .ok_or_else(|| InternalError::new(format!("{id:?} can't be tapped for mana")))?;
-        state.object_mut(id)?.tapped = true;
-        events.push(GameEvent::PermanentTapped { permanent: id });
-        state.player_mut(player).mana_pool.add(source.color);
+            .any(|source| source.id == tap.source && source.colors.contains(&tap.color));
+        if !can_make {
+            return Err(InternalError::new(format!(
+                "{:?} can't be tapped for {:?}",
+                tap.source, tap.color
+            )));
+        }
+        state.object_mut(tap.source)?.tapped = true;
+        events.push(GameEvent::PermanentTapped {
+            permanent: tap.source,
+        });
+        state.player_mut(player).mana_pool.add(tap.color);
     }
     if state.player_mut(player).mana_pool.pay(cost) {
         Ok(())
@@ -201,7 +284,6 @@ pub(crate) fn pay_cost(
         )))
     }
 }
-
 pub(crate) fn empty_mana_pools(state: &mut DuelState) {
     for player in &mut state.players {
         player.mana_pool.clear();

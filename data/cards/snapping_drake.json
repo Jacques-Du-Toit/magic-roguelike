@@ -1,0 +1,22 @@
+{
+  "id": "snapping_drake",
+  "name": "Snapping Drake",
+  "mana_cost": "{3}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Drake"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying",
+  "abilities": []
+}

@@ -1,0 +1,18 @@
+{
+  "id": "selesnya_guildgate",
+  "name": "Selesnya Guildgate",
+  "mana_cost": "",
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Gate"
+  ],
+  "rarity": "common",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.",
+  "enters_tapped": true,
+  "abilities": [
+    { "kind": "mana", "cost": { "tap": true }, "produces": "{G}" },
+    { "kind": "mana", "cost": { "tap": true }, "produces": "{W}" }
+  ]
+}

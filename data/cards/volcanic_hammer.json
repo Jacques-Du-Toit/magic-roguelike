@@ -1,0 +1,21 @@
+{
+  "id": "volcanic_hammer",
+  "name": "Volcanic Hammer",
+  "mana_cost": "{1}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Volcanic Hammer deals 3 damage to any target.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        { "type": "deal_damage", "amount": 3, "target": { "any_target": {} } }
+      ]
+    }
+  ]
+}

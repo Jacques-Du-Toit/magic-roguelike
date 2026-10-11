@@ -1,0 +1,23 @@
+{
+  "id": "vampire_of_the_dire_moon",
+  "name": "Vampire of the Dire Moon",
+  "mana_cost": "{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "keywords": [
+    "deathtouch",
+    "lifelink"
+  ],
+  "oracle_text": "Deathtouch, lifelink",
+  "abilities": []
+}

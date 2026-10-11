@@ -1,0 +1,19 @@
+{
+  "id": "fire_elemental",
+  "name": "Fire Elemental",
+  "mana_cost": "{3}{R}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elemental"
+  ],
+  "power": 5,
+  "toughness": 4,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}

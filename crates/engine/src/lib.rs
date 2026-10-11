@@ -16,6 +16,7 @@ pub mod cards;
 pub mod data;
 pub mod decks;
 pub mod duel;
+pub mod run;
 
 pub use ai::ai_choose_action;
 pub use duel::{

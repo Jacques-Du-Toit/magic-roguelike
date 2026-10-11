@@ -26,5 +26,92 @@
       "turn": 6,
       "min_land_percent": 60
     }
+  },
+  "run": {
+    "hearts": 3,
+    "starting_gold": 30,
+    "lands": {
+      "land_percent": 40,
+      "min_per_color": 2
+    },
+    "map": {
+      "columns": 3,
+      "rows": [
+        { "duel": 1, "duel_tier": "easy" },
+        { "duel": 1, "duel_tier": "easy" },
+        { "duel": 2, "rest": 1, "shop": 2, "duel_tier": "normal" },
+        { "duel": 1, "elite": 1, "duel_tier": "normal" },
+        { "duel": 2, "rest": 1, "shop": 2, "duel_tier": "normal" },
+        { "duel": 1, "elite": 1, "duel_tier": "normal" },
+        { "rest": 1, "duel_tier": "normal" }
+      ]
+    },
+    "gold": {
+      "duel_win": 30,
+      "duel_loss": 10,
+      "elite_win": 50,
+      "elite_loss": 0,
+      "draw": 10,
+      "high_life": {
+        "min_life": 15,
+        "gold": 10
+      },
+      "fast_win": {
+        "max_turns": 14,
+        "gold": 10
+      }
+    },
+    "rewards": {
+      "choices": 3,
+      "own_color_choices": 2,
+      "land_percent": 15,
+      "duel": { "common": 75, "uncommon": 22, "rare": 3, "mythic": 0 },
+      "elite": { "common": 40, "uncommon": 45, "rare": 15, "mythic": 0 }
+    },
+    "shop": {
+      "cards": 3,
+      "lands": 1,
+      "relics": 1,
+      "removals": 1,
+      "card_weights": { "common": 55, "uncommon": 35, "rare": 10, "mythic": 0 },
+      "prices": {
+        "common": 40,
+        "uncommon": 70,
+        "rare": 110,
+        "mythic": 150,
+        "land": 50,
+        "relic": 120,
+        "removal": 60
+      }
+    },
+    "rest": {
+      "hearts_restored": 1
+    },
+    "boons": [
+      {
+        "id": "boon_life",
+        "name": "Fortitude",
+        "text": "You start the boss duel with 5 more life.",
+        "effects": [{ "type": "starting_life", "who": "owner", "change": 5 }]
+      },
+      {
+        "id": "boon_hand",
+        "name": "Foresight",
+        "text": "Your opening hand in the boss duel is one card larger.",
+        "effects": [{ "type": "opening_hand", "change": 1 }]
+      },
+      {
+        "id": "boon_wound",
+        "name": "First Blood",
+        "text": "The boss starts the duel with 5 less life.",
+        "effects": [{ "type": "starting_life", "who": "opponent", "change": -5 }]
+      },
+      {
+        "id": "boon_land",
+        "name": "Head Start",
+        "text": "You start the boss duel with a basic land on the battlefield.",
+        "effects": [{ "type": "starting_basic_land" }]
+      }
+    ]
   }
 }

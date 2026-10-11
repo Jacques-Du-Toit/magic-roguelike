@@ -4,12 +4,15 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::run::{EnemyTier, ModifierDef, ModifierKind, RunDataError, validate_modifier};
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Balance {
     pub duel: DuelBalance,
     pub ai: AiBalance,
     pub sim: SimBalance,
+    pub run: RunBalance,
 }
 
 /// Limits and thresholds for the `sim` CLI's report.
@@ -90,6 +93,20 @@ pub enum BalanceError {
     AiMulliganLands,
     #[error("`sim.turn_cap` must be above zero")]
     TurnCap,
+    #[error("`run.hearts` must be above zero")]
+    Hearts,
+    #[error("`run.lands.land_percent` must be between 1 and 90")]
+    LandPercent,
+    #[error("`run.map` needs at least one column and one row")]
+    MapShape,
+    #[error("`run.map.rows[{0}]` gives no node kind a weight")]
+    MapRowWeights(usize),
+    #[error("`run.rewards` needs at least one choice, and no more own-colour choices than choices")]
+    RewardChoices,
+    #[error("`run.rewards.{0}` gives no rarity a weight")]
+    RarityWeights(&'static str),
+    #[error("`run.boons`: {0}")]
+    Boon(#[from] RunDataError),
 }
 
 pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
@@ -105,6 +122,187 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
     if balance.sim.turn_cap == 0 {
         return Err(BalanceError::TurnCap);
     }
+    validate_run(&balance.run)
+}
+
+/// Every number of the run layer: hearts, gold, prices, rewards, the map's
+/// shape and the land share. The boons are here too, because a boon is
+/// nothing but its numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RunBalance {
+    /// Hearts at the start of an act.
+    pub hearts: u8,
+    pub starting_gold: u32,
+    pub lands: LandBalance,
+    pub map: MapBalance,
+    pub gold: GoldBalance,
+    pub rewards: RewardBalance,
+    pub shop: ShopBalance,
+    pub rest: RestBalance,
+    /// What a remaining heart can buy before the boss.
+    pub boons: Vec<ModifierDef>,
+}
+
+/// Automatic basic lands: lands are `land_percent` of the whole deck, split
+/// between colours by the coloured mana symbols of the spells. A colour the
+/// deck uses at all gets at least `min_per_color` lands.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LandBalance {
+    pub land_percent: u32,
+    pub min_per_color: u32,
+}
+
+/// The act's map: `rows` from the first row to the one before the boss,
+/// each `columns` wide at most. The boss is one more node after the last
+/// row.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapBalance {
+    pub columns: u8,
+    pub rows: Vec<MapRowBalance>,
+}
+
+/// One row: how likely each kind of node is (relative weights), and which
+/// enemies its duels use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapRowBalance {
+    #[serde(default)]
+    pub duel: u32,
+    #[serde(default)]
+    pub elite: u32,
+    #[serde(default)]
+    pub rest: u32,
+    #[serde(default)]
+    pub shop: u32,
+    pub duel_tier: EnemyTier,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GoldBalance {
+    pub duel_win: u32,
+    pub duel_loss: u32,
+    pub elite_win: u32,
+    pub elite_loss: u32,
+    pub draw: u32,
+    pub high_life: HighLifeBonus,
+    pub fast_win: FastWinBonus,
+}
+
+/// Extra gold for winning with at least `min_life` life.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HighLifeBonus {
+    pub min_life: i32,
+    pub gold: u32,
+}
+
+/// Extra gold for winning within `max_turns` turns, counting both players'
+/// turns.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FastWinBonus {
+    pub max_turns: u32,
+    pub gold: u32,
+}
+
+/// Card rewards: `choices` different cards, the first `own_color_choices`
+/// of them from the planeswalker's colours. `land_percent` is the chance
+/// that one of the choices is a non-basic land instead.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RewardBalance {
+    pub choices: u8,
+    pub own_color_choices: u8,
+    pub land_percent: u32,
+    pub duel: RarityWeights,
+    pub elite: RarityWeights,
+}
+
+/// Relative weights of the rarities when a card is picked at random.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RarityWeights {
+    pub common: u32,
+    pub uncommon: u32,
+    pub rare: u32,
+    pub mythic: u32,
+}
+
+impl RarityWeights {
+    fn total(&self) -> u32 {
+        self.common + self.uncommon + self.rare + self.mythic
+    }
+}
+
+/// What a shop stocks and what it charges.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShopBalance {
+    pub cards: u8,
+    pub lands: u8,
+    pub relics: u8,
+    /// How many cards one shop will remove.
+    pub removals: u8,
+    pub card_weights: RarityWeights,
+    pub prices: PriceBalance,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PriceBalance {
+    pub common: u32,
+    pub uncommon: u32,
+    pub rare: u32,
+    pub mythic: u32,
+    pub land: u32,
+    pub relic: u32,
+    pub removal: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RestBalance {
+    pub hearts_restored: u8,
+}
+
+fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
+    if run.hearts == 0 {
+        return Err(BalanceError::Hearts);
+    }
+    if !(1..=90).contains(&run.lands.land_percent) {
+        return Err(BalanceError::LandPercent);
+    }
+    if run.map.columns == 0 || run.map.rows.is_empty() {
+        return Err(BalanceError::MapShape);
+    }
+    for (index, row) in run.map.rows.iter().enumerate() {
+        if row.duel + row.elite + row.rest + row.shop == 0 {
+            return Err(BalanceError::MapRowWeights(index));
+        }
+    }
+    if run.rewards.choices == 0 || run.rewards.own_color_choices > run.rewards.choices {
+        return Err(BalanceError::RewardChoices);
+    }
+    for (name, weights) in [
+        ("duel", &run.rewards.duel),
+        ("elite", &run.rewards.elite),
+        ("shop", &run.shop.card_weights),
+    ] {
+        if weights.total() == 0 {
+            return Err(BalanceError::RarityWeights(name));
+        }
+    }
+    let mut ids = std::collections::BTreeSet::new();
+    for boon in &run.boons {
+        validate_modifier(boon, ModifierKind::Boon)?;
+        if !ids.insert(&boon.id) {
+            return Err(RunDataError::DuplicateId(boon.id.0.clone()).into());
+        }
+    }
     Ok(())
 }
 
@@ -112,74 +310,102 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
 mod tests {
     use super::*;
 
-    fn balance(starting_life: i32, smoothing_candidates: u8) -> Balance {
-        Balance {
-            duel: DuelBalance {
-                starting_life,
-                opening_hand_size: 7,
-                max_hand_size: 7,
-                smoothing_candidates,
-                fatigue: FatigueBalance {
-                    first_life_loss: 1,
-                    increase: 1,
-                },
-            },
-            ai: AiBalance {
-                mulligan: AiMulliganBalance {
-                    min_lands: 2,
-                    max_lands: 5,
-                    min_hand_size: 5,
-                },
-            },
-            sim: SimBalance {
-                turn_cap: 100,
-                land_screw: LandScrewBalance {
-                    turn: 4,
-                    max_lands: 2,
-                },
-                land_flood: LandFloodBalance {
-                    turn: 6,
-                    min_land_percent: 60,
-                },
-            },
-        }
+    /// The real numbers, for tests to bend.
+    fn balance() -> Balance {
+        serde_json::from_str(include_str!("../../../data/balance.json")).unwrap()
     }
 
     #[test]
-    fn sensible_numbers_pass() {
-        assert_eq!(validate(&balance(20, 3)), Ok(()));
-        assert_eq!(validate(&balance(1, 1)), Ok(()));
+    fn the_real_numbers_pass() {
+        assert_eq!(validate(&balance()), Ok(()));
     }
 
     #[test]
     fn rejects_numbers_that_cannot_start_a_duel() {
-        assert_eq!(validate(&balance(0, 3)), Err(BalanceError::StartingLife));
+        let check = |change: fn(&mut Balance)| {
+            let mut balance = balance();
+            change(&mut balance);
+            validate(&balance)
+        };
         assert_eq!(
-            validate(&balance(20, 0)),
+            check(|b| b.duel.starting_life = 0),
+            Err(BalanceError::StartingLife)
+        );
+        assert_eq!(
+            check(|b| b.duel.smoothing_candidates = 0),
             Err(BalanceError::SmoothingCandidates)
         );
-        let mut backwards = balance(20, 3);
-        backwards.ai.mulligan.min_lands = 6;
-        assert_eq!(validate(&backwards), Err(BalanceError::AiMulliganLands));
-        let mut endless = balance(20, 3);
-        endless.sim.turn_cap = 0;
-        assert_eq!(validate(&endless), Err(BalanceError::TurnCap));
+        assert_eq!(
+            check(|b| b.ai.mulligan.min_lands = 6),
+            Err(BalanceError::AiMulliganLands)
+        );
+        assert_eq!(check(|b| b.sim.turn_cap = 0), Err(BalanceError::TurnCap));
+    }
+
+    #[test]
+    fn rejects_numbers_that_cannot_make_a_run() {
+        let check = |change: fn(&mut Balance)| {
+            let mut balance = balance();
+            change(&mut balance);
+            validate(&balance)
+        };
+        assert_eq!(check(|b| b.run.hearts = 0), Err(BalanceError::Hearts));
+        assert_eq!(
+            check(|b| b.run.lands.land_percent = 100),
+            Err(BalanceError::LandPercent)
+        );
+        assert_eq!(
+            check(|b| b.run.map.rows.clear()),
+            Err(BalanceError::MapShape)
+        );
+        assert_eq!(
+            check(|b| {
+                let row = &mut b.run.map.rows[1];
+                (row.duel, row.elite, row.rest, row.shop) = (0, 0, 0, 0);
+            }),
+            Err(BalanceError::MapRowWeights(1))
+        );
+        assert_eq!(
+            check(|b| b.run.rewards.own_color_choices = b.run.rewards.choices + 1),
+            Err(BalanceError::RewardChoices)
+        );
+        assert_eq!(
+            check(|b| {
+                b.run.rewards.elite = RarityWeights {
+                    common: 0,
+                    uncommon: 0,
+                    rare: 0,
+                    mythic: 0,
+                }
+            }),
+            Err(BalanceError::RarityWeights("elite"))
+        );
+        assert_eq!(
+            check(|b| {
+                let copy = b.run.boons[0].clone();
+                b.run.boons.push(copy);
+            }),
+            Err(BalanceError::Boon(RunDataError::DuplicateId(
+                balance().run.boons[0].id.0.clone()
+            )))
+        );
+        assert_eq!(
+            check(|b| b.run.boons[0].effects.clear()),
+            Err(BalanceError::Boon(RunDataError::NoEffects(
+                balance().run.boons[0].id.0.clone()
+            )))
+        );
     }
 
     #[test]
     fn unknown_and_missing_fields_fail_to_parse() {
-        let good = r#"{ "duel": { "starting_life": 20, "opening_hand_size": 7, "max_hand_size": 7,
-            "smoothing_candidates": 3, "fatigue": { "first_life_loss": 1, "increase": 1 } },
-            "ai": { "mulligan": { "min_lands": 2, "max_lands": 5, "min_hand_size": 5 } },
-            "sim": { "turn_cap": 100, "land_screw": { "turn": 4, "max_lands": 2 },
-                "land_flood": { "turn": 6, "min_land_percent": 60 } } }"#;
-        assert_eq!(
-            serde_json::from_str::<Balance>(good).unwrap(),
-            balance(20, 3)
-        );
+        let good = include_str!("../../../data/balance.json");
+        assert!(serde_json::from_str::<Balance>(good).is_ok());
         let typo = good.replace("max_hand_size", "max_hand");
         assert!(serde_json::from_str::<Balance>(&typo).is_err());
         let negative = good.replace("\"increase\": 1", "\"increase\": -1");
         assert!(serde_json::from_str::<Balance>(&negative).is_err());
+        let no_hearts = good.replace("\"hearts\": 3,", "");
+        assert!(serde_json::from_str::<Balance>(&no_hearts).is_err());
     }
 }

@@ -1,0 +1,19 @@
+{
+  "id": "siege_mastodon",
+  "name": "Siege Mastodon",
+  "mana_cost": "{4}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elephant"
+  ],
+  "power": 3,
+  "toughness": 5,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}

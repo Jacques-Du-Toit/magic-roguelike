@@ -1,0 +1,19 @@
+{
+  "id": "barony_vampire",
+  "name": "Barony Vampire",
+  "mana_cost": "{2}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}

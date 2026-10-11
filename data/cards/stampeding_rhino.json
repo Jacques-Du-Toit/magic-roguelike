@@ -1,0 +1,22 @@
+{
+  "id": "stampeding_rhino",
+  "name": "Stampeding Rhino",
+  "mana_cost": "{4}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Rhino"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "common",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "Trample",
+  "abilities": []
+}

@@ -1,0 +1,23 @@
+{
+  "id": "sentinel_spider",
+  "name": "Sentinel Spider",
+  "mana_cost": "{3}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Spider"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "common",
+  "keywords": [
+    "reach",
+    "vigilance"
+  ],
+  "oracle_text": "Reach, vigilance",
+  "abilities": []
+}

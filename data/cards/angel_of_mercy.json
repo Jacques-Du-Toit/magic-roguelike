@@ -1,0 +1,30 @@
+{
+  "id": "angel_of_mercy",
+  "name": "Angel of Mercy",
+  "mana_cost": "{4}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, you gain 3 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": { "type": "enters_battlefield", "subject": "self" },
+      "effects": [
+        { "type": "gain_life", "player": "controller", "amount": 3 }
+      ]
+    }
+  ]
+}

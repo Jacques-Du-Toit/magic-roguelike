@@ -1,0 +1,19 @@
+{
+  "id": "coral_merfolk",
+  "name": "Coral Merfolk",
+  "mana_cost": "{1}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Merfolk"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}

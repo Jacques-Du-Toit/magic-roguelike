@@ -1,0 +1,25 @@
+{
+  "id": "aerial_responder",
+  "name": "Aerial Responder",
+  "mana_cost": "{1}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Dwarf",
+    "Soldier"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying",
+    "vigilance",
+    "lifelink"
+  ],
+  "oracle_text": "Flying, vigilance, lifelink",
+  "abilities": []
+}

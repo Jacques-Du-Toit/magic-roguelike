@@ -1,0 +1,28 @@
+{
+  "id": "vampire_spawn",
+  "name": "Vampire Spawn",
+  "mana_cost": "{2}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, each opponent loses 2 life and you gain 2 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": { "type": "enters_battlefield", "subject": "self" },
+      "effects": [
+        { "type": "lose_life", "player": "opponent", "amount": 2 },
+        { "type": "gain_life", "player": "controller", "amount": 2 }
+      ]
+    }
+  ]
+}

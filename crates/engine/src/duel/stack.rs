@@ -464,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn every_starter_creature_can_be_cast_with_the_right_lands() {
+    fn every_creature_can_be_cast_with_the_right_lands() {
         let land_for = |color: Color| match color {
             Color::W => "plains",
             Color::U => "island",
@@ -478,7 +478,7 @@ mod tests {
             .iter()
             .filter(|card| card.is_creature())
             .collect();
-        assert_eq!(creatures.len(), 17);
+        assert_eq!(creatures.len(), 37);
         for def in creatures {
             let (mut state, me, _) = in_main_phase("deck_a", "deck_c", 1);
             let color = def.colors[0];

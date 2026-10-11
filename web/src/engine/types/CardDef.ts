@@ -12,4 +12,8 @@ export type CardDef = { id: CardDefId, name: string, mana_cost: string, colors: 
 /**
  * What an Aura can enchant.
  */
-enchant: TargetSpec | null, abilities: Array<AbilityDef>, };
+enchant: TargetSpec | null, 
+/**
+ * "This land enters tapped." A property, not a replacement effect.
+ */
+enters_tapped: boolean, abilities: Array<AbilityDef>, };

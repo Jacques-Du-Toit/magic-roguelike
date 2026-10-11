@@ -260,6 +260,9 @@ pub(crate) fn play_land(
     card: ObjectId,
 ) -> Result<(), InternalError> {
     let land = state.move_object(card, Zone::Battlefield)?;
+    if state.def(land)?.enters_tapped {
+        state.object_mut(land)?.tapped = true;
+    }
     state.player_mut(player).lands_played_this_turn += 1;
     events.push(GameEvent::LandPlayed {
         player,

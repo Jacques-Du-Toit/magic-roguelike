@@ -1,0 +1,23 @@
+{
+  "id": "charging_monstrosaur",
+  "name": "Charging Monstrosaur",
+  "mana_cost": "{4}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Dinosaur"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "uncommon",
+  "keywords": [
+    "trample",
+    "haste"
+  ],
+  "oracle_text": "Trample, haste",
+  "abilities": []
+}

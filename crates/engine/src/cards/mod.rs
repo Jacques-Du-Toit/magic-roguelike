@@ -63,6 +63,9 @@ pub struct CardDef {
     /// What an Aura can enchant.
     #[serde(default)]
     pub enchant: Option<TargetSpec>,
+    /// "This land enters tapped." A property, not a replacement effect.
+    #[serde(default)]
+    pub enters_tapped: bool,
     #[serde(default)]
     pub abilities: Vec<AbilityDef>,
 }
@@ -90,6 +93,24 @@ impl CardDef {
 
     pub fn has_keyword(&self, keyword: Keyword) -> bool {
         self.keywords.contains(&keyword)
+    }
+
+    /// The colours of mana this card's tap abilities can make, in the
+    /// order of the abilities.
+    pub fn mana_colors(&self) -> Vec<Color> {
+        let mut colors = Vec::new();
+        for ability in &self.abilities {
+            if let AbilityDef::Mana { cost, produces } = ability
+                && cost.tap
+            {
+                for color in produces.colored() {
+                    if !colors.contains(&color) {
+                        colors.push(color);
+                    }
+                }
+            }
+        }
+        colors
     }
 }
 
@@ -320,6 +341,8 @@ pub enum CardError {
     ColorsMismatch(String),
     #[error("a land cannot have a mana cost")]
     LandWithCost,
+    #[error("only lands may have `enters_tapped`")]
+    EntersTapped,
     #[error("an Aura must be an Enchantment")]
     AuraNotEnchantment,
     #[error("Auras need `enchant`, and only Auras may have it")]
@@ -386,6 +409,9 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
     }
     if card.is_land() && !card.mana_cost.is_empty() {
         return Err(CardError::LandWithCost);
+    }
+    if card.enters_tapped && !card.is_land() {
+        return Err(CardError::EntersTapped);
     }
 
     if card.is_aura() && !card.has_type(CardType::Enchantment) {
@@ -867,6 +893,25 @@ mod tests {
                 Err(CardError::ManaProduces)
             );
         }
+    }
+
+    #[test]
+    fn only_lands_enter_tapped_and_a_land_may_tap_for_two_colours() {
+        let gate = with(
+            with(forest(), "enters_tapped", json!(true)),
+            "abilities",
+            json!([
+                { "kind": "mana", "cost": { "tap": true }, "produces": "{G}" },
+                { "kind": "mana", "cost": { "tap": true }, "produces": "{W}" }
+            ]),
+        );
+        assert_eq!(check(gate.clone()), Ok(()));
+        let def: CardDef = serde_json::from_value(gate).unwrap();
+        assert_eq!(def.mana_colors(), [Color::G, Color::W]);
+        assert_eq!(
+            check(with(bears(), "enters_tapped", json!(true))),
+            Err(CardError::EntersTapped)
+        );
     }
 
     #[test]

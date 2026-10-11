@@ -1,0 +1,22 @@
+{
+  "id": "revitalize",
+  "name": "Revitalize",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "You gain 3 life.\nDraw a card.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        { "type": "gain_life", "player": "controller", "amount": 3 },
+        { "type": "draw_cards", "player": "controller", "amount": 1 }
+      ]
+    }
+  ]
+}

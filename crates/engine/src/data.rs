@@ -14,6 +14,7 @@ use thiserror::Error;
 use crate::balance::{self, Balance, BalanceError};
 use crate::cards::{self, CardDef, CardDefId, CardError};
 use crate::decks::{self, DeckDef, DeckError, DeckId};
+use crate::run::{self, EnemyDef, ModifierDef, PlaneswalkerDef, RunData, RunDataError};
 
 static DATA_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../data");
 
@@ -55,6 +56,7 @@ pub struct GameData {
     pub cards: CardDatabase,
     pub decks: BTreeMap<DeckId, DeckDef>,
     pub balance: Balance,
+    pub run: RunData,
 }
 
 /// One JSON file: its name without the extension, and its text.
@@ -70,6 +72,15 @@ pub struct DataFiles<'a> {
     pub cards: Vec<DataFile<'a>>,
     pub decks: Vec<DataFile<'a>>,
     pub balance: &'a str,
+    pub run: RunFiles<'a>,
+}
+
+/// The raw contents of `data/run/`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RunFiles<'a> {
+    pub planeswalkers: &'a str,
+    pub relics: &'a str,
+    pub enemies: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -92,6 +103,8 @@ pub enum DataError {
     Deck { file: String, source: DeckError },
     #[error("balance.json: {0}")]
     Balance(#[from] BalanceError),
+    #[error("run/: {0}")]
+    Run(#[from] RunDataError),
 }
 
 impl GameData {
@@ -140,10 +153,22 @@ impl GameData {
         let balance: Balance = parse("balance.json", files.balance)?;
         balance::validate(&balance)?;
 
+        let planeswalkers: Vec<PlaneswalkerDef> =
+            parse("run/planeswalkers.json", files.run.planeswalkers)?;
+        let relics: Vec<ModifierDef> = parse("run/relics.json", files.run.relics)?;
+        let enemies: Vec<EnemyDef> = parse("run/enemies.json", files.run.enemies)?;
+        let run = RunData {
+            planeswalkers,
+            relics,
+            enemies,
+        };
+        run::validate(&run, &cards)?;
+
         Ok(GameData {
             cards,
             decks,
             balance,
+            run,
         })
     }
 }
@@ -160,10 +185,21 @@ fn embedded_files() -> Result<DataFiles<'static>, DataError> {
         .get_file("balance.json")
         .and_then(|file| file.contents_utf8())
         .ok_or_else(|| DataError::Missing("balance.json".to_string()))?;
+    let run_file = |name: &str| {
+        DATA_DIR
+            .get_file(format!("run/{name}.json"))
+            .and_then(|file| file.contents_utf8())
+            .ok_or_else(|| DataError::Missing(format!("run/{name}.json")))
+    };
     Ok(DataFiles {
         cards: embedded_json_files("cards")?,
         decks: embedded_json_files("decks")?,
         balance,
+        run: RunFiles {
+            planeswalkers: run_file("planeswalkers")?,
+            relics: run_file("relics")?,
+            enemies: run_file("enemies")?,
+        },
     })
 }
 
@@ -202,13 +238,23 @@ mod tests {
         "abilities": [{ "kind": "mana", "cost": { "tap": true }, "produces": "{G}" }] }"#;
     const DECK: &str = r#"{ "id": "bears", "name": "Bears",
         "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 1 }] }"#;
-    const BALANCE: &str = r#"{ "duel": { "starting_life": 20, "opening_hand_size": 7,
-        "max_hand_size": 7, "smoothing_candidates": 3,
-        "fatigue": { "first_life_loss": 1, "increase": 1 } },
-        "ai": { "mulligan": { "min_lands": 2, "max_lands": 5, "min_hand_size": 5 } },
-        "sim": { "turn_cap": 100, "land_screw": { "turn": 4, "max_lands": 2 },
-            "land_flood": { "turn": 6, "min_land_percent": 60 } } }"#;
-
+    const BALANCE: &str = include_str!("../../../data/balance.json");
+    const PLANESWALKERS: &str = r#"[{ "id": "ranger", "name": "Ranger", "description": "Bears.",
+        "colors": ["G"], "spells": [{ "card": "grizzly_bears", "count": 3 }],
+        "passive": { "id": "ranger_passive", "name": "Vigour", "text": "More life.",
+            "effects": [{ "type": "starting_life", "who": "owner", "change": 1 }] } }]"#;
+    const RELICS: &str = "[]";
+    const ENEMIES: &str = r#"[
+        { "id": "cubs", "name": "Cubs", "tier": "easy", "cards": [{ "card": "forest", "count": 2 }] },
+        { "id": "bears", "name": "Bears", "tier": "normal", "cards": [{ "card": "forest", "count": 2 }] },
+        { "id": "big_bears", "name": "Big Bears", "tier": "elite", "cards": [{ "card": "forest", "count": 2 }] },
+        { "id": "bear_king", "name": "Bear King", "tier": "boss", "cards": [{ "card": "forest", "count": 2 }] }
+    ]"#;
+    const RUN: RunFiles<'static> = RunFiles {
+        planeswalkers: PLANESWALKERS,
+        relics: RELICS,
+        enemies: ENEMIES,
+    };
     fn files<'a>(cards: &[(&'a str, &'a str)], deck: &'a str, balance: &'a str) -> DataFiles<'a> {
         DataFiles {
             cards: cards
@@ -220,6 +266,7 @@ mod tests {
                 text: deck,
             }],
             balance,
+            run: RUN,
         }
     }
 
@@ -340,7 +387,11 @@ mod tests {
     #[test]
     fn rejects_bad_balance() {
         assert_eq!(
-            load_with(&CARDS, DECK, &BALANCE.replace("20", "0")),
+            load_with(
+                &CARDS,
+                DECK,
+                &BALANCE.replace("\"starting_life\": 20", "\"starting_life\": 0")
+            ),
             Err(DataError::Balance(BalanceError::StartingLife))
         );
         let error = load_with(&CARDS, DECK, "{}").unwrap_err();
@@ -373,20 +424,31 @@ mod tests {
     }
 
     #[test]
-    fn starter_set_is_complete() {
+    fn the_card_pool_is_complete() {
         let ids: Vec<&str> = data().cards.iter().map(|card| card.id.as_str()).collect();
         assert_eq!(
             ids,
             [
+                "aerial_responder",
+                "air_elemental",
+                "angel_of_mercy",
+                "assault_griffin",
+                "barony_vampire",
                 "boggart_brute",
                 "cancel",
                 "centaur_courser",
+                "charging_monstrosaur",
                 "colossal_dreadmaw",
+                "coral_merfolk",
                 "divination",
                 "elvish_visionary",
+                "fire_elemental",
                 "forest",
                 "giant_growth",
                 "giant_spider",
+                "gigantosaurus",
+                "glory_seeker",
+                "goblin_piker",
                 "grizzly_bears",
                 "healers_hawk",
                 "hill_giant",
@@ -399,24 +461,37 @@ mod tests {
                 "pacifism",
                 "plains",
                 "raging_goblin",
+                "rakdos_guildgate",
+                "revitalize",
+                "rumbling_baloth",
                 "savannah_lions",
+                "selesnya_guildgate",
+                "sentinel_spider",
                 "serra_angel",
                 "shock",
+                "siege_mastodon",
+                "snapping_drake",
+                "stampeding_rhino",
                 "swamp",
+                "thundering_giant",
                 "typhoid_rats",
                 "vampire_nighthawk",
+                "vampire_of_the_dire_moon",
+                "vampire_spawn",
+                "volcanic_hammer",
+                "walking_corpse",
                 "wind_drake",
                 "youthful_knight",
             ]
         );
     }
 
-    /// Cost, power/toughness and keywords of every starter creature, as
-    /// printed (checked against Scryfall).
+    /// Cost, power/toughness and keywords of every creature, as printed
+    /// (checked against Scryfall).
     #[test]
-    fn starter_creatures_match_their_printed_stats() {
+    fn creatures_match_their_printed_stats() {
         use Keyword::*;
-        let expected: [(&str, &str, i32, i32, &[Keyword]); 17] = [
+        let expected: [(&str, &str, i32, i32, &[Keyword]); 37] = [
             ("savannah_lions", "{W}", 2, 1, &[]),
             ("healers_hawk", "{W}", 1, 1, &[Flying, Lifelink]),
             ("youthful_knight", "{1}{W}", 2, 1, &[FirstStrike]),
@@ -440,6 +515,38 @@ mod tests {
             ("centaur_courser", "{2}{G}", 3, 3, &[]),
             ("giant_spider", "{3}{G}", 2, 4, &[Reach]),
             ("colossal_dreadmaw", "{4}{G}{G}", 6, 6, &[Trample]),
+            ("goblin_piker", "{1}{R}", 2, 1, &[]),
+            ("walking_corpse", "{1}{B}", 2, 2, &[]),
+            ("glory_seeker", "{1}{W}", 2, 2, &[]),
+            ("rumbling_baloth", "{2}{G}{G}", 4, 4, &[]),
+            ("air_elemental", "{3}{U}{U}", 4, 4, &[Flying]),
+            ("thundering_giant", "{3}{R}{R}", 4, 3, &[Haste]),
+            ("fire_elemental", "{3}{R}{R}", 5, 4, &[]),
+            ("stampeding_rhino", "{4}{G}", 4, 4, &[Trample]),
+            ("sentinel_spider", "{3}{G}{G}", 4, 4, &[Reach, Vigilance]),
+            ("assault_griffin", "{3}{W}", 3, 2, &[Flying]),
+            ("siege_mastodon", "{4}{W}", 3, 5, &[]),
+            ("snapping_drake", "{3}{U}", 3, 2, &[Flying]),
+            ("coral_merfolk", "{1}{U}", 2, 1, &[]),
+            ("barony_vampire", "{2}{B}", 3, 2, &[]),
+            (
+                "vampire_of_the_dire_moon",
+                "{B}",
+                1,
+                1,
+                &[Deathtouch, Lifelink],
+            ),
+            ("gigantosaurus", "{G}{G}{G}{G}{G}", 10, 10, &[]),
+            ("charging_monstrosaur", "{4}{R}", 5, 5, &[Trample, Haste]),
+            (
+                "aerial_responder",
+                "{1}{W}{W}",
+                2,
+                3,
+                &[Flying, Vigilance, Lifelink],
+            ),
+            ("angel_of_mercy", "{4}{W}", 3, 3, &[Flying]),
+            ("vampire_spawn", "{2}{B}", 2, 3, &[]),
         ];
         for (id, cost, power, toughness, keywords) in expected {
             let card = card(id);
@@ -470,6 +577,8 @@ mod tests {
             ("shock", "{R}"),
             ("lightning_strike", "{1}{R}"),
             ("giant_growth", "{G}"),
+            ("revitalize", "{1}{W}"),
+            ("volcanic_hammer", "{1}{R}"),
         ] {
             assert_eq!(card(id).mana_cost.to_string(), cost, "{id}");
         }
@@ -565,6 +674,28 @@ mod tests {
                 target: TargetSpec::Spell {}
             }]
         );
+        assert_eq!(card("volcanic_hammer").types, [CardType::Sorcery]);
+        assert_eq!(
+            spell_effects("volcanic_hammer"),
+            [Effect::DealDamage {
+                amount: 3,
+                target: any
+            }]
+        );
+        assert_eq!(card("revitalize").types, [CardType::Instant]);
+        assert_eq!(
+            spell_effects("revitalize"),
+            [
+                Effect::GainLife {
+                    player: you,
+                    amount: 3
+                },
+                Effect::DrawCards {
+                    player: you,
+                    amount: 1
+                }
+            ]
+        );
         assert_eq!(card("divination").types, [CardType::Sorcery]);
         assert_eq!(
             spell_effects("divination"),
@@ -584,6 +715,26 @@ mod tests {
                 player: you,
                 amount: 1
             }]
+        );
+        assert_eq!(
+            enters_effects("angel_of_mercy"),
+            [Effect::GainLife {
+                player: you,
+                amount: 3
+            }]
+        );
+        assert_eq!(
+            enters_effects("vampire_spawn"),
+            [
+                Effect::LoseLife {
+                    player: PlayerRef::Opponent,
+                    amount: 2
+                },
+                Effect::GainLife {
+                    player: you,
+                    amount: 2
+                }
+            ]
         );
         // The printed card gains 1 life as well as drawing.
         assert_eq!(
@@ -658,16 +809,151 @@ mod tests {
     }
 
     #[test]
-    fn every_starter_card_is_in_a_test_deck() {
+    fn guildgates_enter_tapped_and_tap_for_either_colour() {
+        use crate::cards::Color;
+        for (id, colors) in [
+            ("selesnya_guildgate", [Color::G, Color::W]),
+            ("rakdos_guildgate", [Color::B, Color::R]),
+        ] {
+            let gate = card(id);
+            assert_eq!(gate.types, [CardType::Land], "{id}");
+            assert_eq!(gate.subtypes, ["Gate"], "{id}");
+            assert!(gate.supertypes.is_empty(), "{id}");
+            assert!(gate.enters_tapped, "{id}");
+            assert_eq!(gate.mana_colors(), colors, "{id}");
+        }
+        assert!(!card("forest").enters_tapped);
+    }
+
+    /// A card nobody can ever meet is dead weight: every card is in a test
+    /// deck, a starting deck or an enemy deck. Non-basic lands are the
+    /// exception; they come from rewards and shops.
+    #[test]
+    fn every_card_is_in_some_deck() {
+        let run = &data().run;
         for card in data().cards.iter() {
-            let used = data()
-                .decks
-                .values()
-                .any(|deck| deck.count_of(card.id.as_str()) > 0);
-            assert!(used, "{} is in no deck", card.id);
+            let id = card.id.as_str();
+            let in_entries = |entries: &[crate::decks::DeckEntry]| {
+                entries.iter().any(|entry| entry.card.as_str() == id)
+            };
+            let used = data().decks.values().any(|deck| deck.count_of(id) > 0)
+                || run.planeswalkers.iter().any(|def| in_entries(&def.spells))
+                || run.enemies.iter().any(|def| in_entries(&def.cards));
+            let reward_land = card.is_land() && card.supertypes.is_empty();
+            assert!(used || reward_land, "{id} is in no deck");
         }
     }
 
+    #[test]
+    fn the_run_content_is_what_the_roadmap_asks_for() {
+        use crate::run::EnemyTier;
+        let run = &data().run;
+        assert_eq!(run.planeswalkers.len(), 2);
+        assert_eq!(run.relics.len(), 5);
+        assert_eq!(data().balance.run.boons.len(), 4);
+        let count = |tier| run.enemies_of(tier).count();
+        assert_eq!(count(EnemyTier::Easy) + count(EnemyTier::Normal), 7);
+        assert_eq!(count(EnemyTier::Elite), 2);
+        assert_eq!(count(EnemyTier::Boss), 1);
+        for planeswalker in &run.planeswalkers {
+            let spells: u32 = planeswalker.spells.iter().map(|entry| entry.count).sum();
+            assert_eq!(spells, 15, "{}", planeswalker.id);
+            assert_eq!(planeswalker.colors.len(), 2, "{}", planeswalker.id);
+        }
+        for enemy in &run.enemies {
+            let size: u32 = enemy.cards.iter().map(|entry| entry.count).sum();
+            let lands: u32 = enemy
+                .cards
+                .iter()
+                .filter(|entry| card(entry.card.as_str()).is_land())
+                .map(|entry| entry.count)
+                .sum();
+            assert_eq!((size, lands), (25, 10), "{}", enemy.id);
+        }
+        let boss = run.enemies_of(EnemyTier::Boss).next().unwrap();
+        assert_eq!(boss.modifiers.len(), 2);
+    }
+
+    #[test]
+    fn rejects_bad_run_content() {
+        let load = |planeswalkers: &str, relics: &str, enemies: &str| {
+            let mut files = files(&CARDS, DECK, BALANCE);
+            files.run = RunFiles {
+                planeswalkers,
+                relics,
+                enemies,
+            };
+            GameData::load(&files).map(|_| ())
+        };
+        assert_eq!(load(PLANESWALKERS, RELICS, ENEMIES), Ok(()));
+        assert_eq!(
+            load("[]", RELICS, ENEMIES),
+            Err(DataError::Run(RunDataError::NoPlaneswalkers))
+        );
+        assert_eq!(
+            load(
+                &PLANESWALKERS.replace("grizzly_bears", "forest"),
+                RELICS,
+                ENEMIES
+            ),
+            Err(DataError::Run(RunDataError::LandInSpells {
+                id: "ranger".to_string(),
+                card: CardDefId("forest".to_string())
+            }))
+        );
+        assert_eq!(
+            load(
+                &PLANESWALKERS.replace("\"change\": 1", "\"change\": 0"),
+                RELICS,
+                ENEMIES
+            ),
+            Err(DataError::Run(RunDataError::ZeroChange(
+                "ranger_passive".to_string()
+            )))
+        );
+        assert_eq!(
+            load(
+                PLANESWALKERS,
+                RELICS,
+                &ENEMIES.replace("\"tier\": \"boss\"", "\"tier\": \"elite\"")
+            ),
+            Err(DataError::Run(RunDataError::NoEnemies(
+                crate::run::EnemyTier::Boss
+            )))
+        );
+        assert_eq!(
+            load(
+                PLANESWALKERS,
+                RELICS,
+                &ENEMIES.replace("big_bears", "bears")
+            ),
+            Err(DataError::Run(RunDataError::DuplicateId(
+                "bears".to_string()
+            )))
+        );
+        let gold_passive = PLANESWALKERS.replace(
+            r#"{ "type": "starting_life", "who": "owner", "change": 1 }"#,
+            r#"{ "type": "gold_per_win", "amount": 5 }"#,
+        );
+        assert_eq!(
+            load(&gold_passive, RELICS, ENEMIES),
+            Err(DataError::Run(RunDataError::GoldOnNonRelic(
+                "ranger_passive".to_string()
+            )))
+        );
+        let bad_relic = r#"[{ "id": "stone", "name": "Stone", "text": "Nothing.",
+            "effects": [{ "type": "abilities", "abilities": [
+                { "kind": "static", "type": "anthem", "affects": "enchanted",
+                  "power": 1, "toughness": 1 }] }] }]"#;
+        assert!(matches!(
+            load(PLANESWALKERS, bad_relic, ENEMIES),
+            Err(DataError::Run(RunDataError::Emblem { .. }))
+        ));
+        assert!(matches!(
+            load(PLANESWALKERS, "{", ENEMIES),
+            Err(DataError::Parse { file, .. }) if file == "run/relics.json"
+        ));
+    }
     #[test]
     fn balance_has_the_duel_numbers() {
         let duel = &data().balance.duel;

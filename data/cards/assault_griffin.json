@@ -1,0 +1,22 @@
+{
+  "id": "assault_griffin",
+  "name": "Assault Griffin",
+  "mana_cost": "{3}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Griffin"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying",
+  "abilities": []
+}

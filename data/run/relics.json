@@ -1,0 +1,57 @@
+[
+  {
+    "id": "travellers_rations",
+    "name": "Traveller's Rations",
+    "text": "You start each duel with 3 more life.",
+    "effects": [{ "type": "starting_life", "who": "owner", "change": 3 }]
+  },
+  {
+    "id": "war_banner",
+    "name": "War Banner",
+    "text": "Creatures you control get +1/+0.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          { "kind": "static", "type": "anthem", "affects": "creatures_you_control", "power": 1, "toughness": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sentinels_horn",
+    "name": "Sentinel's Horn",
+    "text": "Creatures you control have vigilance.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          { "kind": "static", "type": "grant_keyword", "affects": "creatures_you_control", "keyword": "vigilance" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "soothing_spring",
+    "name": "Soothing Spring",
+    "text": "At the beginning of your upkeep, you gain 1 life.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "beginning_of_upkeep" },
+            "effects": [{ "type": "gain_life", "player": "controller", "amount": 1 }]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "lucky_coin",
+    "name": "Lucky Coin",
+    "text": "You get 10 more gold for each duel you win.",
+    "effects": [{ "type": "gold_per_win", "amount": 10 }]
+  }
+]

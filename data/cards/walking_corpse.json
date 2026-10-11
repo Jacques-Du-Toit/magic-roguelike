@@ -1,0 +1,19 @@
+{
+  "id": "walking_corpse",
+  "name": "Walking Corpse",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Zombie"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}

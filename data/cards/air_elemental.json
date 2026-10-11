@@ -1,0 +1,22 @@
+{
+  "id": "air_elemental",
+  "name": "Air Elemental",
+  "mana_cost": "{3}{U}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elemental"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying",
+  "abilities": []
+}

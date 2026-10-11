@@ -794,3 +794,179 @@ fn spells_are_not_cast_while_declaring_attackers() {
             .all(|action| !matches!(action, Action::CastSpell { .. }))
     );
 }
+
+// ---- Cards added for the run ----
+
+#[test]
+fn volcanic_hammer_is_a_sorcery_that_deals_three_damage() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "mountain", 2);
+    put_lands(&mut state, opponent, "mountain", 2);
+    let giant = put_on_battlefield(&mut state, opponent, "hill_giant");
+    let hammer = put_in_hand(&mut state, me, "volcanic_hammer");
+    let theirs = put_in_hand(&mut state, opponent, "volcanic_hammer");
+    assert_eq!(targets_of(&state, me, hammer).len(), 3);
+    act(&mut state, me, cast_at(hammer, at(giant)));
+    // Not at instant speed: the opponent can't answer with theirs.
+    pass(&mut state, me);
+    assert!(!can_cast(&state, opponent, theirs));
+    pass(&mut state, opponent);
+    assert!(gone(&state, giant));
+
+    let another = put_in_hand(&mut state, me, "volcanic_hammer");
+    put_lands(&mut state, me, "mountain", 2);
+    act(&mut state, me, cast_at(another, face(opponent)));
+    pass_both(&mut state);
+    assert_eq!(life(&state, opponent), 17);
+    // Not in combat either.
+    let third = put_in_hand(&mut state, me, "volcanic_hammer");
+    put_lands(&mut state, me, "mountain", 2);
+    pass_until(&mut state, 1, Step::BeginCombat);
+    assert!(!can_cast(&state, me, third));
+}
+
+#[test]
+fn revitalize_gains_three_life_and_draws_a_card() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 2);
+    let revitalize = put_in_hand(&mut state, me, "revitalize");
+    let library = state.player(me).library.len();
+    act(&mut state, me, cast(revitalize));
+    pass_both(&mut state);
+    assert_eq!(life(&state, me), 23);
+    assert_eq!(life(&state, opponent), 20);
+    assert_eq!(state.player(me).hand.len(), 1);
+    assert_eq!(state.player(me).library.len(), library - 1);
+    assert_eq!(graveyard(&state, me), ["revitalize"]);
+}
+
+#[test]
+fn angel_of_mercy_gains_three_life_when_it_enters() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 5);
+    let angel = put_in_hand(&mut state, me, "angel_of_mercy");
+    act(&mut state, me, cast(angel));
+    pass_both(&mut state);
+    assert_eq!(life(&state, me), 20);
+    assert!(matches!(state.stack[0].kind, StackItemKind::Trigger { .. }));
+    pass_both(&mut state);
+    assert_eq!(life(&state, me), 23);
+}
+
+#[test]
+fn vampire_spawn_drains_the_opponent_when_it_enters() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "swamp", 3);
+    let spawn = put_in_hand(&mut state, me, "vampire_spawn");
+    act(&mut state, me, cast(spawn));
+    pass_both(&mut state);
+    pass_both(&mut state);
+    assert_eq!(life(&state, opponent), 18);
+    assert_eq!(life(&state, me), 22);
+}
+
+#[test]
+fn vampire_spawn_can_finish_the_opponent() {
+    let (mut state, me, opponent) = empty_board(1);
+    state.player_mut(opponent).life = 2;
+    put_lands(&mut state, me, "swamp", 3);
+    let spawn = put_in_hand(&mut state, me, "vampire_spawn");
+    act(&mut state, me, cast(spawn));
+    pass_both(&mut state);
+    pass_both(&mut state);
+    assert_eq!(
+        result(&state),
+        Some(GameResult::Win {
+            player: me,
+            reason: WinReason::LifeZero
+        })
+    );
+}
+
+// ---- Guildgates and paying with them ----
+
+#[test]
+fn a_guildgate_enters_tapped_and_untaps_next_turn() {
+    let (mut state, me, _) = empty_board(1);
+    let gate = put_in_hand(&mut state, me, "selesnya_guildgate");
+    let bears = put_in_hand(&mut state, me, "savannah_lions");
+    act(&mut state, me, Action::PlayLand { card: gate });
+    let gate = *state.battlefield.last().unwrap();
+    assert!(state.objects[&gate].tapped);
+    assert!(!can_cast(&state, me, bears));
+    // A basic land does not.
+    let forest = put_in_hand(&mut state, me, "forest");
+    assert!(!legal_actions(&state, me).contains(&Action::PlayLand { card: forest }));
+
+    pass_until(&mut state, 3, Step::PrecombatMain);
+    assert!(!state.objects[&gate].tapped);
+    assert!(can_cast(&state, me, bears));
+}
+
+#[test]
+fn a_guildgate_pays_for_either_of_its_colours_but_only_once() {
+    let (mut state, me, _) = empty_board(1);
+    put_on_battlefield(&mut state, me, "selesnya_guildgate");
+    let lions = put_in_hand(&mut state, me, "savannah_lions");
+    let elves = put_in_hand(&mut state, me, "llanowar_elves");
+    let goblin = put_in_hand(&mut state, me, "raging_goblin");
+    assert!(can_cast(&state, me, lions));
+    assert!(can_cast(&state, me, elves));
+    assert!(!can_cast(&state, me, goblin));
+    act(&mut state, me, cast(lions));
+    pass_both(&mut state);
+    assert!(!can_cast(&state, me, elves));
+}
+
+#[test]
+fn the_payer_gives_a_guildgate_the_colour_nothing_else_can_make() {
+    // Youthful Knight costs {1}{W}. With a Forest and a Guildgate, the Gate
+    // has to make the white mana.
+    let (mut state, me, _) = empty_board(1);
+    put_on_battlefield(&mut state, me, "selesnya_guildgate");
+    put_on_battlefield(&mut state, me, "forest");
+    let knight = put_in_hand(&mut state, me, "youthful_knight");
+    assert!(can_cast(&state, me, knight));
+    act(&mut state, me, cast(knight));
+    assert!(state.player(me).mana_pool.is_empty());
+
+    // Aerial Responder costs {1}{W}{W}: a Plains, a Gate and a Forest pay
+    // for it, whichever order they entered in.
+    for lands in [
+        ["selesnya_guildgate", "plains", "forest"],
+        ["forest", "selesnya_guildgate", "plains"],
+        ["plains", "forest", "selesnya_guildgate"],
+    ] {
+        let (mut state, me, _) = empty_board(1);
+        for land in lands {
+            put_on_battlefield(&mut state, me, land);
+        }
+        let responder = put_in_hand(&mut state, me, "aerial_responder");
+        assert!(can_cast(&state, me, responder), "{lands:?}");
+        act(&mut state, me, cast(responder));
+    }
+
+    // Two Gates and a Mountain can't make {G}{G}{G}{G}{G}, and one Gate
+    // can't make both colours of two cards at once.
+    let (mut state, me, _) = empty_board(1);
+    put_on_battlefield(&mut state, me, "selesnya_guildgate");
+    put_on_battlefield(&mut state, me, "mountain");
+    let responder = put_in_hand(&mut state, me, "aerial_responder");
+    assert!(!can_cast(&state, me, responder));
+}
+
+#[test]
+fn generic_mana_is_paid_with_basics_before_a_guildgate() {
+    // Grizzly Bears ({1}{G}) with two Forests and a Gate: the Gate stays
+    // untapped, so the Savannah Lions in hand can still be cast.
+    let (mut state, me, _) = empty_board(1);
+    let gate = put_on_battlefield(&mut state, me, "selesnya_guildgate");
+    put_on_battlefield(&mut state, me, "forest");
+    put_on_battlefield(&mut state, me, "forest");
+    let bears = put_in_hand(&mut state, me, "grizzly_bears");
+    let lions = put_in_hand(&mut state, me, "savannah_lions");
+    act(&mut state, me, cast(bears));
+    assert!(!state.objects[&gate].tapped);
+    pass_both(&mut state);
+    assert!(can_cast(&state, me, lions));
+}

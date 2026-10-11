@@ -1,0 +1,67 @@
+[
+  {
+    "id": "warden",
+    "name": "The Warden",
+    "description": "Green-white creatures. A steady army that outlasts its enemies.",
+    "colors": ["G", "W"],
+    "spells": [
+        { "card": "savannah_lions", "count": 2 },
+        { "card": "glory_seeker", "count": 2 },
+        { "card": "youthful_knight", "count": 1 },
+        { "card": "healers_hawk", "count": 1 },
+        { "card": "pacifism", "count": 1 },
+        { "card": "grizzly_bears", "count": 2 },
+        { "card": "elvish_visionary", "count": 2 },
+        { "card": "centaur_courser", "count": 2 },
+        { "card": "giant_spider", "count": 1 },
+        { "card": "giant_growth", "count": 1 }
+    ],
+    "passive": {
+      "id": "warden_passive",
+      "name": "Warden's Welcome",
+      "text": "Whenever a creature enters under your control, you gain 1 life.",
+      "effects": [
+        {
+          "type": "abilities",
+          "abilities": [
+            {
+              "kind": "triggered",
+              "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+              "effects": [{ "type": "gain_life", "player": "controller", "amount": 1 }]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "firebrand",
+    "name": "The Firebrand",
+    "description": "Black-red aggression. Fast creatures, burn and removal.",
+    "colors": ["B", "R"],
+    "spells": [
+        { "card": "raging_goblin", "count": 2 },
+        { "card": "goblin_piker", "count": 2 },
+        { "card": "boggart_brute", "count": 2 },
+        { "card": "hill_giant", "count": 1 },
+        { "card": "shock", "count": 2 },
+        { "card": "lightning_strike", "count": 1 },
+        { "card": "typhoid_rats", "count": 2 },
+        { "card": "walking_corpse", "count": 2 },
+        { "card": "murder", "count": 1 }
+    ],
+    "passive": {
+      "id": "firebrand_passive",
+      "name": "Firebrand's Fury",
+      "text": "Creatures you control have haste.",
+      "effects": [
+        {
+          "type": "abilities",
+          "abilities": [
+            { "kind": "static", "type": "grant_keyword", "affects": "creatures_you_control", "keyword": "haste" }
+          ]
+        }
+      ]
+    }
+  }
+]

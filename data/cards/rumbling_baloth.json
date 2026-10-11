@@ -1,0 +1,19 @@
+{
+  "id": "rumbling_baloth",
+  "name": "Rumbling Baloth",
+  "mana_cost": "{2}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}
