@@ -10,6 +10,9 @@ publish = false
 [workspace.dependencies]
 engine = { path = "crates/engine" }
 include_dir = "0.7"
+# No default features: the engine only needs the seeded generator, and the
+# OS entropy source does not build for wasm32-unknown-unknown.
+rand_chacha = { version = "0.9", default-features = false, features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

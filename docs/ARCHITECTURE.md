@@ -90,8 +90,8 @@ pub struct PlayerConfig {
     pub library: Vec<CardInstance>,     // lands and spells together
     pub starting_life: i32,
     pub opening_hand_size: u8,
-    pub starting_permanents: Vec<CardInstance>, // unused until M3
-    pub emblems: Vec<EmblemDef>,                // unused until M3
+    pub starting_permanents: Vec<CardInstance>, // added in M3
+    pub emblems: Vec<EmblemDef>,                // added in M3
 }
 ```
 
@@ -264,7 +264,7 @@ On load, every card is validated (costs parse, targets exist, keywords known, Au
 
 - **Zones**: library, hand, battlefield, graveyard, exile, stack, command (emblems). Lands are in the library, as in normal Magic.
 - **Opening-hand smoothing**: at the start of the duel the engine shuffles and deals `smoothing_candidates` opening hands (default 3) using the seeded RNG, and keeps the one whose land count is closest to the deck's land ratio × hand size (ties: the first dealt). The rest of the library is then shuffled normally. Setting the number to 1 turns smoothing off. Mulligan hands are smoothed the same way.
-- **Mulligan**: London mulligan. Draw a fresh hand, then put one card on the bottom per mulligan taken.
+- **Mulligan**: London mulligan. Draw a fresh hand, then put one card on the bottom per mulligan taken. The starting player decides first and players who haven't kept take turns deciding; the bottoming happens when a player keeps.
 - **Fatigue**: if a player would draw from an empty library, they instead lose life: 1 the first time, 2 the second, and so on (per-player counter). There is no lose-on-empty-library rule.
 - **Turn structure**: full MTG steps (see `RULES_SCOPE.md`).
 - **Priority**: real priority passing; the *UI* auto-passes for the human when `has_meaningful_action` is false (Arena-style), configurable.

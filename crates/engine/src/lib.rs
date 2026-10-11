@@ -2,13 +2,16 @@
 //! rendering, wasm or IO.
 //!
 //! So far it loads and validates the game data (cards, decklists, balance
-//! numbers). [`engine_info`] is what the web app calls to prove the wasm
-//! pipeline.
+//! numbers) and can start a duel and run its mulligans. [`engine_info`] is
+//! what the web app calls to prove the wasm pipeline.
 
 pub mod balance;
 pub mod cards;
 pub mod data;
 pub mod decks;
+pub mod duel;
+
+pub use duel::{apply_action, legal_actions, new_duel};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
