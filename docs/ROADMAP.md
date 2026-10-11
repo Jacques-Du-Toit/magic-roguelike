@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M1**
+**Active milestone: M2**
 
 ---
 
@@ -86,7 +86,7 @@ Verify each card's exact text against Scryfall when entering it.
 - The sim reports, per pairing: win rate, play/draw win rate, average game length, mulligan rate, how often a player is stuck on two or fewer lands by turn 4, and how many games ended by fatigue or the turn cap. As a guide, no pairing should be worse than about 75/25 and fatigue or turn-cap endings should be rare. Deck B is expected to underperform in AI hands (see `ARCHITECTURE.md` §7).
 - Every starter card has tests.
 
-**Result (2026-10-11):** 6,000 games (1,000 for each of the six pairings, mirrors included) ran with zero errors. Cross pairings: A beats B 64/36, A beats C 78/22, C beats B 62/38, with fatigue endings under 0.5%. A against C is a little outside the 75/25 guide. The mirrors are slower: Deck B's mirror ends by fatigue in 57% of games and Deck C's in 11%, because both sides remove nearly every creature. The decklists are untuned; whether to tune them is an open question for the owner.
+**Result (2026-10-11):** 6,000 games (1,000 for each of the six pairings, mirrors included) ran with zero errors. Cross pairings: A beats B 64/36, A beats C 78/22, C beats B 62/38, with fatigue endings under 0.5%. A against C is a little outside the 75/25 guide. The mirrors are slower: Deck B's mirror ends by fatigue in 57% of games and Deck C's in 11%, because both sides remove nearly every creature. Deck A looks a bit overtuned. The owner chose to leave the decklists as they are and balance them later (see M4), to get to playtesting sooner.
 
 ---
 
@@ -131,7 +131,7 @@ Goal: a human can play a full duel against the AI in the browser, and it's fun. 
 - [ ] Draft node, Event node, Treasure node, card upgrades.
 - [ ] 3 acts, 3 bosses, ~20 relics, 4+ planeswalkers.
 - [ ] Better AI (search/rollouts), able to play control decks properly.
-- [ ] Balance passes using `sim`.
+- [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.
 
 ## M5 — Polish and sharing
 
