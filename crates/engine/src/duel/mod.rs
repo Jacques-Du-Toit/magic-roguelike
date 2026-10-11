@@ -22,15 +22,25 @@ mod state;
 #[cfg(test)]
 mod test_support;
 mod turn;
+mod view;
+#[cfg(test)]
+mod view_tests;
 
-pub use action::{Action, CardFace, CardRef, GameEvent, Target};
+pub use action::{Action, BlockDeclared, CardFace, CardRef, GameEvent, Target};
 pub use config::{CardInstance, CardUpgrade, DuelConfig, PlayerConfig, RulesConfig};
 pub use error::{ActionError, ConfigError, InternalError};
 pub use ids::{CardId, ObjectId, PlayerId};
 pub use mana::ManaPool;
 pub use rng::DuelRng;
 pub use setup::new_duel;
-pub use state::{Decision, DuelState, GameObject, GameResult, PlayerState, Step, WinReason, Zone};
+pub use state::{
+    AbilityRef, Attacker, Combat, Decision, DuelState, GameObject, GameResult, PendingTrigger,
+    PlayerState, StackItem, StackItemKind, Step, WinReason, Zone,
+};
+pub use view::{
+    PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
+    has_meaningful_action, player_view, redact_events,
+};
 
 /// Every action `player` may take right now. Empty unless the game is
 /// waiting on that player.

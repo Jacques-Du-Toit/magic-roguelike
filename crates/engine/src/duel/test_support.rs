@@ -3,8 +3,9 @@
 use super::action::{Action, GameEvent, Target};
 use super::config::DuelConfig;
 use super::ids::{CardId, ObjectId, PlayerId};
+use super::rng::DuelRng;
 use super::state::{Decision, DuelState, Step, Zone};
-use super::{apply_action, new_duel};
+use super::{apply_action, legal_actions, new_duel};
 use crate::cards::CardDefId;
 use crate::data;
 use crate::decks::DeckId;
@@ -199,6 +200,35 @@ pub(crate) fn block(state: &mut DuelState, blocks: &[(ObjectId, ObjectId)]) -> V
 pub(crate) fn finish_combat(state: &mut DuelState) -> Vec<GameEvent> {
     let turn = state.turn;
     pass_until(state, turn, Step::PostcombatMain)
+}
+
+/// Plays a duel to its end with both players picking uniformly at random
+/// among their legal actions, using `choice_seed`. `check` sees the state
+/// before every action. Returns the final state and the full event log.
+pub(crate) fn play_randomly(
+    config: DuelConfig,
+    seed: u64,
+    choice_seed: u64,
+    mut check: impl FnMut(&DuelState, PlayerId, &[Action]),
+) -> (DuelState, Vec<GameEvent>) {
+    let mut state = new_duel(config, seed).unwrap();
+    let mut choices = DuelRng::from_seed(choice_seed);
+    let mut log = Vec::new();
+    for _ in 0..200_000 {
+        let Some(player) = state.waiting_on() else {
+            return (state, log);
+        };
+        let actions = legal_actions(&state, player);
+        assert!(
+            !actions.is_empty(),
+            "no legal action for {:?}",
+            state.decision
+        );
+        check(&state, player, &actions);
+        let pick = choices.below(u32::try_from(actions.len()).unwrap()) as usize;
+        log.extend(apply_action(&mut state, player, actions[pick].clone()).unwrap());
+    }
+    panic!("the random game did not end");
 }
 
 /// Plays the game to its end with both players doing nothing: they pass
