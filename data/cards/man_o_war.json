@@ -1,0 +1,35 @@
+{
+  "id": "man_o_war",
+  "name": "Man-o'-War",
+  "mana_cost": "{2}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Jellyfish"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, return target creature to its owner's hand.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "return_to_hand",
+          "target": {
+            "creature": {}
+          }
+        }
+      ]
+    }
+  ]
+}

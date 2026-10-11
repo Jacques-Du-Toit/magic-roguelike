@@ -3,7 +3,7 @@
 //! The functions here run the game forward until it needs a decision from a
 //! player (or ends), recording what happened as events.
 
-use super::action::{Action, GameEvent};
+use super::action::{Action, GameEvent, Target};
 use super::combat;
 use super::damage::{LifeCause, change_life, check_state_based_actions, end_of_turn_cleanup};
 use super::error::InternalError;
@@ -11,8 +11,8 @@ use super::ids::{ObjectId, PlayerId};
 use super::mana::empty_mana_pools;
 use super::setup::take_top_card;
 use super::stack::{
-    emblems_trigger, has_sorcery_timing, legal_casts, permanent_entered, put_triggers_on_stack,
-    resolve_top,
+    choose_targets, continue_resolution, emblems_trigger, has_sorcery_timing, legal_casts,
+    permanent_entered, put_triggers_on_stack, resolve_top,
 };
 use super::state::{Combat, Decision, DuelState, Step, Zone};
 use crate::cards::Trigger;
@@ -96,7 +96,11 @@ fn run_from_step(
                     .collect();
                 for id in permanents {
                     let permanent = state.object_mut(id)?;
-                    permanent.tapped = false;
+                    // One told to stay tapped does, this once.
+                    if !permanent.skip_untap {
+                        permanent.tapped = false;
+                    }
+                    permanent.skip_untap = false;
                     permanent.summoning_sick = false;
                 }
                 events.push(GameEvent::PermanentsUntapped { player: active });
@@ -218,6 +222,9 @@ fn end_turn(state: &mut DuelState, events: &mut Vec<GameEvent>) -> Result<(), In
 /// are checked and waiting triggered abilities go on the stack, repeatedly
 /// until neither does anything. Then the active player gets priority,
 /// unless the game has ended.
+///
+/// If a triggered ability needs its targets chosen, the game waits on that
+/// instead; `choose_trigger_targets` comes back here afterwards.
 pub(crate) fn open_priority(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
@@ -227,7 +234,9 @@ pub(crate) fn open_priority(
         if state.result.is_some() || state.pending_triggers.is_empty() {
             break;
         }
-        put_triggers_on_stack(state, events);
+        if put_triggers_on_stack(state, events)? {
+            return Ok(());
+        }
     }
     state.consecutive_passes = 0;
     state.decision = match state.result {
@@ -283,10 +292,87 @@ pub(crate) fn pass_priority(
     }
     state.consecutive_passes = 0;
     if !state.stack.is_empty() {
-        resolve_top(state, events)?;
-        return open_priority(state, events);
+        if resolve_top(state, events)? {
+            open_priority(state, events)?;
+        }
+        return Ok(());
     }
     end_step(state, events)
+}
+
+/// Carries on with the spell or ability being resolved, now that the
+/// choice one of its effects waited for has been made.
+fn resume_resolution(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    if continue_resolution(state, events)? {
+        open_priority(state, events)?;
+    }
+    Ok(())
+}
+
+/// The player aims the triggered ability that was waiting for targets.
+pub(crate) fn choose_trigger_targets(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    targets: &[Target],
+) -> Result<(), InternalError> {
+    choose_targets(state, events, targets)?;
+    open_priority(state, events)
+}
+
+/// While scrying, the player keeps the card they are looking at on top of
+/// their library or puts it on the bottom.
+pub(crate) fn scry(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    player: PlayerId,
+    kept: u8,
+    remaining: u8,
+    to_bottom: bool,
+) -> Result<(), InternalError> {
+    let card = scry_card(state, player, kept)?;
+    let kept = if to_bottom {
+        let library = &mut state.player_mut(player).library;
+        library.retain(|other| *other != card);
+        library.insert(0, card);
+        events.push(GameEvent::CardPutOnBottom {
+            player,
+            card: state.card_ref(card)?,
+        });
+        kept
+    } else {
+        events.push(GameEvent::CardKeptOnTop { player });
+        kept + 1
+    };
+    match remaining.saturating_sub(1) {
+        0 => resume_resolution(state, events),
+        remaining => {
+            state.decision = Some(Decision::Scry {
+                player,
+                kept,
+                remaining,
+            });
+            Ok(())
+        }
+    }
+}
+
+/// The card a scrying player is looking at: the top of their library, below
+/// the `kept` cards they have already put back.
+pub(crate) fn scry_card(
+    state: &DuelState,
+    player: PlayerId,
+    kept: u8,
+) -> Result<ObjectId, InternalError> {
+    let library = &state.player(player).library;
+    library
+        .len()
+        .checked_sub(1 + usize::from(kept))
+        .and_then(|index| library.get(index))
+        .copied()
+        .ok_or_else(|| InternalError::new("no card left to scry"))
 }
 
 pub(crate) fn play_land(
@@ -316,12 +402,10 @@ pub(crate) fn discard(
     card: ObjectId,
     remaining: u8,
 ) -> Result<(), InternalError> {
-    let discarded = state.move_object(card, Zone::Graveyard)?;
-    events.push(GameEvent::CardDiscarded {
-        player,
-        card: state.card_ref(discarded)?,
-    });
+    discard_card(state, events, player, card)?;
     match remaining.saturating_sub(1) {
+        // The discard was an effect's, or the cleanup step's.
+        0 if state.resolving.is_some() => resume_resolution(state, events),
         0 => end_turn(state, events),
         remaining => {
             state.decision = Some(Decision::Discard { player, remaining });
@@ -350,6 +434,21 @@ pub(crate) fn confirm_blockers(
 ) -> Result<(), InternalError> {
     combat::confirm_blockers(state, events)?;
     open_priority(state, events)
+}
+
+/// Moves a card from the player's hand to their graveyard.
+pub(crate) fn discard_card(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    player: PlayerId,
+    card: ObjectId,
+) -> Result<(), InternalError> {
+    let discarded = state.move_object(card, Zone::Graveyard)?;
+    events.push(GameEvent::CardDiscarded {
+        player,
+        card: state.card_ref(discarded)?,
+    });
+    Ok(())
 }
 
 /// The player draws a card, or takes fatigue if their library is empty: 1

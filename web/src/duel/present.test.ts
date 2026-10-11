@@ -55,6 +55,23 @@ describe('describeEvent', () => {
     )
   })
 
+  it('describes bounces, keywords gained and scries', () => {
+    expect(
+      text({ type: 'permanent_returned_to_hand', player: 'P2', permanent: 2, card: drake }),
+    ).toBe("Opponent's Wind Drake returns to its owner's hand")
+    expect(text({ type: 'keyword_granted', permanent: 1, keyword: 'first_strike' })).toBe(
+      'Hill Giant gains first strike until end of turn',
+    )
+    expect(text({ type: 'card_kept_on_top', player: 'P1' })).toBe('You keep a card on top')
+    expect(text({ type: 'card_kept_on_top', player: 'P2' })).toBe('Opponent keeps a card on top')
+    // A bounced permanent is shown leaving before the view changes.
+    const plan = planPresentation(
+      [{ type: 'permanent_returned_to_hand', player: 'P2', permanent: 2, card: drake }],
+      context,
+    )
+    expect(plan.beats.map((beat) => beat.effects.leaving)).toEqual([[2]])
+  })
+
   it('marks turns and the result, and skips bookkeeping events', () => {
     expect(describeEvent({ type: 'turn_began', turn: 3, player: 'P1' }, context)).toEqual({
       text: 'Turn 3: your turn',

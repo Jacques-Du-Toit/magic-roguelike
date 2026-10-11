@@ -38,7 +38,7 @@ describe('card and deck data', () => {
   })
 
   it('brings the decklists across', () => {
-    expect(deckDefs().map((deck) => deck.id)).toEqual(['deck_a', 'deck_b', 'deck_c'])
+    expect(deckDefs().map((deck) => deck.id)).toEqual(['deck_a', 'deck_b', 'deck_c', 'deck_d'])
   })
 })
 

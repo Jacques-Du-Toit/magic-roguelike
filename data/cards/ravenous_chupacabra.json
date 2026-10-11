@@ -1,0 +1,38 @@
+{
+  "id": "ravenous_chupacabra",
+  "name": "Ravenous Chupacabra",
+  "mana_cost": "{2}{B}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast",
+    "Horror"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters, destroy target creature an opponent controls.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "destroy",
+          "target": {
+            "creature": {
+              "controller": "opponent"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

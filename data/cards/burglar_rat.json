@@ -1,0 +1,34 @@
+{
+  "id": "burglar_rat",
+  "name": "Burglar Rat",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Rat"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, each opponent discards a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "discard",
+          "player": "opponent",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

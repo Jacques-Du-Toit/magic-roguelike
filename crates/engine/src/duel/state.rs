@@ -12,7 +12,7 @@ use super::ids::{CardId, ObjectId, PlayerId};
 use super::mana::ManaPool;
 use super::rng::DuelRng;
 use crate::cards::{
-    AbilityDef, Affects, CardDef, CardDefId, EmblemDef, Keyword, Restricted, StaticAbility,
+    AbilityDef, Affects, CardDef, CardDefId, Effect, EmblemDef, Keyword, Restricted, StaticAbility,
 };
 use crate::data;
 
@@ -32,6 +32,9 @@ pub struct DuelState {
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItem>,
     pub pending_triggers: Vec<PendingTrigger>,
+    /// The spell or ability that is part-way through resolving, while one
+    /// of its effects waits for a player's choice.
+    pub resolving: Option<Resolving>,
     pub combat: Option<Combat>,
     pub starting_player: PlayerId,
     /// 0 until the mulligans are over, then counts every turn of either
@@ -109,6 +112,28 @@ pub struct GameObject {
     pub toughness_bonus: i32,
     /// For an Aura on the battlefield, the permanent it enchants.
     pub attached_to: Option<ObjectId>,
+    /// Keywords it has until end of turn.
+    pub granted_keywords: Vec<Keyword>,
+    /// It doesn't untap during its controller's next untap step.
+    pub skip_untap: bool,
+}
+
+/// A spell or ability in the middle of resolving. Its targets were checked
+/// when it began to resolve; `steps` are the effects still to carry out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Resolving {
+    pub item: StackItem,
+    /// The next effect is the first of the list.
+    pub steps: Vec<EffectStep>,
+    /// All its targets had become illegal, so it does nothing.
+    pub fizzled: bool,
+}
+
+/// One effect with the targets it will be carried out on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EffectStep {
+    pub effect: Effect,
+    pub targets: Vec<Target>,
 }
 
 /// A triggered ability that has triggered and is waiting to be put on the
@@ -264,6 +289,8 @@ impl GameObject {
             power_bonus: 0,
             toughness_bonus: 0,
             attached_to: None,
+            granted_keywords: Vec::new(),
+            skip_untap: false,
         }
     }
 }
@@ -276,6 +303,17 @@ pub struct StackItem {
     pub controller: PlayerId,
     pub kind: StackItemKind,
     pub targets: Vec<Target>,
+}
+
+impl StackItem {
+    /// What its effects come from: the spell itself, or the permanent or
+    /// emblem whose ability it is.
+    pub fn source(&self) -> ObjectId {
+        match &self.kind {
+            StackItemKind::Spell => self.id,
+            StackItemKind::Trigger { ability } => ability.source(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -348,6 +386,17 @@ pub enum Decision {
         player: PlayerId,
         attacker: ObjectId,
     },
+    /// Choose the targets of a triggered ability of `source` (a permanent
+    /// or an emblem) that is about to go on the stack.
+    ChooseTargets { player: PlayerId, source: ObjectId },
+    /// Scry: look at the next card of the library and keep it on top or put
+    /// it on the bottom. `kept` cards have been put back on top so far and
+    /// `remaining` are still to look at, this one included.
+    Scry {
+        player: PlayerId,
+        kept: u8,
+        remaining: u8,
+    },
 }
 
 impl Decision {
@@ -359,7 +408,9 @@ impl Decision {
             | Decision::Discard { player, .. }
             | Decision::DeclareAttackers { player }
             | Decision::DeclareBlockers { player }
-            | Decision::AssignCombatDamage { player, .. } => player,
+            | Decision::AssignCombatDamage { player, .. }
+            | Decision::ChooseTargets { player, .. }
+            | Decision::Scry { player, .. } => player,
         }
     }
 }
@@ -401,6 +452,7 @@ impl DuelState {
             emblems: Vec::new(),
             stack: Vec::new(),
             pending_triggers: Vec::new(),
+            resolving: None,
             combat: None,
             starting_player,
             turn: 0,
@@ -525,6 +577,9 @@ impl DuelState {
         if !def.is_creature() || self.object(id)?.zone != Zone::Battlefield {
             return Ok(false);
         }
+        if self.object(id)?.granted_keywords.contains(&keyword) {
+            return Ok(true);
+        }
         Ok(self.emblem_statics(self.object(id)?.owner).any(|ability| {
             matches!(ability, StaticAbility::GrantKeyword {
                     affects: Affects::CreaturesYouControl,
@@ -544,6 +599,11 @@ impl DuelState {
                 } = ability
                     && !keywords.contains(keyword)
                 {
+                    keywords.push(*keyword);
+                }
+            }
+            for keyword in &self.object(id)?.granted_keywords {
+                if !keywords.contains(keyword) {
                     keywords.push(*keyword);
                 }
             }

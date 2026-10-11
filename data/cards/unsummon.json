@@ -1,0 +1,26 @@
+{
+  "id": "unsummon",
+  "name": "Unsummon",
+  "mana_cost": "{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Return target creature to its owner's hand.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "return_to_hand",
+          "target": {
+            "creature": {}
+          }
+        }
+      ]
+    }
+  ]
+}

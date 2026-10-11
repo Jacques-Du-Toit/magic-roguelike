@@ -166,6 +166,14 @@ export function describeEvent(event: GameEvent, context: NameContext): LogEntry 
       return line(`${object(event.source)} deals ${event.amount} damage to ${target(event.target)}`)
     case 'creature_died':
       return line(`${whose(event.player)} ${face(event.card)} dies`)
+    case 'keyword_granted':
+      return line(
+        `${object(event.permanent)} gains ${event.keyword.replaceAll('_', ' ')} until end of turn`,
+      )
+    case 'permanent_returned_to_hand':
+      return line(`${whose(event.player)} ${face(event.card)} returns to its owner's hand`)
+    case 'card_kept_on_top':
+      return line(`${who(event.player)} ${verb(event.player, 'keep')} a card on top`)
     case 'step_began':
     case 'permanents_untapped':
     case 'permanent_tapped':
@@ -184,6 +192,7 @@ function beatKind(event: GameEvent): BeatKind | null {
       return 'impact'
     case 'creature_died':
     case 'permanent_put_into_graveyard':
+    case 'permanent_returned_to_hand':
       return 'leaving'
     default:
       return null
@@ -275,6 +284,7 @@ export function planPresentation(events: GameEvent[], context: NameContext): Pre
         break
       case 'creature_died':
       case 'permanent_put_into_graveyard':
+      case 'permanent_returned_to_hand':
         effects.leaving.push(event.permanent)
         break
       default:

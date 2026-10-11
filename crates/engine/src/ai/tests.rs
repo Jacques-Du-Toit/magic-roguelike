@@ -549,3 +549,141 @@ fn the_ai_does_not_use_hidden_information() {
         assert!(decisions > 100);
     }
 }
+
+// ---- Choices: targets of triggered abilities, scry ----
+
+#[test]
+fn aims_a_bounce_at_the_opponents_best_creature_not_its_own() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    put_on_battlefield(&mut state, opponent, "raging_goblin");
+    let angel = put_on_battlefield(&mut state, opponent, "serra_angel");
+    put_lands(&mut state, me, "island", 3);
+    let man_o_war = put_in_hand(&mut state, me, "man_o_war");
+    // It is worth casting for the bounce.
+    assert_eq!(choose(&state, me), cast(man_o_war));
+    apply_action(&mut state, me, cast(man_o_war)).unwrap();
+    crate::duel::test_support::pass_both(&mut state);
+    assert!(matches!(
+        state.decision,
+        Some(Decision::ChooseTargets { .. })
+    ));
+    assert_eq!(
+        choose(&state, me),
+        Action::ChooseTargets {
+            targets: vec![at(angel)]
+        }
+    );
+}
+
+#[test]
+fn scrying_it_bottoms_a_land_when_flooded_and_a_spell_it_cannot_cast_for_ages() {
+    let scry_with = |lands: usize, top: &str| {
+        let (mut state, me, _) = empty_board(1);
+        put_lands(&mut state, me, "island", lands);
+        let opt = put_in_hand(&mut state, me, "opt");
+        apply_action(&mut state, me, cast(opt)).unwrap();
+        // Put the card to look at on top of the library.
+        let card = put_in_hand(&mut state, me, top);
+        let moved = state.move_object(card, crate::duel::Zone::Library).unwrap();
+        let library = &mut state.player_mut(me).library;
+        library.retain(|other| *other != moved);
+        library.push(moved);
+        crate::duel::test_support::pass_both(&mut state);
+        assert!(matches!(state.decision, Some(Decision::Scry { .. })));
+        choose(&state, me)
+    };
+    assert_eq!(scry_with(1, "island"), Action::ScryKeep);
+    assert_eq!(scry_with(6, "island"), Action::ScryBottom);
+    assert_eq!(scry_with(1, "air_elemental"), Action::ScryBottom);
+    assert_eq!(scry_with(3, "air_elemental"), Action::ScryKeep);
+    assert_eq!(scry_with(1, "coral_merfolk"), Action::ScryKeep);
+}
+
+// ---- The whole pool ----
+
+/// A deck for a colour pair: fifteen spells of those colours, picked from
+/// the whole pool by `seed`, and five basic lands of each.
+fn pool_deck(colors: [Color; 2], seed: u64) -> crate::duel::PlayerConfig {
+    use crate::duel::{CardInstance, DuelRng, PlayerConfig};
+    let data = data::embedded().unwrap();
+    let mut spells: Vec<CardDefId> = data
+        .cards
+        .iter()
+        .filter(|card| {
+            !card.is_land()
+                && !card.colors.is_empty()
+                && card.colors.iter().all(|color| colors.contains(color))
+        })
+        .map(|card| card.id.clone())
+        .collect();
+    DuelRng::from_seed(seed).shuffle(&mut spells);
+    spells.truncate(15);
+    let land = |color: Color| match color {
+        Color::W => "plains",
+        Color::U => "island",
+        Color::B => "swamp",
+        Color::R => "mountain",
+        Color::G => "forest",
+    };
+    for color in colors {
+        spells.extend((0..5).map(|_| CardDefId(land(color).to_string())));
+    }
+    PlayerConfig {
+        library: spells.into_iter().map(CardInstance::new).collect(),
+        starting_life: data.balance.duel.starting_life,
+        opening_hand_size: data.balance.duel.opening_hand_size,
+        starting_permanents: Vec::new(),
+        emblems: Vec::new(),
+    }
+}
+
+/// Every card in the pool turns up in AI hands here, whatever decks the
+/// game's own content happens to use: decks for all ten colour pairs play
+/// each other to the end without an error or a stuck game.
+#[test]
+fn plays_whole_games_with_decks_drawn_from_the_whole_pool() {
+    use Color::*;
+    let pairs = [
+        [W, U],
+        [U, B],
+        [B, R],
+        [R, G],
+        [G, W],
+        [W, B],
+        [U, R],
+        [B, G],
+        [R, W],
+        [G, U],
+    ];
+    let data = data::embedded().unwrap();
+    let mut cast_cards = std::collections::BTreeSet::new();
+    for seed in 0..3u64 {
+        for (index, pair) in pairs.iter().enumerate() {
+            let other = pairs[(index + 1 + seed as usize) % pairs.len()];
+            let config = crate::duel::DuelConfig {
+                players: [pool_deck(*pair, seed), pool_deck(other, seed + 100)],
+                rules: crate::duel::RulesConfig::from_balance(&data.balance.duel),
+            };
+            let mut state = new_duel(config, seed).unwrap();
+            let mut steps = 0;
+            while state.result.is_none() {
+                steps += 1;
+                assert!(steps < 60_000, "{pair:?} v {other:?}, seed {seed}: stuck");
+                for event in step(&mut state).2 {
+                    if let GameEvent::SpellCast { card, .. } = event {
+                        cast_cards.extend(card.face.map(|face| face.def));
+                    }
+                }
+            }
+            state.assert_consistent();
+        }
+    }
+    // Most of the pool gets cast along the way.
+    let spells = data.cards.iter().filter(|card| !card.is_land()).count();
+    assert!(
+        cast_cards.len() * 10 >= spells * 7,
+        "only {} of {spells} spells were ever cast",
+        cast_cards.len()
+    );
+}

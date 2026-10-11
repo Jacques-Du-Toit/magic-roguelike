@@ -1,0 +1,40 @@
+{
+  "id": "briarpack_alpha",
+  "name": "Briarpack Alpha",
+  "mana_cost": "{3}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Wolf"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "keywords": [
+    "flash"
+  ],
+  "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nWhen this creature enters, target creature gets +2/+2 until end of turn.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "creature": {}
+          },
+          "power": 2,
+          "toughness": 2
+        }
+      ]
+    }
+  ]
+}

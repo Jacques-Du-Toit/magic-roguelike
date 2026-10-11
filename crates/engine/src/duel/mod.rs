@@ -3,6 +3,8 @@
 mod action;
 #[cfg(test)]
 mod aura_tests;
+#[cfg(test)]
+mod choice_tests;
 mod combat;
 #[cfg(test)]
 mod combat_tests;
@@ -40,10 +42,11 @@ pub use mana::ManaPool;
 pub use rng::DuelRng;
 pub use setup::new_duel;
 pub use state::{
-    AbilityRef, Attacker, Combat, DamageAssignment, DamageShare, Decision, DuelState, Emblem,
-    GameObject, GameResult, PendingTrigger, PlayerState, StackItem, StackItemKind, Step,
-    TriggeredAbility, WinReason, Zone,
+    AbilityRef, Attacker, Combat, DamageAssignment, DamageShare, Decision, DuelState, EffectStep,
+    Emblem, GameObject, GameResult, PendingTrigger, PlayerState, Resolving, StackItem,
+    StackItemKind, Step, TriggeredAbility, WinReason, Zone,
 };
+pub(crate) use turn::scry_card;
 pub use view::{
     EmblemView, PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
     has_meaningful_action, player_view, redact_events, should_auto_pass,
@@ -71,6 +74,8 @@ fn try_legal_actions(state: &DuelState, player: PlayerId) -> Result<Vec<Action>,
         Decision::DeclareAttackers { .. } => combat::legal_attack_actions(state)?,
         Decision::DeclareBlockers { .. } => combat::legal_block_actions(state)?,
         Decision::AssignCombatDamage { .. } => combat::legal_assignment_actions(state)?,
+        Decision::ChooseTargets { .. } => stack::legal_target_choices(state)?,
+        Decision::Scry { .. } => vec![Action::ScryKeep, Action::ScryBottom],
     })
 }
 
@@ -138,7 +143,26 @@ fn perform(
         (Action::AssignDamage { target }, _) => combat::change_assignment(state, *target, 1)?,
         (Action::UnassignDamage { target }, _) => combat::change_assignment(state, *target, -1)?,
         (Action::ConfirmDamage, _) => turn::confirm_damage(state, &mut events)?,
-        (Action::BottomCard { .. } | Action::Discard { .. } | Action::ResetDeclaration, _) => {
+        (Action::ChooseTargets { targets }, _) => {
+            turn::choose_trigger_targets(state, &mut events, targets)?;
+        }
+        (
+            Action::ScryKeep | Action::ScryBottom,
+            Some(Decision::Scry {
+                kept, remaining, ..
+            }),
+        ) => {
+            let to_bottom = *action == Action::ScryBottom;
+            turn::scry(state, &mut events, player, kept, remaining, to_bottom)?;
+        }
+        (
+            Action::BottomCard { .. }
+            | Action::Discard { .. }
+            | Action::ResetDeclaration
+            | Action::ScryKeep
+            | Action::ScryBottom,
+            _,
+        ) => {
             return Err(InternalError::new(format!(
                 "{action:?} does not answer {:?}",
                 state.decision

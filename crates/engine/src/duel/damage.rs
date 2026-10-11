@@ -105,10 +105,23 @@ pub(crate) fn creature_dies(
     Ok(())
 }
 
+/// Destroys a creature: it dies unless it is indestructible.
+pub(crate) fn destroy_creature(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    creature: ObjectId,
+) -> Result<(), InternalError> {
+    if state.has_keyword(creature, Keyword::Indestructible)? {
+        return Ok(());
+    }
+    creature_dies(state, events, creature)
+}
+
 /// Checks state-based actions until nothing more happens:
 ///
-/// - a creature with toughness 0 or less, lethal damage, or damage from a
-///   source with deathtouch goes to the graveyard;
+/// - a creature with toughness 0 or less goes to the graveyard, and so does
+///   one with lethal damage or damage from a source with deathtouch unless
+///   it is indestructible;
 /// - an Aura that isn't attached to something it can enchant goes to the
 ///   graveyard;
 /// - a player at 0 life or less loses, and if both are, the game is a draw.
@@ -124,12 +137,17 @@ pub(crate) fn check_state_based_actions(
             let permanent = state.object(id)?;
             if def.is_creature() {
                 let toughness = state.toughness(id)?;
-                if toughness <= 0 || permanent.damage >= toughness || permanent.deathtouch_damage {
+                let destroyed = (permanent.damage >= toughness || permanent.deathtouch_damage)
+                    && !state.has_keyword(id, Keyword::Indestructible)?;
+                if toughness <= 0 || destroyed {
                     dying.push(id);
                 }
             } else if let Some(enchant) = def.enchant {
                 let attached_legally = match permanent.attached_to {
-                    Some(object) => fits_target_spec(state, enchant, Target::Object { object })?,
+                    Some(object) => {
+                        let target = Target::Object { object };
+                        fits_target_spec(state, permanent.owner, enchant, target)?
+                    }
                     None => false,
                 };
                 if !attached_legally {
@@ -188,5 +206,6 @@ pub(crate) fn end_of_turn_cleanup(state: &mut DuelState) {
         object.deathtouch_damage = false;
         object.power_bonus = 0;
         object.toughness_bonus = 0;
+        object.granted_keywords.clear();
     }
 }

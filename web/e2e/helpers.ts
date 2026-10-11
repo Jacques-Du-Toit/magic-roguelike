@@ -48,8 +48,12 @@ export async function clickSomething(page: Page, step: number): Promise<void> {
   } else if (await primary(page).isVisible()) {
     await primary(page).click()
   } else if (await reset.isVisible()) {
-    // Blocks that can't be confirmed as they stand.
+    // Blocks that can't be confirmed as they stand, e.g. one creature in
+    // front of an attacker with menace. Start again and block nothing, or
+    // the same block would be made and taken back for ever.
     await reset.click()
+    await idle(page).waitFor()
+    if (await primary(page).isVisible()) await primary(page).click()
   } else {
     // A decision answered from the hand, e.g. discarding.
     await page.locator('.lit-action').first().click()
@@ -92,6 +96,19 @@ export async function followHint(page: Page): Promise<void> {
   const handCard = (object: number | undefined) =>
     page.locator(`.hand-card[data-object="${object}"]`)
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  const clickTarget = async (target: NonNullable<Hint['targets']>[number]) => {
+    if (target.type === 'player') {
+      await page.locator(`[data-player="${target.player}"] button.life`).click()
+    } else {
+      // A creature, or a spell on the stack.
+      await page
+        .locator(
+          `.permanent-slot[data-object="${target.object}"] > button.permanent, ` +
+            `.stack-item[data-object="${target.object}"]`,
+        )
+        .click()
+    }
+  }
 
   switch (action.type) {
     case 'keep':
@@ -107,19 +124,16 @@ export async function followHint(page: Page): Promise<void> {
       break
     case 'cast_spell':
       await handCard(action.card).click()
-      for (const target of action.targets ?? []) {
-        if (target.type === 'player') {
-          await page.locator(`[data-player="${target.player}"] button.life`).click()
-        } else {
-          // A creature, or a spell on the stack.
-          await page
-            .locator(
-              `.permanent-slot[data-object="${target.object}"] > button.permanent, ` +
-                `.stack-item[data-object="${target.object}"]`,
-            )
-            .click()
-        }
-      }
+      for (const target of action.targets ?? []) await clickTarget(target)
+      break
+    case 'choose_targets':
+      for (const target of action.targets ?? []) await clickTarget(target)
+      break
+    case 'scry_keep':
+      await button('Keep on top').click()
+      break
+    case 'scry_bottom':
+      await button('Put on the bottom').click()
       break
     case 'attack':
     case 'remove_attacker':

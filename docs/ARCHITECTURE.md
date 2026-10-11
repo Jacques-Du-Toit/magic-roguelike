@@ -65,11 +65,18 @@ Every `Action` returned by `legal_actions` is concrete and can be passed straigh
 | Mulligan | `Keep`, `Mulligan`, then `BottomCard { card }` once per card owed |
 | Discard to hand size | `Discard { card }` |
 | Divide combat damage | `AssignDamage { target }`, `UnassignDamage { target }` (one point each), `ConfirmDamage` |
+| Aim a triggered ability | `ChooseTargets { targets }`, once per legal combination, like a spell's |
+| Scry | `ScryKeep`, `ScryBottom`, once per card looked at |
+| Discard for an effect | `Discard { card }`, as at cleanup |
 | Later: order triggers, "may" choices | one step action each |
 
 A `Confirm…` action is only legal when the declaration so far is legal (e.g. `ConfirmBlockers` is absent while a menace attacker has exactly one blocker, and `ConfirmDamage` while damage is unassigned or tramples over a blocker that has less than lethal).
 
 Other actions: `PlayLand { card }`, `PassPriority`.
+
+**Triggered abilities with targets.** A triggered ability is aimed when it goes on the stack, which is the next time a player would get priority. With no legal target it never goes on the stack; with exactly one way to aim it, that way is taken without asking; otherwise its controller gets the `ChooseTargets` decision and any other waiting abilities queue behind it.
+
+**Effects that stop for a choice.** A discard or a scry needs an answer in the middle of a resolution. The spell or ability being resolved is kept in `DuelState::resolving` with the effects it still has to carry out; the effect sets the decision, and when the player has answered, the resolution carries on from where it stopped. Targets are checked once, when the resolution begins. A discard or scry with no real choice in it (the whole hand goes, the library is empty) doesn't ask.
 
 ### Mana payment
 
@@ -281,11 +288,15 @@ Dual land (one mana ability per colour; it still makes one mana per tap):
 ### Effect primitives (initial set; grow carefully)
 `deal_damage`, `gain_life`, `lose_life`, `draw_cards`, `discard`, `destroy`, `exile`, `counter_spell`, `create_token`, `add_counters`, `modify_pt_until_eot`, `grant_keyword_until_eot`, `tap`, `untap`, `return_to_hand`, `add_mana`, `scry`, `search_library` (if needed), `mill`, `sacrifice`.
 
-Built so far: `deal_damage`, `destroy`, `counter_spell`, `draw_cards`, `gain_life`, `lose_life`, `modify_pt_until_eot`. `gain_life`, `lose_life` and `draw_cards` name a player: `controller` or `opponent`.
+Built so far: `deal_damage`, `deal_power_damage` (a creature deals damage equal to its power: two targets), `destroy`, `counter_spell`, `discard`, `draw_cards`, `gain_life`, `lose_life`, `grant_keyword_until_eot`, `modify_pt_until_eot`, `return_to_hand`, `scry`, `tap` (with `skip_next_untap` for "doesn't untap during its controller's next untap step").
 
-Targets are structured data: `any_target`, `creature`, `player` and `spell`, each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
+Effects on a player name one: `controller`, `opponent`, or a targeted one, `target_player` or `target_opponent`.
 
-Keywords built so far: deathtouch, defender, double strike, first strike, flash, flying, haste, hexproof, lifelink, menace, reach, trample, vigilance.
+Two effects on one target ("target creature gets +3/+0 and gains first strike") are written as two effects, the second with `"target": { "same": {} }`, which reuses the target before it instead of asking for another.
+
+Targets are structured data: `any_target`, `creature`, `player`, `opponent` and `spell`, each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, `{ "creature": { "controller": "you" } }` or `"opponent"`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
+
+Keywords built so far: deathtouch, defender, double strike, first strike, flash, flying, haste, hexproof, indestructible, lifelink, menace, reach, trample, vigilance.
 
 ### Custom escape hatch
 If a card truly can't be expressed, it may reference `{ "type": "custom", "id": "card_specific_fn" }` implemented in Rust. Keep a list here:
@@ -297,10 +308,10 @@ If a card truly can't be expressed, it may reference `{ "type": "custom", "id": 
 ### Validation
 On load, every card is validated (costs parse, targets exist, keywords known, Auras have `enchant`). A test loads all card files and fails on any error.
 
-The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and a triggered ability can't have targets. The upkeep trigger, the `creature_you_control` subject, anthems and keyword grants are for emblems only so far; a card that uses one fails to load.
+The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and an emblem's triggered ability can't have targets (a card's can). The upkeep trigger, the `creature_you_control` subject, anthems and keyword grants are for emblems only so far; a card that uses one fails to load.
 
 ### Decklists
-`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database.
+`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. There are four: A, B and C from M1, and D (blue-black tempo), added in M4a so that the cards which ask for a choice can be played in a practice duel.
 
 ## 5. Duel internals
 
@@ -340,6 +351,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 - v1 is expected to pilot creature and burn decks acceptably and reactive decks badly (it won't hold mana for a counterspell). That's accepted for now; the human plays the control deck in M2.
 - Later: shallow search / Monte Carlo rollouts using engine cloning (determinism makes this easy). This is the planned route to competent control play, rather than piling up heuristics.
 - `crates/sim` runs AI vs AI to find crashes and measure deck win rates. It plays every pairing of the decks in `data/decks/`, mirrors included, swapping seats each game, and reports win rates, game length, mulligans, land screw and flood, and how games ended. Its turn cap and thresholds are in `balance.json`. `--replay` prints one game move by move. `--enemies` plays each planeswalker's starting deck against every enemy deck, set up as the run sets a duel up. `--runs` plays whole runs, with the AI on both sides of each duel and a simple policy for the run's choices, and reports how often the act is won.
+- The AI aims a triggered ability by trying each choice on a copy of the game and keeping the best, and it thinks the same choice through when it imagines casting the creature. Scrying, it bottoms a land it has no use for or a spell far from castable.
 - Faced with a damage division, the AI confirms the automatic one. It only ever double-blocks to survive a menace attacker, so a human rarely gets to divide damage; better blocking is M4 work.
 
 ## 8. The wasm boundary

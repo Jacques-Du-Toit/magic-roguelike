@@ -434,7 +434,7 @@ mod tests {
         let creatures = count(|card| card.is_creature());
         let others = count(|card| !card.is_land() && !card.is_creature());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (48, 17));
+        assert_eq!((creatures, others), (54, 23));
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -707,7 +707,7 @@ mod tests {
 
     #[test]
     fn test_decks_are_fifteen_spells_and_ten_lands() {
-        assert_eq!(data().decks.len(), 3);
+        assert_eq!(data().decks.len(), 4);
         for deck in data().decks.values() {
             let lands: u32 = deck
                 .cards
@@ -809,12 +809,8 @@ mod tests {
     const NOT_YET_MET: [&str; 19] = [
         "ambush_viper",
         "angelic_wall",
-        "cloudkin_seer",
         "dawning_angel",
-        "disfigure",
-        "doom_blade",
         "druid_of_the_cowl",
-        "essence_scatter",
         "fencing_ace",
         "gladecover_scout",
         "kraken_hatchling",
@@ -826,6 +822,10 @@ mod tests {
         "swiftblade_vindicator",
         "thornweald_archer",
         "titanic_growth",
+        "briarpack_alpha",
+        "rabid_bite",
+        "sheltering_light",
+        "sure_strike",
     ];
 
     #[test]

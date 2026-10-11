@@ -63,7 +63,7 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
                     return Err(CardError::NoEffects.into());
                 }
                 for effect in effects {
-                    if effect.target().is_some() {
+                    if !effect.targets().is_empty() {
                         return Err(CardError::TargetedTrigger.into());
                     }
                     super::validate_effect(effect)?;

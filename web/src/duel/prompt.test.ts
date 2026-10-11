@@ -24,6 +24,7 @@ function viewWith(change: Partial<PlayerView>): PlayerView {
     battlefield: [],
     stack: [],
     combat: null,
+    looking_at: null,
     result: null,
     ...change,
   }
@@ -57,11 +58,32 @@ describe('promptText', () => {
       { type: 'declare_attackers', player: 'P1' },
       { type: 'declare_blockers', player: 'P1' },
       { type: 'assign_combat_damage', player: 'P1', attacker: 4 },
+      { type: 'choose_targets', player: 'P1', source: 7 },
+      { type: 'scry', player: 'P1', kept: 0, remaining: 1 },
     ]
     const texts = decisions.map((decision) => prompt({ decision }))
     expect(new Set(texts).size).toBe(decisions.length)
     expect(texts[1]).toContain('2 cards')
     expect(texts[3]).toContain('1 card ')
+  })
+
+  it('tells a discard at cleanup from one a spell or ability asks for', () => {
+    const decision: Decision = { type: 'discard', player: 'P1', remaining: 2 }
+    expect(prompt({ decision, step: 'cleanup' })).toBe(
+      'You have too many cards: click 2 cards in your hand to discard.',
+    )
+    expect(prompt({ decision })).toBe('You must discard: click 2 cards in your hand.')
+  })
+
+  it('names the ability being aimed and counts the cards of a scry', () => {
+    const aim: Decision = { type: 'choose_targets', player: 'P1', source: 7 }
+    expect(prompt({ decision: aim }, { abilitySource: "Man-o'-War" })).toBe(
+      "Choose a target for Man-o'-War's ability.",
+    )
+    expect(prompt({ decision: aim })).toBe('Choose a target for the ability.')
+    expect(prompt({ decision: { type: 'scry', player: 'P1', kept: 0, remaining: 2 } })).toContain(
+      '(2 to look at)',
+    )
   })
 
   it('says who is being waited for', () => {

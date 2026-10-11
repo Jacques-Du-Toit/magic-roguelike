@@ -4,12 +4,15 @@ import type { Target } from '../engine/types/Target.ts'
 import {
   blockOptions,
   cardActions,
+  clickAimTarget,
   clickAttacker,
   clickBlockedAttacker,
   clickBlocker,
   clickHandCard,
   clickTarget,
   completedCast,
+  isAiming,
+  nextAimTargets,
   nextTargets,
   simpleAction,
 } from './interaction.ts'
@@ -123,5 +126,30 @@ describe('simpleAction', () => {
   it('finds an action by its type', () => {
     expect(simpleAction(actions, 'pass_priority')).toEqual(pass)
     expect(simpleAction(actions, 'keep')).toBeUndefined()
+  })
+})
+
+describe('aiming a triggered ability', () => {
+  const aim = (...targets: Target[]): Action => ({ type: 'choose_targets', targets })
+  const one = [aim(object(50)), aim(object(51))]
+  const two = [aim(object(50), player('P2')), aim(object(50), player('P1')), aim(object(51), player('P2'))]
+
+  it('is noticed from the legal actions', () => {
+    expect(isAiming(one)).toBe(true)
+    expect(isAiming(actions)).toBe(false)
+  })
+
+  it('offers the targets and sends the choice once it is complete', () => {
+    expect(nextAimTargets(one, [])).toEqual([object(50), object(51)])
+    expect(clickAimTarget(one, [], object(51))).toEqual({ kind: 'send', action: one[1] })
+    expect(clickAimTarget(one, [], object(52))).toEqual({ kind: 'nothing' })
+    expect(clickAimTarget(one, [], player('P1'))).toEqual({ kind: 'nothing' })
+  })
+
+  it('takes several targets one at a time', () => {
+    expect(clickAimTarget(two, [], object(50))).toEqual({ kind: 'aim', chosen: [object(50)] })
+    expect(nextAimTargets(two, [object(50)])).toEqual([player('P2'), player('P1')])
+    expect(nextAimTargets(two, [object(51)])).toEqual([player('P2')])
+    expect(clickAimTarget(two, [object(50)], player('P1'))).toEqual({ kind: 'send', action: two[1] })
   })
 })

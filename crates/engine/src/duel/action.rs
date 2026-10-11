@@ -5,7 +5,7 @@ use ts_rs::TS;
 
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::state::{GameResult, Step};
-use crate::cards::CardDefId;
+use crate::cards::{CardDefId, Keyword};
 
 /// Something a player does. Every action returned by `legal_actions` is
 /// concrete and can be passed straight to `apply_action`.
@@ -73,6 +73,14 @@ pub enum Action {
     /// assigned, and none may go to the player while a blocker has less
     /// than lethal damage.
     ConfirmDamage,
+    /// Aim the triggered ability that is waiting to go on the stack.
+    ChooseTargets {
+        targets: Vec<Target>,
+    },
+    /// While scrying: put the card being looked at back on top.
+    ScryKeep,
+    /// While scrying: put the card being looked at on the bottom.
+    ScryBottom,
 }
 
 /// What a spell or ability is aimed at.
@@ -215,6 +223,23 @@ pub enum GameEvent {
         source: ObjectId,
         target: Target,
         amount: i32,
+    },
+    /// A creature gained a keyword until end of turn.
+    KeywordGranted {
+        permanent: ObjectId,
+        keyword: Keyword,
+    },
+    /// A permanent went back to its owner's hand. `permanent` is what it
+    /// was; `card` is the card in hand.
+    PermanentReturnedToHand {
+        player: PlayerId,
+        permanent: ObjectId,
+        card: CardRef,
+    },
+    /// While scrying, the player put the card they looked at back on top.
+    /// (One put on the bottom is a `CardPutOnBottom`.)
+    CardKeptOnTop {
+        player: PlayerId,
     },
     /// A creature went from the battlefield to its owner's graveyard.
     /// `permanent` is what it was; `card` is the card in the graveyard.

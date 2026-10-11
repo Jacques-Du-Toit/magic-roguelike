@@ -1,0 +1,35 @@
+{
+  "id": "sure_strike",
+  "name": "Sure Strike",
+  "mana_cost": "{1}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Target creature gets +3/+0 and gains first strike until end of turn. (It deals combat damage before creatures without first strike.)",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "creature": {}
+          },
+          "power": 3,
+          "toughness": 0
+        },
+        {
+          "type": "grant_keyword_until_eot",
+          "target": {
+            "same": {}
+          },
+          "keyword": "first_strike"
+        }
+      ]
+    }
+  ]
+}

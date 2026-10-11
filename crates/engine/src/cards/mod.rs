@@ -148,6 +148,7 @@ pub enum Keyword {
     Flying,
     Haste,
     Hexproof,
+    Indestructible,
     Lifelink,
     Menace,
     Reach,
@@ -249,8 +250,18 @@ pub enum Effect {
         amount: u32,
         target: TargetSpec,
     },
+    /// `source` deals damage equal to its power to `target`.
+    DealPowerDamage {
+        source: TargetSpec,
+        target: TargetSpec,
+    },
     Destroy {
         target: TargetSpec,
+    },
+    /// The player discards cards of their choice.
+    Discard {
+        player: PlayerRef,
+        amount: u32,
     },
     DrawCards {
         player: PlayerRef,
@@ -259,6 +270,10 @@ pub enum Effect {
     GainLife {
         player: PlayerRef,
         amount: u32,
+    },
+    GrantKeywordUntilEot {
+        target: TargetSpec,
+        keyword: Keyword,
     },
     LoseLife {
         player: PlayerRef,
@@ -269,6 +284,21 @@ pub enum Effect {
         power: i32,
         toughness: i32,
     },
+    ReturnToHand {
+        target: TargetSpec,
+    },
+    /// The controller looks at the top cards of their library, one at a
+    /// time, and puts each back or on the bottom.
+    Scry {
+        amount: u32,
+    },
+    /// Taps the target. With `skip_next_untap` it also stays tapped through
+    /// its controller's next untap step.
+    Tap {
+        target: TargetSpec,
+        #[serde(default)]
+        skip_next_untap: bool,
+    },
 }
 
 impl Effect {
@@ -277,22 +307,38 @@ impl Effect {
         match self {
             Effect::CounterSpell { .. } => "counter_spell",
             Effect::DealDamage { .. } => "deal_damage",
+            Effect::DealPowerDamage { .. } => "deal_power_damage",
             Effect::Destroy { .. } => "destroy",
+            Effect::Discard { .. } => "discard",
             Effect::DrawCards { .. } => "draw_cards",
             Effect::GainLife { .. } => "gain_life",
+            Effect::GrantKeywordUntilEot { .. } => "grant_keyword_until_eot",
             Effect::LoseLife { .. } => "lose_life",
             Effect::ModifyPtUntilEot { .. } => "modify_pt_until_eot",
+            Effect::ReturnToHand { .. } => "return_to_hand",
+            Effect::Scry { .. } => "scry",
+            Effect::Tap { .. } => "tap",
         }
     }
 
-    /// The target this effect needs chosen when it goes on the stack.
-    pub fn target(&self) -> Option<&TargetSpec> {
+    /// What this effect is aimed at, in the order the effect uses them. A
+    /// `same` entry stands for the target chosen just before it; the others
+    /// are chosen when the spell or ability goes on the stack.
+    pub fn targets(&self) -> Vec<TargetSpec> {
         match self {
             Effect::CounterSpell { target }
             | Effect::DealDamage { target, .. }
             | Effect::Destroy { target }
-            | Effect::ModifyPtUntilEot { target, .. } => Some(target),
-            Effect::DrawCards { .. } | Effect::GainLife { .. } | Effect::LoseLife { .. } => None,
+            | Effect::GrantKeywordUntilEot { target, .. }
+            | Effect::ModifyPtUntilEot { target, .. }
+            | Effect::ReturnToHand { target }
+            | Effect::Tap { target, .. } => vec![*target],
+            Effect::DealPowerDamage { source, target } => vec![*source, *target],
+            Effect::Discard { player, .. }
+            | Effect::DrawCards { player, .. }
+            | Effect::GainLife { player, .. }
+            | Effect::LoseLife { player, .. } => player.target().into_iter().collect(),
+            Effect::Scry { .. } => Vec::new(),
         }
     }
 }
@@ -304,6 +350,21 @@ pub enum PlayerRef {
     Controller,
     /// The controller's opponent.
     Opponent,
+    /// "Target player".
+    TargetPlayer,
+    /// "Target opponent".
+    TargetOpponent,
+}
+
+impl PlayerRef {
+    /// The target this needs chosen, if it names a targeted player.
+    pub fn target(self) -> Option<TargetSpec> {
+        match self {
+            PlayerRef::Controller | PlayerRef::Opponent => None,
+            PlayerRef::TargetPlayer => Some(TargetSpec::Player {}),
+            PlayerRef::TargetOpponent => Some(TargetSpec::Opponent {}),
+        }
+    }
 }
 
 /// What a target must be. Written as `{ "creature": {} }`; the braces hold
@@ -314,7 +375,12 @@ pub enum TargetSpec {
     /// A creature or a player.
     AnyTarget {},
     Creature(CreatureFilter),
+    /// An opponent of the spell or ability's controller.
+    Opponent {},
     Player {},
+    /// Not a new target: the one chosen just before, as in "target creature
+    /// gets +3/+0 and gains first strike".
+    Same {},
     /// A spell on the stack.
     Spell(SpellFilter),
 }
@@ -332,6 +398,17 @@ pub struct CreatureFilter {
     /// "With flying": the creature must have this keyword.
     #[serde(default)]
     pub keyword: Option<Keyword>,
+    /// "You control" or "an opponent controls", from the side of whoever
+    /// controls the spell or ability.
+    #[serde(default)]
+    pub controller: Option<ControlledBy>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlledBy {
+    You,
+    Opponent,
 }
 
 /// Conditions a spell must meet to be a target. Empty means any spell.
@@ -367,7 +444,9 @@ impl TargetSpec {
         match self {
             TargetSpec::AnyTarget {} => "any_target",
             TargetSpec::Creature(_) => "creature",
+            TargetSpec::Opponent {} => "opponent",
             TargetSpec::Player {} => "player",
+            TargetSpec::Same {} => "same",
             TargetSpec::Spell(_) => "spell",
         }
     }
@@ -401,8 +480,10 @@ pub enum CardError {
     SpellAbilityOnPermanent,
     #[error("an ability needs at least one effect")]
     NoEffects,
-    #[error("triggered abilities with targets are not supported yet")]
+    #[error("an emblem's triggered abilities can't have targets yet")]
     TargetedTrigger,
+    #[error("`same` needs a target chosen before it")]
+    SameWithoutTarget,
     #[error("`{effect}` cannot target `{target}`")]
     BadTarget {
         effect: &'static str,
@@ -506,11 +587,7 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             if effects.is_empty() {
                 return Err(CardError::NoEffects);
             }
-            let is_trigger = matches!(ability, AbilityDef::Triggered { .. });
-            if is_trigger && effects.iter().any(|effect| effect.target().is_some()) {
-                return Err(CardError::TargetedTrigger);
-            }
-            effects.iter().try_for_each(validate_effect)
+            validate_effects(effects)
         }
         AbilityDef::Static(StaticAbility::Restriction { affects, cant }) => {
             if cant.is_empty() {
@@ -540,21 +617,57 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
     }
 }
 
+/// Checks the effects of one spell or ability, in order.
+pub(crate) fn validate_effects(effects: &[Effect]) -> Result<(), CardError> {
+    let mut has_target = false;
+    for effect in effects {
+        for spec in effect.targets() {
+            match spec {
+                TargetSpec::Same {} if !has_target => return Err(CardError::SameWithoutTarget),
+                TargetSpec::Same {} => {}
+                _ => has_target = true,
+            }
+        }
+        validate_effect(effect)?;
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
-    let target_ok = match effect {
-        Effect::CounterSpell { target } => matches!(target, TargetSpec::Spell(_)),
-        Effect::DealDamage { target, .. } => {
-            matches!(
-                target,
-                TargetSpec::AnyTarget {} | TargetSpec::Creature(_) | TargetSpec::Player {}
-            )
+    let creature = |target: &TargetSpec| matches!(target, TargetSpec::Creature(_));
+    let creature_or_same =
+        |target: &TargetSpec| matches!(target, TargetSpec::Creature(_) | TargetSpec::Same {});
+    let bad_target = match effect {
+        Effect::CounterSpell { target } => {
+            (!matches!(target, TargetSpec::Spell(_))).then_some(target)
         }
-        Effect::Destroy { target } | Effect::ModifyPtUntilEot { target, .. } => {
-            matches!(target, TargetSpec::Creature(_))
+        Effect::DealDamage { target, .. } => (!matches!(
+            target,
+            TargetSpec::AnyTarget {}
+                | TargetSpec::Creature(_)
+                | TargetSpec::Opponent {}
+                | TargetSpec::Player {}
+        ))
+        .then_some(target),
+        Effect::Destroy { target }
+        | Effect::GrantKeywordUntilEot { target, .. }
+        | Effect::ModifyPtUntilEot { target, .. }
+        | Effect::ReturnToHand { target }
+        | Effect::Tap { target, .. } => (!creature_or_same(target)).then_some(target),
+        Effect::DealPowerDamage { source, target } => {
+            if creature(source) {
+                (!creature(target)).then_some(target)
+            } else {
+                Some(source)
+            }
         }
-        Effect::DrawCards { .. } | Effect::GainLife { .. } | Effect::LoseLife { .. } => true,
+        Effect::Discard { .. }
+        | Effect::DrawCards { .. }
+        | Effect::GainLife { .. }
+        | Effect::LoseLife { .. }
+        | Effect::Scry { .. } => None,
     };
-    if let (false, Some(target)) = (target_ok, effect.target()) {
+    if let Some(target) = bad_target {
         return Err(CardError::BadTarget {
             effect: effect.name(),
             target: target.name(),
@@ -562,9 +675,11 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     }
     match effect {
         Effect::DealDamage { amount: 0, .. }
+        | Effect::Discard { amount: 0, .. }
         | Effect::DrawCards { amount: 0, .. }
         | Effect::GainLife { amount: 0, .. }
-        | Effect::LoseLife { amount: 0, .. } => Err(CardError::ZeroAmount(effect.name())),
+        | Effect::LoseLife { amount: 0, .. }
+        | Effect::Scry { amount: 0 } => Err(CardError::ZeroAmount(effect.name())),
         _ => Ok(()),
     }
 }
@@ -878,7 +993,7 @@ mod tests {
     }
 
     #[test]
-    fn triggered_abilities_cannot_target_yet() {
+    fn triggered_abilities_may_have_targets() {
         let trigger = |effect: Value| {
             json!([{
                 "kind": "triggered",
@@ -900,8 +1015,60 @@ mod tests {
                 "abilities",
                 trigger(json!({ "type": "destroy", "target": { "creature": {} } }))
             )),
-            Err(CardError::TargetedTrigger)
+            Ok(())
         );
+    }
+
+    #[test]
+    fn same_reuses_the_target_before_it_and_so_needs_one() {
+        let spell = |effects: Value| {
+            with(
+                shock(),
+                "abilities",
+                json!([{ "kind": "spell", "effects": effects }]),
+            )
+        };
+        let grant = json!({
+            "type": "grant_keyword_until_eot", "target": { "same": {} }, "keyword": "first_strike"
+        });
+        let pump = json!({
+            "type": "modify_pt_until_eot", "target": { "creature": {} }, "power": 3, "toughness": 0
+        });
+        assert_eq!(check(spell(json!([pump, grant]))), Ok(()));
+        assert_eq!(
+            check(spell(json!([grant, pump]))),
+            Err(CardError::SameWithoutTarget)
+        );
+        // Only effects on a creature can reuse a target.
+        assert_eq!(
+            check(spell(json!([
+                pump,
+                { "type": "deal_damage", "amount": 1, "target": { "same": {} } }
+            ]))),
+            Err(CardError::BadTarget {
+                effect: "deal_damage",
+                target: "same"
+            })
+        );
+    }
+
+    #[test]
+    fn effects_name_the_targets_they_need_in_order() {
+        let effect = |value: Value| serde_json::from_value::<Effect>(value).unwrap();
+        let bite = effect(json!({
+            "type": "deal_power_damage",
+            "source": { "creature": { "controller": "you" } },
+            "target": { "creature": { "controller": "opponent" } }
+        }));
+        assert_eq!(bite.targets().len(), 2);
+        let rot = effect(json!({ "type": "discard", "player": "target_player", "amount": 2 }));
+        assert_eq!(rot.targets(), [TargetSpec::Player {}]);
+        let drain =
+            effect(json!({ "type": "lose_life", "player": "target_opponent", "amount": 1 }));
+        assert_eq!(drain.targets(), [TargetSpec::Opponent {}]);
+        let rat = effect(json!({ "type": "discard", "player": "opponent", "amount": 1 }));
+        assert_eq!(rat.targets(), []);
+        assert_eq!(effect(json!({ "type": "scry", "amount": 1 })).targets(), []);
     }
 
     #[test]

@@ -113,6 +113,15 @@ fn write_replay(
                 };
                 Some(format!("casts {}{at}", named(&state, *card)))
             }
+            Action::ChooseTargets { targets } => {
+                let targets: Vec<String> = targets
+                    .iter()
+                    .map(|target| target_name(&state, target))
+                    .collect();
+                Some(format!("aims an ability at {}", targets.join(", ")))
+            }
+            Action::ScryKeep => Some("scries: keeps the card on top".to_string()),
+            Action::ScryBottom => Some("scries: puts the card on the bottom".to_string()),
             Action::ConfirmAttackers => state
                 .combat
                 .as_ref()

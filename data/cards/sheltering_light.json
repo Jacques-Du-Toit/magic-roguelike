@@ -1,0 +1,31 @@
+{
+  "id": "sheltering_light",
+  "name": "Sheltering Light",
+  "mana_cost": "{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Target creature gains indestructible until end of turn. Scry 1. (Damage and effects that say \"destroy\" don't destroy the creature.)",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "grant_keyword_until_eot",
+          "target": {
+            "creature": {}
+          },
+          "keyword": "indestructible"
+        },
+        {
+          "type": "scry",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

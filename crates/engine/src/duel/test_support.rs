@@ -142,6 +142,13 @@ pub(crate) fn pass_until(state: &mut DuelState, turn: u32, step: Step) -> Vec<Ga
             Some(Decision::AssignCombatDamage { player, .. }) => {
                 events.extend(apply_action(state, player, Action::ConfirmDamage).unwrap());
             }
+            // Nobody attacks or blocks.
+            Some(Decision::DeclareAttackers { player }) => {
+                events.extend(apply_action(state, player, Action::ConfirmAttackers).unwrap());
+            }
+            Some(Decision::DeclareBlockers { player }) => {
+                events.extend(apply_action(state, player, Action::ConfirmBlockers).unwrap());
+            }
             other => panic!(
                 "can't pass at turn {} {:?}: waiting on {other:?}",
                 state.turn, state.step

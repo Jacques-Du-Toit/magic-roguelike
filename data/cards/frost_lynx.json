@@ -1,0 +1,39 @@
+{
+  "id": "frost_lynx",
+  "name": "Frost Lynx",
+  "mana_cost": "{2}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elemental",
+    "Cat"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "tap",
+          "target": {
+            "creature": {
+              "controller": "opponent"
+            }
+          },
+          "skip_next_untap": true
+        }
+      ]
+    }
+  ]
+}

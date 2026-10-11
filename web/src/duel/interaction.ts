@@ -88,6 +88,51 @@ export function clickTarget(actions: Action[], casting: Casting, target: Target)
   return { kind: 'cast', casting: next }
 }
 
+type ChooseTargets = Extract<Action, { type: 'choose_targets' }>
+
+function aimsMatching(actions: Action[], chosen: Target[]): ChooseTargets[] {
+  return actions.filter(
+    (action): action is ChooseTargets =>
+      action.type === 'choose_targets' &&
+      chosen.every((target, index) => {
+        const other = action.targets.at(index)
+        return other !== undefined && targetKey(other) === targetKey(target)
+      }),
+  )
+}
+
+/** Whether the game is asking for the targets of a triggered ability. */
+export function isAiming(actions: Action[]): boolean {
+  return actions.some((action) => action.type === 'choose_targets')
+}
+
+/** The targets that could be picked next for the ability being aimed. */
+export function nextAimTargets(actions: Action[], chosen: Target[]): Target[] {
+  const seen = new Map<string, Target>()
+  for (const action of aimsMatching(actions, chosen)) {
+    const next = action.targets.at(chosen.length)
+    if (next) seen.set(targetKey(next), next)
+  }
+  return [...seen.values()]
+}
+
+export type AimClick =
+  | { kind: 'send'; action: Action }
+  /** More targets are still to be picked. */
+  | { kind: 'aim'; chosen: Target[] }
+  | { kind: 'nothing' }
+
+/** What clicking a possible target does while an ability is being aimed. */
+export function clickAimTarget(actions: Action[], chosen: Target[], target: Target): AimClick {
+  const legal = nextAimTargets(actions, chosen).some(
+    (option) => targetKey(option) === targetKey(target),
+  )
+  if (!legal) return { kind: 'nothing' }
+  const next = [...chosen, target]
+  const done = aimsMatching(actions, next).find((action) => action.targets.length === next.length)
+  return done ? { kind: 'send', action: done } : { kind: 'aim', chosen: next }
+}
+
 /** Clicking one of your creatures while declaring attackers. */
 export function clickAttacker(actions: Action[], creature: number): Click {
   const action = actions.find(

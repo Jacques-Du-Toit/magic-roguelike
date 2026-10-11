@@ -385,12 +385,17 @@ input[type='text'] {
 
 /* ---- Players ---- */
 
+/* The panels never spill over the battlefield beside them: a long list of
+   emblems scrolls inside the column instead. */
 .players {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 6px;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .prompt-bar,
@@ -416,6 +421,8 @@ input[type='text'] {
 .player-facts {
   display: grid;
   justify-items: start;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .life {
@@ -572,9 +579,12 @@ input[type='text'] {
   color: #16181b;
 }
 
+/* A big attack wraps onto more lines. Left on one line and centred, it
+   would run off both sides of the battlefield, where it can't be clicked. */
 .combat-lane {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 18px;
   padding: 6px;
@@ -818,7 +828,7 @@ input[type='text'] {
   padding: 0;
   display: grid;
   gap: 2px;
-  max-width: 190px;
+  max-width: 100%;
 }
 
 .emblem {
@@ -827,6 +837,7 @@ input[type='text'] {
   border-radius: 6px;
   font-size: 11px;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .badge-granted {
@@ -1130,6 +1141,13 @@ button:disabled {
 .duel > .topbar {
   position: relative;
   z-index: 25;
+}
+
+/* The card a scrying player is looking at. */
+.scry-panel {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
 }
 
 /* ---- Dividing combat damage ---- */

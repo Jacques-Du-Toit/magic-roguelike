@@ -64,6 +64,8 @@ export interface PromptInput {
   view: PlayerView
   busy: boolean
   mode: PromptMode
+  /** While a triggered ability is being aimed: the name of what it is on. */
+  abilitySource?: string
   /** The name of the top item of the stack, if there is one. */
   topOfStack: string | null
   /** Whether confirming the blocks is among the legal actions. */
@@ -71,7 +73,14 @@ export interface PromptInput {
 }
 
 /** One line saying what the game is waiting for. */
-export function promptText({ view, busy, mode, topOfStack, canConfirmBlocks }: PromptInput): string {
+export function promptText({
+  view,
+  busy,
+  mode,
+  topOfStack,
+  canConfirmBlocks,
+  abilitySource,
+}: PromptInput): string {
   if (view.result) return 'The game is over.'
   const decision = view.decision
   if (busy || decision === null || decision.player === AI) {
@@ -86,7 +95,18 @@ export function promptText({ view, busy, mode, topOfStack, canConfirmBlocks }: P
     case 'bottom_cards':
       return `Click ${plural(decision.remaining, 'card')} in your hand to put on the bottom of your library.`
     case 'discard':
-      return `You have too many cards: click ${plural(decision.remaining, 'card')} in your hand to discard.`
+      // At cleanup it is the hand size; anywhere else, a spell or ability.
+      return view.step === 'cleanup'
+        ? `You have too many cards: click ${plural(decision.remaining, 'card')} in your hand to discard.`
+        : `You must discard: click ${plural(decision.remaining, 'card')} in your hand.`
+    case 'choose_targets':
+      return abilitySource
+        ? `Choose a target for ${abilitySource}'s ability.`
+        : 'Choose a target for the ability.'
+    case 'scry':
+      return decision.remaining > 1
+        ? `Scry: keep this card on top of your library, or put it on the bottom? (${decision.remaining} to look at)`
+        : 'Scry: keep this card on top of your library, or put it on the bottom?'
     case 'declare_attackers':
       return 'Declare attackers: click your creatures to attack with them, then confirm.'
     case 'declare_blockers':

@@ -79,13 +79,13 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 
 ## Keywords
 
-**In (v1):** flying, reach, first strike, double strike, deathtouch, lifelink, trample, haste, vigilance, menace, defender, hexproof, flash, indestructible. All are built except indestructible, which comes with the first card that grants it (M4a).
+**In (v1):** flying, reach, first strike, double strike, deathtouch, lifelink, trample, haste, vigilance, menace, defender, hexproof, flash, indestructible. All are built.
 
 **Later:** ward, prowess, surveil, fight, kicker, flashback, cycling, landfall, cascade.
 
 **Out:** protection (complex), banding, phasing, morph/disguise, mutate, partner, companion.
 
-Scry is an effect primitive rather than a keyword here, and is **In**.
+Scry is an effect primitive rather than a keyword here, and is **In**, simplified: the cards are looked at one at a time, top first, and each is kept or put on the bottom, so the ones kept stay in their order (real Magic lets you reorder them). With scry 1, which is all the pool has, there is no difference.
 
 ## State-based actions
 
@@ -108,6 +108,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**.
 | Counters | In | +1/+1 first; −1/−1 later. |
 | Keyword grants | In | |
 | "Can't attack / can't block" restrictions | In | Needed for Pacifism. |
+| "Doesn't untap during its controller's next untap step" | In | Added in M4a for Frost Lynx; part of the tap effect. |
 | Full layer system (7 layers, timestamps, dependencies) | Simplified | Fixed order: base → set P/T → modify P/T & counters → ability grants. |
 | Control-changing effects | Out | |
 | Copy effects | Out | |

@@ -12,6 +12,7 @@ use super::mana::ManaPool;
 use super::state::{
     AbilityRef, Combat, Decision, DuelState, GameResult, StackItemKind, Step, TriggeredAbility,
 };
+use super::turn::scry_card;
 use crate::cards::{CardDefId, Keyword};
 
 /// The duel as one player sees it. The opponent's hand is face down and
@@ -33,6 +34,8 @@ pub struct PlayerView {
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItemView>,
     pub combat: Option<Combat>,
+    /// The card the viewer is looking at while they scry. Only they see it.
+    pub looking_at: Option<CardRef>,
     pub result: Option<GameResult>,
 }
 
@@ -218,6 +221,12 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
         battlefield,
         stack,
         combat: state.combat.clone(),
+        looking_at: match state.decision {
+            Some(Decision::Scry { player, kept, .. }) if player == viewer => {
+                Some(state.card_ref(scry_card(state, player, kept)?)?)
+            }
+            _ => None,
+        },
         result: state.result,
     })
 }

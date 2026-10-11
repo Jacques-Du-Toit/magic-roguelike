@@ -1,0 +1,29 @@
+{
+  "id": "opt",
+  "name": "Opt",
+  "mana_cost": "{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "scry",
+          "amount": 1
+        },
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

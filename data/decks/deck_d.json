@@ -1,0 +1,20 @@
+{
+  "id": "deck_d",
+  "name": "Blue-Black tempo: bounce, tap, discard and scry",
+  "cards": [
+    { "card": "man_o_war", "count": 2 },
+    { "card": "frost_lynx", "count": 1 },
+    { "card": "cloudkin_seer", "count": 1 },
+    { "card": "opt", "count": 2 },
+    { "card": "unsummon", "count": 1 },
+    { "card": "essence_scatter", "count": 1 },
+    { "card": "burglar_rat", "count": 2 },
+    { "card": "ravenous_chupacabra", "count": 1 },
+    { "card": "skymarch_bloodletter", "count": 1 },
+    { "card": "mind_rot", "count": 1 },
+    { "card": "disfigure", "count": 1 },
+    { "card": "doom_blade", "count": 1 },
+    { "card": "island", "count": 5 },
+    { "card": "swamp", "count": 5 }
+  ]
+}

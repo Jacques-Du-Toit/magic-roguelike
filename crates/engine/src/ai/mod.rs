@@ -15,6 +15,8 @@
 //!   everything when that is lethal.
 //! - Blocks: block where it kills the attacker or costs nothing, and chump
 //!   only to survive.
+//! - Targets of its triggered abilities: whichever leaves the best position.
+//! - Scry: bottom a land it has no use for or a spell it can't cast soon.
 
 mod combat;
 mod evaluate;
@@ -23,8 +25,12 @@ use crate::cards::{Color, ManaCost};
 use crate::data;
 use crate::duel::{
     Action, ActionError, Decision, DuelState, InternalError, ObjectId, PlayerId, Step,
-    apply_action, legal_actions,
+    apply_action, legal_actions, scry_card,
 };
+
+/// How many choices of targets, one after another, the AI thinks through
+/// when it imagines a spell resolving.
+const LOOKAHEAD: u8 = 2;
 
 /// Chooses an action for `player`, who the game must be waiting on.
 pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, ActionError> {
@@ -49,6 +55,8 @@ pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, A
         // The division on offer is the automatic one, which kills as many
         // blockers as the damage allows.
         Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,
+        Decision::ChooseTargets { .. } => best_choice(state, player, &actions, LOOKAHEAD)?,
+        Decision::Scry { kept, .. } => scry(state, player, kept)?,
     };
     if actions.contains(&choice) {
         Ok(choice)
@@ -131,18 +139,59 @@ fn priority(
         return Ok(Action::PlayLand { card: land });
     }
 
-    let baseline = outcome(state, player, None)?;
+    let baseline = outcome(state, player, None, LOOKAHEAD)?;
     let mut best: Option<(&Action, i32)> = None;
     for action in actions {
         if !matches!(action, Action::CastSpell { .. }) {
             continue;
         }
-        let gain = outcome(state, player, Some(action))? - baseline;
+        let gain = outcome(state, player, Some(action), LOOKAHEAD)? - baseline;
         if gain > 0 && best.is_none_or(|(_, best_gain)| gain > best_gain) {
             best = Some((action, gain));
         }
     }
     Ok(best.map_or(Action::PassPriority, |(action, _)| action.clone()))
+}
+
+/// The action that leaves `player` best off, among actions of which one
+/// must be taken: the first of the best.
+fn best_choice(
+    state: &DuelState,
+    player: PlayerId,
+    actions: &[Action],
+    lookahead: u8,
+) -> Result<Action, InternalError> {
+    let mut best: Option<(&Action, i32)> = None;
+    for action in actions {
+        let score = outcome(state, player, Some(action), lookahead)?;
+        if best.is_none_or(|(_, best_score)| score > best_score) {
+            best = Some((action, score));
+        }
+    }
+    best.map(|(action, _)| action.clone())
+        .ok_or_else(|| InternalError::new("the AI has nothing to choose from"))
+}
+
+/// Keep the card on top unless it is a land with plenty of lands already,
+/// or a spell that is a long way from castable.
+fn scry(state: &DuelState, player: PlayerId, kept: u8) -> Result<Action, InternalError> {
+    let def = state.def(scry_card(state, player, kept)?)?;
+    let mut lands = lands_in_hand(state, player)?.len();
+    for permanent in state.permanents_of(player) {
+        if state.def(permanent.id)?.is_land() {
+            lands += 1;
+        }
+    }
+    let unwanted = if def.is_land() {
+        lands >= 6
+    } else {
+        def.mana_cost.mana_value() as usize > lands + 3
+    };
+    Ok(if unwanted {
+        Action::ScryBottom
+    } else {
+        Action::ScryKeep
+    })
 }
 
 /// How good the position is for `player` once things settle, after taking
@@ -151,13 +200,14 @@ fn outcome(
     state: &DuelState,
     player: PlayerId,
     action: Option<&Action>,
+    lookahead: u8,
 ) -> Result<i32, InternalError> {
     let mut copy = state.clone();
     let settled = (|| {
         if let Some(action) = action {
             apply_action(&mut copy, player, action.clone())?;
         }
-        settle(&mut copy)
+        settle(&mut copy, lookahead)
     })();
     match settled {
         Ok(()) => evaluate::position(&copy, player),
@@ -171,12 +221,22 @@ fn outcome(
 /// until someone has a real decision to make.
 ///
 /// Passing needs no hidden information, so this stays within what the
-/// player may know.
-fn settle(state: &mut DuelState) -> Result<(), ActionError> {
+/// player may know. A triggered ability that needs targets on the way gets
+/// the ones that suit its controller best, `lookahead` times at most.
+fn settle(state: &mut DuelState, lookahead: u8) -> Result<(), ActionError> {
+    let mut lookahead = lookahead;
     // Far more passes than any stack and combat can need.
     for _ in 0..200 {
-        let Some(Decision::Priority { player }) = state.decision else {
-            return Ok(());
+        let player = match state.decision {
+            Some(Decision::Priority { player }) => player,
+            Some(Decision::ChooseTargets { player, .. }) if lookahead > 0 => {
+                lookahead -= 1;
+                let actions = legal_actions(state, player);
+                let choice = best_choice(state, player, &actions, lookahead)?;
+                apply_action(state, player, choice)?;
+                continue;
+            }
+            _ => return Ok(()),
         };
         let attackers = state
             .combat

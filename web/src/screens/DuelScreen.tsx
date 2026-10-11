@@ -3,7 +3,7 @@
 
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
 import { Battlefield, type Highlight } from '../components/Battlefield.tsx'
-import { CardBack } from '../components/Card.tsx'
+import { CardBack, CardFrame } from '../components/Card.tsx'
 import { DamagePanel } from '../components/DamagePanel.tsx'
 import { Hand } from '../components/Hand.tsx'
 import { GameOverOverlay, GraveyardOverlay, MulliganOverlay } from '../components/Overlays.tsx'
@@ -15,12 +15,15 @@ import {
   type Click,
   blockOptions,
   cardActions,
+  clickAimTarget,
   clickAttacker,
   clickBlockedAttacker,
   clickBlocker,
   clickHandCard,
   clickTarget,
   completedCast,
+  isAiming,
+  nextAimTargets,
   nextTargets,
   simpleAction,
 } from '../duel/interaction.ts'
@@ -65,6 +68,8 @@ export type DuelExit =
 type Mode =
   | { kind: 'idle' }
   | { kind: 'casting'; casting: Casting }
+  /** Aiming a triggered ability: the targets picked so far. */
+  | { kind: 'aiming'; chosen: Target[] }
   | { kind: 'blocking'; blocker: number }
 
 const IDLE: Mode = { kind: 'idle' }
@@ -175,7 +180,10 @@ export function DuelScreen({
     mode: IDLE,
     actions,
   })
-  const mode = modeState.actions === actions ? modeState.mode : IDLE
+  const pointing = modeState.actions === actions ? modeState.mode : IDLE
+  // An ability waiting for its targets is aimed without being asked to.
+  const mode: Mode =
+    pointing.kind === 'idle' && isAiming(actions) ? { kind: 'aiming', chosen: [] } : pointing
   const setMode = (next: Mode) => setModeState({ mode: next, actions })
 
   const [graveyardOf, setGraveyardOf] = useState<PlayerId | null>(null)
@@ -188,6 +196,10 @@ export function DuelScreen({
   const name = (def: string | undefined) => (def ? (cards.get(def)?.name ?? def) : 'a card')
   const permanentName = (object: number) =>
     name(view.battlefield.find((permanent) => permanent.object === object)?.def)
+  // What an ability comes from: a permanent, or one of the emblems.
+  const sourceName = (source: number): string =>
+    view.players.flatMap((player) => player.emblems).find((emblem) => emblem.id === source)
+      ?.name ?? permanentName(source)
   const targetName = (target: Target): string => {
     if (target.type === 'player') return target.player === HUMAN ? 'you' : 'the opponent'
     const item = view.stack.find((entry) => entry.id === target.object)
@@ -211,10 +223,15 @@ export function DuelScreen({
   }
   const onTarget = (target: Target) => {
     if (mode.kind === 'casting') resolve(clickTarget(actions, mode.casting, target))
+    if (mode.kind === 'aiming') {
+      const click = clickAimTarget(actions, mode.chosen, target)
+      if (click.kind === 'send') send(click.action)
+      else if (click.kind === 'aim') setMode({ kind: 'aiming', chosen: click.chosen })
+    }
   }
   const onPermanent = (permanent: PermanentView) => {
     const object = permanent.object
-    if (mode.kind === 'casting') {
+    if (mode.kind === 'casting' || mode.kind === 'aiming') {
       onTarget({ type: 'object', object })
     } else if (mode.kind === 'blocking') {
       if (!resolve(clickBlockedAttacker(actions, mode.blocker, object))) {
@@ -229,12 +246,16 @@ export function DuelScreen({
   const targets =
     mode.kind === 'casting'
       ? new Set(nextTargets(actions, mode.casting).map(targetKey))
-      : new Set<string>()
+      : mode.kind === 'aiming'
+        ? new Set(nextAimTargets(actions, mode.chosen).map(targetKey))
+        : new Set<string>()
   // What the spells and abilities on the stack are aimed at.
   const aimedAt = new Set(view.stack.flatMap((item) => item.targets.map(targetKey)))
   const blockTargets = mode.kind === 'blocking' ? blockOptions(actions, mode.blocker) : []
   const highlight = (object: number): Highlight => {
-    if (mode.kind === 'casting') return targets.has(`o:${object}`) ? 'target' : null
+    if (mode.kind === 'casting' || mode.kind === 'aiming') {
+      return targets.has(`o:${object}`) ? 'target' : null
+    }
     if (mode.kind === 'blocking') {
       if (object === mode.blocker) return 'selected'
       return blockTargets.includes(object) ? 'target' : null
@@ -259,6 +280,9 @@ export function DuelScreen({
     dividing === null
       ? undefined
       : view.combat?.assignments.find((entry) => entry.attacker === dividing && !entry.confirmed)
+  const scryKeep = simpleAction(actions, 'scry_keep')
+  const scryBottom = simpleAction(actions, 'scry_bottom')
+  const lookingAt = view.looking_at?.face ? cards.get(view.looking_at.face.def) : undefined
   const keep = simpleAction(actions, 'keep')
   const mulligan = simpleAction(actions, 'mulligan')
   const canAttack = actions.some((action) => action.type === 'attack')
@@ -296,6 +320,8 @@ export function DuelScreen({
     mode: promptMode,
     topOfStack: top ? stackItemName(top, cards) : null,
     canConfirmBlocks: confirmBlockers !== undefined,
+    abilitySource:
+      view.decision?.type === 'choose_targets' ? sourceName(view.decision.source) : undefined,
   })
 
   const copyReport = () => {
@@ -426,6 +452,11 @@ export function DuelScreen({
           <p className="prompt-text" data-testid="prompt">
             {prompt}
           </p>
+          {scryKeep && !busy && (
+            <div className="scry-panel" data-testid="scry-panel">
+              {lookingAt && <CardFrame def={lookingAt} size="normal" />}
+            </div>
+          )}
           {assignment && (
             <DamagePanel
               assignment={assignment}
@@ -444,9 +475,24 @@ export function DuelScreen({
               />{' '}
               Hold priority
             </label>
-            {mode.kind !== 'idle' && (
+            {mode.kind !== 'idle' && mode.kind !== 'aiming' && (
               <button type="button" onClick={() => setMode(IDLE)}>
                 Cancel
+              </button>
+            )}
+            {mode.kind === 'aiming' && mode.chosen.length > 0 && (
+              <button type="button" onClick={() => setMode(IDLE)}>
+                Choose again
+              </button>
+            )}
+            {scryBottom && (
+              <button type="button" onClick={() => send(scryBottom)}>
+                Put on the bottom
+              </button>
+            )}
+            {scryKeep && (
+              <button type="button" className="primary" onClick={() => send(scryKeep)}>
+                Keep on top
               </button>
             )}
             {castNow && (

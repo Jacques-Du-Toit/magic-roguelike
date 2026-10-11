@@ -106,6 +106,50 @@ for (const [ai, seed] of [
   })
 }
 
+// The tempo deck is built from cards that stop for a choice: Opt scries,
+// Man-o'-War's ability is aimed. TEMPO_SEED=n tries another game.
+test('a game with the tempo deck shows a scry and the aiming of an ability', async ({ page }) => {
+  const seed = process.env.TEMPO_SEED ?? '4'
+  const errors = watchForErrors(page)
+  await start(page, `seed=${seed}&you=deck_d&ai=deck_c&speed=instant`)
+  const seen = new Set<string>()
+  const shot = async (name: string) => {
+    if (process.env.SHOTS && !seen.has(name)) {
+      await page.screenshot({ path: `${process.env.SHOTS}/duel-${name}.png` })
+    }
+    seen.add(name)
+  }
+  for (let step = 0; step < 1500; step += 1) {
+    await idle(page).waitFor()
+    if (await result(page).isVisible()) break
+    const prompt = await page.getByTestId('prompt').last().innerText()
+    if (await page.getByTestId('scry-panel').isVisible()) {
+      await expect(page.getByTestId('scry-panel').locator('.card')).toHaveCount(1)
+      await expect(page.getByRole('button', { name: 'Keep on top' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Put on the bottom' })).toBeVisible()
+      await shot('scry')
+      // Bottom the first one seen, to use both buttons in one game.
+      if (!seen.has('bottomed')) {
+        seen.add('bottomed')
+        await page.getByRole('button', { name: 'Put on the bottom' }).click()
+        continue
+      }
+    }
+    // (Casting a spell with a target says "..., or cancel." instead.)
+    if (prompt.startsWith('Choose a target for') && prompt.endsWith('ability.')) {
+      expect(await page.locator('.lit-target').count()).toBeGreaterThan(1)
+      await shot('aim')
+    }
+    await clickSomething(page, step)
+  }
+  await expect(result(page)).toHaveText(/You win|You lose|Draw/)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  expect(errors).toEqual([])
+  console.log(`tempo deck, seed ${seed}: saw ${[...seen].join(' ')}`)
+  if (process.env.TEMPO_SEED) return
+  expect([...seen]).toEqual(expect.arrayContaining(['scry', 'aim']))
+})
+
 test('the same seed can be replayed, and events play with their pauses', async ({ page }) => {
   await start(page, 'seed=21&you=deck_b&ai=deck_c&speed=fast')
   const firstHand = await page.locator('[data-testid="hand"] .card-name').allInnerTexts()

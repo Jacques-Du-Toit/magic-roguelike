@@ -19,6 +19,7 @@ pub(super) fn creature_value(state: &DuelState, creature: ObjectId) -> Result<i3
             // It hits twice.
             Keyword::DoubleStrike => 1 + 2 * def.power.unwrap_or(0),
             Keyword::Flying | Keyword::Deathtouch => 2,
+            Keyword::Indestructible => 3,
             // It never attacks.
             Keyword::Defender => -def.power.unwrap_or(0),
             Keyword::Flash => 0,

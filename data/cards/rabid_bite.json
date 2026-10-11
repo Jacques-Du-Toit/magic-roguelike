@@ -1,0 +1,33 @@
+{
+  "id": "rabid_bite",
+  "name": "Rabid Bite",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Target creature you control deals damage equal to its power to target creature you don't control.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "deal_power_damage",
+          "source": {
+            "creature": {
+              "controller": "you"
+            }
+          },
+          "target": {
+            "creature": {
+              "controller": "opponent"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "mind_rot",
+  "name": "Mind Rot",
+  "mana_cost": "{2}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Target player discards two cards.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "discard",
+          "player": "target_player",
+          "amount": 2
+        }
+      ]
+    }
+  ]
+}

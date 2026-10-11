@@ -503,9 +503,13 @@ mod tests {
                 ("deck_a", "deck_a"),
                 ("deck_a", "deck_b"),
                 ("deck_a", "deck_c"),
+                ("deck_a", "deck_d"),
                 ("deck_b", "deck_b"),
                 ("deck_b", "deck_c"),
+                ("deck_b", "deck_d"),
                 ("deck_c", "deck_c"),
+                ("deck_c", "deck_d"),
+                ("deck_d", "deck_d"),
             ]
         );
         for pairing in &stats {

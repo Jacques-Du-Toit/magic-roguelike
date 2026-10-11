@@ -1,0 +1,43 @@
+{
+  "id": "skymarch_bloodletter",
+  "name": "Skymarch Bloodletter",
+  "mana_cost": "{2}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire",
+    "Soldier"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, target opponent loses 1 life and you gain 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "lose_life",
+          "player": "target_opponent",
+          "amount": 1
+        },
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}
