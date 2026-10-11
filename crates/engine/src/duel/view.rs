@@ -79,6 +79,8 @@ pub struct PermanentView {
     pub toughness: Option<i32>,
     /// The keywords it has now, printed first and then granted.
     pub keywords: Vec<Keyword>,
+    /// +1/+1 counters on it.
+    pub counters: u32,
     pub damage: i32,
     /// For an Aura, the permanent it enchants.
     pub attached_to: Option<ObjectId>,
@@ -178,6 +180,7 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
                 None
             },
             keywords: state.keywords(id)?,
+            counters: permanent.plus_counters,
             damage: permanent.damage,
             attached_to: permanent.attached_to,
         });

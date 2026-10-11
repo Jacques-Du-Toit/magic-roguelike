@@ -224,6 +224,13 @@ pub enum GameEvent {
         target: Target,
         amount: i32,
     },
+    /// +1/+1 counters were put on a creature. `counters` is how many it
+    /// has now.
+    CountersAdded {
+        permanent: ObjectId,
+        amount: u32,
+        counters: u32,
+    },
     /// A token was created on the battlefield.
     TokenCreated {
         player: PlayerId,

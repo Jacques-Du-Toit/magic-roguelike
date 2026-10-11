@@ -107,7 +107,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 |---|---|---|
 | P/T modification until EOT | In | |
 | Anthems (static +N/+N) | In | |
-| Counters | In | +1/+1 first; −1/−1 later. |
+| Counters | In | +1/+1 counters are built (M4a); −1/−1 later. |
 | Keyword grants | In | |
 | "Can't attack / can't block" restrictions | In | Needed for Pacifism. |
 | "Doesn't untap during its controller's next untap step" | In | Added in M4a for Frost Lynx; part of the tap effect. |

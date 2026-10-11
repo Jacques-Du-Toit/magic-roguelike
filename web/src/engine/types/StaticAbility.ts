@@ -7,4 +7,8 @@ export type StaticAbility = { "type": "restriction", affects: Affects, cant: Arr
 /**
  * "With flying": only those that have this keyword.
  */
-with_keyword: Keyword | null, } | { "type": "grant_keyword", affects: Affects, keyword: Keyword, };
+with_keyword: Keyword | null, } | { "type": "grant_keyword", affects: Affects, keyword: Keyword, 
+/**
+ * "With a +1/+1 counter on it": only those that have one.
+ */
+with_counter: boolean, };

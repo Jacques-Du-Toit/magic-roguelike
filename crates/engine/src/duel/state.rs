@@ -126,6 +126,8 @@ pub struct GameObject {
     pub attached_to: Option<ObjectId>,
     /// Keywords it has until end of turn.
     pub granted_keywords: Vec<Keyword>,
+    /// +1/+1 counters on it.
+    pub plus_counters: u32,
     /// It doesn't untap during its controller's next untap step.
     pub skip_untap: bool,
 }
@@ -313,6 +315,7 @@ impl GameObject {
             toughness_bonus: 0,
             attached_to: None,
             granted_keywords: Vec::new(),
+            plus_counters: 0,
             skip_untap: false,
         }
     }
@@ -604,8 +607,8 @@ impl DuelState {
     }
 
     /// What lasting effects add to a creature's power and toughness:
-    /// anthems, and Auras that change them. Not what wears off at end of
-    /// turn.
+    /// +1/+1 counters, anthems, and Auras that change them. Not what wears
+    /// off at end of turn.
     pub(crate) fn static_bonus(&self, id: ObjectId) -> Result<(i32, i32), InternalError> {
         let mut anthems = Vec::new();
         self.statics_on(id, |ability| {
@@ -619,7 +622,8 @@ impl DuelState {
                 anthems.push((*power, *toughness, *with_keyword));
             }
         })?;
-        let mut bonus = (0, 0);
+        let counters = i32::try_from(self.object(id)?.plus_counters).unwrap_or(i32::MAX);
+        let mut bonus = (counters, counters);
         for (power, toughness, with_keyword) in anthems {
             let applies = match with_keyword {
                 Some(keyword) => self.has_keyword(id, keyword)?,
@@ -648,13 +652,20 @@ impl DuelState {
     /// The keywords a creature on the battlefield has been given: until end
     /// of turn, or by an emblem or another permanent.
     fn given_keywords(&self, id: ObjectId) -> Result<Vec<Keyword>, InternalError> {
+        let object = self.object(id)?;
+        let has_counter = object.plus_counters > 0;
         let mut keywords = Vec::new();
         self.statics_on(id, |ability| {
-            if let StaticAbility::GrantKeyword { keyword, .. } = ability {
+            if let StaticAbility::GrantKeyword {
+                keyword,
+                with_counter,
+                ..
+            } = ability
+                && (has_counter || !with_counter)
+            {
                 keywords.push(*keyword);
             }
         })?;
-        let object = self.object(id)?;
         if object.zone == Zone::Battlefield && self.def(id)?.is_creature() {
             keywords.extend(&object.granted_keywords);
         }

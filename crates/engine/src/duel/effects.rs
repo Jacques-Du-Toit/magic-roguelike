@@ -32,6 +32,18 @@ pub(crate) fn apply_effect(
     targets: &[Target],
 ) -> Result<Applied, InternalError> {
     match *effect {
+        Effect::AddCounters { amount, .. } => {
+            let permanent = object(effect, targets, 0)?;
+            if state.is_creature(permanent)? {
+                let creature = state.object_mut(permanent)?;
+                creature.plus_counters = creature.plus_counters.saturating_add(amount);
+                events.push(GameEvent::CountersAdded {
+                    permanent,
+                    amount,
+                    counters: creature.plus_counters,
+                });
+            }
+        }
         Effect::CreateToken { ref token, count } => {
             for _ in 0..count {
                 let id = state.create_card(controller, token.clone(), Zone::Battlefield);

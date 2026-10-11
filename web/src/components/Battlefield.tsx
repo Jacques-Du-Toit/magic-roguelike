@@ -95,6 +95,11 @@ function Permanent({
               {shared.targeted(permanent.object) && (
                 <span className="badge badge-targeted">Targeted</span>
               )}
+              {permanent.counters > 0 && (
+                <span className="badge badge-granted" data-testid="counters">
+                  +1/+1 ×{permanent.counters}
+                </span>
+              )}
               {granted.map((keyword) => (
                 <span key={keyword} className="badge badge-granted">
                   {keyword.replace('_', ' ')}

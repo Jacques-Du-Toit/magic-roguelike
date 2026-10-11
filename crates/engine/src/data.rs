@@ -538,7 +538,7 @@ mod tests {
         let creatures = count(|card| card.is_creature());
         let others = count(|card| !card.is_land() && !card.is_creature());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (67, 30));
+        assert_eq!((creatures, others), (71, 30));
         assert_eq!(data().cards.iter().filter(|card| card.token).count(), 7);
     }
 
@@ -914,7 +914,7 @@ mod tests {
     /// Cards added in M4a that no deck uses yet. Those in a character's
     /// colours already turn up as rewards; the rest wait for the enemy decks
     /// to be rebuilt on the cube at the end of M4a.
-    const NOT_YET_MET: [&str; 27] = [
+    const NOT_YET_MET: [&str; 31] = [
         "ambush_viper",
         "angelic_wall",
         "druid_of_the_cowl",
@@ -929,6 +929,10 @@ mod tests {
         "swiftblade_vindicator",
         "thornweald_archer",
         "titanic_growth",
+        "ajanis_pridemate",
+        "ironshell_beetle",
+        "pridemalkin",
+        "unruly_mob",
         "doomed_dissenter",
         "dragon_fodder",
         "goblin_instigator",

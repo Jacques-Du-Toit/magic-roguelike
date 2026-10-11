@@ -13,7 +13,11 @@ power: number | null, toughness: number | null,
 /**
  * The keywords it has now, printed first and then granted.
  */
-keywords: Array<Keyword>, damage: number, 
+keywords: Array<Keyword>, 
+/**
+ * +1/+1 counters on it.
+ */
+counters: number, damage: number, 
 /**
  * For an Aura, the permanent it enchants.
  */

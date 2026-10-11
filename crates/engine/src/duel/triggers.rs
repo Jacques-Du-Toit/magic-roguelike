@@ -156,6 +156,9 @@ fn triggers_on(
             TriggerSubject::CreatureYouControl => {
                 creature_of_controller(object)?.then_some(Some(object))
             }
+            TriggerSubject::AnotherCreatureYouControl => {
+                (creature_of_controller(object)? && !is_holder(object)).then_some(Some(object))
+            }
         })
     };
     Ok(match (*trigger, happening) {

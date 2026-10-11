@@ -280,15 +280,15 @@ Dual land (one mana ability per colour; it still makes one mana per tap):
 
 ### Ability kinds
 - `spell` — effects when an instant/sorcery resolves.
-- `triggered` — `{ "trigger": {...}, "effects": [...] }`. Built so far: `enters_battlefield` and `dies` (each with `"subject": "self"` or `"creature_you_control"`, the latter including the permanent itself), `attacks`, `deals_damage_to_opponent`, `gain_life`, `cast_spell` (with `"kind": "instant_or_sorcery"` or `"noncreature"`) and `beginning_of_upkeep`. `"once_each_turn": true` makes it "the first time each turn". Prowess is a keyword, not an ability in the data: the engine supplies its trigger.
+- `triggered` — `{ "trigger": {...}, "effects": [...] }`. Built so far: `enters_battlefield` and `dies` (each with `"subject": "self"`, `"creature_you_control"`, which includes the permanent itself, or `"another_creature_you_control"`), `attacks`, `deals_damage_to_opponent`, `gain_life`, `cast_spell` (with `"kind": "instant_or_sorcery"` or `"noncreature"`) and `beginning_of_upkeep`. `"once_each_turn": true` makes it "the first time each turn". Prowess is a keyword, not an ability in the data: the engine supplies its trigger.
 - `activated` — `{ "cost": {...}, "effects": [...] }` costs: mana, tap, sacrifice, pay life.
-- `static` — continuous effects: `{ "type": "anthem", "affects": ..., "power": 1, "toughness": 1 }` (optionally `"with_keyword": "flying"`), `{ "type": "grant_keyword", "affects": ..., "keyword": ... }` and `{ "type": "restriction", "affects": "enchanted", "cant": [...] }`. `affects` is `enchanted` (an Aura's creature), `creatures_you_control` or `other_creatures_you_control`.
+- `static` — continuous effects: `{ "type": "anthem", "affects": ..., "power": 1, "toughness": 1 }` (optionally `"with_keyword": "flying"`), `{ "type": "grant_keyword", "affects": ..., "keyword": ... }` (optionally `"with_counter": true` for "with a +1/+1 counter on it") and `{ "type": "restriction", "affects": "enchanted", "cant": [...] }`. `affects` is `enchanted` (an Aura's creature), `creatures_you_control` or `other_creatures_you_control`.
 - `mana` — mana abilities (don't use the stack).
 
 ### Effect primitives (initial set; grow carefully)
 `deal_damage`, `gain_life`, `lose_life`, `draw_cards`, `discard`, `destroy`, `exile`, `counter_spell`, `create_token`, `add_counters`, `modify_pt_until_eot`, `grant_keyword_until_eot`, `tap`, `untap`, `return_to_hand`, `add_mana`, `scry`, `search_library` (if needed), `mill`, `sacrifice`.
 
-Built so far: `deal_damage`, `deal_power_damage` (a creature deals damage equal to its power: two targets), `destroy`, `counter_spell`, `discard`, `draw_cards`, `gain_life`, `lose_life`, `grant_keyword_until_eot`, `modify_pt_until_eot`, `return_to_hand`, `scry`, `tap` (with `skip_next_untap` for "doesn't untap during its controller's next untap step").
+Built so far: `add_counters` (+1/+1 counters on a creature; they last as long as it stays on the battlefield), `create_token` (see Tokens below), `deal_damage`, `deal_power_damage` (a creature deals damage equal to its power: two targets), `destroy`, `counter_spell`, `discard`, `draw_cards`, `gain_life`, `lose_life`, `grant_keyword_until_eot`, `modify_pt_until_eot`, `return_to_hand`, `scry`, `tap` (with `skip_next_untap` for "doesn't untap during its controller's next untap step").
 
 Effects on a player name one: `controller`, `opponent`, or a targeted one, `target_player` or `target_opponent`.
 

@@ -65,6 +65,12 @@ describe('describeEvent', () => {
     expect(text({ type: 'token_created', player: 'P2', card: drake })).toBe(
       'Opponent creates a Wind Drake token',
     )
+    expect(text({ type: 'counters_added', permanent: 1, amount: 1, counters: 2 })).toBe(
+      'Hill Giant gets a +1/+1 counter',
+    )
+    expect(text({ type: 'counters_added', permanent: 1, amount: 2, counters: 2 })).toBe(
+      'Hill Giant gets 2 +1/+1 counters',
+    )
     expect(text({ type: 'card_kept_on_top', player: 'P1' })).toBe('You keep a card on top')
     expect(text({ type: 'card_kept_on_top', player: 'P2' })).toBe('Opponent keeps a card on top')
     // A bounced permanent is shown leaving before the view changes.

@@ -9,6 +9,8 @@ mod combat;
 #[cfg(test)]
 mod combat_tests;
 mod config;
+#[cfg(test)]
+mod counter_tests;
 mod damage;
 mod effects;
 #[cfg(test)]

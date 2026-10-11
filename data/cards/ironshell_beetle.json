@@ -1,0 +1,36 @@
+{
+  "id": "ironshell_beetle",
+  "name": "Ironshell Beetle",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Insect"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, put a +1/+1 counter on target creature.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "creature": {}
+          },
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

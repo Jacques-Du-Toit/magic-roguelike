@@ -232,6 +232,9 @@ pub enum TriggerSubject {
     /// Any creature the controller controls, the one the ability is on
     /// included.
     CreatureYouControl,
+    /// Any creature the controller controls other than the one the ability
+    /// is on.
+    AnotherCreatureYouControl,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -253,6 +256,9 @@ pub enum StaticAbility {
     GrantKeyword {
         affects: Affects,
         keyword: Keyword,
+        /// "With a +1/+1 counter on it": only those that have one.
+        #[serde(default)]
+        with_counter: bool,
     },
 }
 
@@ -279,6 +285,11 @@ pub enum Restricted {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Effect {
+    /// Puts `amount` +1/+1 counters on a creature.
+    AddCounters {
+        target: TargetSpec,
+        amount: u32,
+    },
     CounterSpell {
         target: TargetSpec,
     },
@@ -350,6 +361,7 @@ impl Effect {
     /// The effect's name as written in card data.
     pub fn name(&self) -> &'static str {
         match self {
+            Effect::AddCounters { .. } => "add_counters",
             Effect::CounterSpell { .. } => "counter_spell",
             Effect::CreateToken { .. } => "create_token",
             Effect::DealDamage { .. } => "deal_damage",
@@ -372,7 +384,8 @@ impl Effect {
     /// are chosen when the spell or ability goes on the stack.
     pub fn targets(&self) -> Vec<TargetSpec> {
         match self {
-            Effect::CounterSpell { target }
+            Effect::AddCounters { target, .. }
+            | Effect::CounterSpell { target }
             | Effect::DealDamage { target, .. }
             | Effect::Destroy { target }
             | Effect::GrantKeywordUntilEot { target, .. }
@@ -713,9 +726,9 @@ pub(crate) fn validate_triggered(trigger: &Trigger, effects: &[Effect]) -> Resul
     let has_subject = matches!(
         trigger,
         Trigger::EntersBattlefield {
-            subject: TriggerSubject::CreatureYouControl
+            subject: TriggerSubject::CreatureYouControl | TriggerSubject::AnotherCreatureYouControl
         } | Trigger::Dies {
-            subject: TriggerSubject::CreatureYouControl
+            subject: TriggerSubject::CreatureYouControl | TriggerSubject::AnotherCreatureYouControl
         }
     );
     let uses_triggering = effects
@@ -761,7 +774,8 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
                 | TargetSpec::Player {}
         ))
         .then_some(target),
-        Effect::Destroy { target }
+        Effect::AddCounters { target, .. }
+        | Effect::Destroy { target }
         | Effect::GrantKeywordUntilEot { target, .. }
         | Effect::ModifyPtUntilEot { target, .. }
         | Effect::ReturnToHand { target }
@@ -787,7 +801,8 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         });
     }
     match effect {
-        Effect::DealDamage { amount: 0, .. }
+        Effect::AddCounters { amount: 0, .. }
+        | Effect::DealDamage { amount: 0, .. }
         | Effect::Discard { amount: 0, .. }
         | Effect::DrawCards { amount: 0, .. }
         | Effect::GainLife { amount: 0, .. }

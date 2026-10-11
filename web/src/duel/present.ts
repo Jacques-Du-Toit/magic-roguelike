@@ -166,6 +166,10 @@ export function describeEvent(event: GameEvent, context: NameContext): LogEntry 
       return line(`${object(event.source)} deals ${event.amount} damage to ${target(event.target)}`)
     case 'creature_died':
       return line(`${whose(event.player)} ${face(event.card)} dies`)
+    case 'counters_added': {
+      const counters = event.amount === 1 ? 'a +1/+1 counter' : `${event.amount} +1/+1 counters`
+      return line(`${object(event.permanent)} gets ${counters}`)
+    }
     case 'token_created':
       return line(`${who(event.player)} ${verb(event.player, 'create')} a ${face(event.card)} token`)
     case 'keyword_granted':
@@ -191,6 +195,7 @@ function beatKind(event: GameEvent): BeatKind | null {
     case 'damage_dealt':
     case 'life_changed':
     case 'power_toughness_changed':
+    case 'counters_added':
       return 'impact'
     case 'creature_died':
     case 'permanent_put_into_graveyard':
@@ -283,6 +288,13 @@ export function planPresentation(events: GameEvent[], context: NameContext): Pre
           key: targetKey({ type: 'object', object: event.permanent }),
           text: `${signed(event.power)}/${signed(event.toughness)}`,
           tone: event.power < 0 || event.toughness < 0 ? 'harm' : 'help',
+        })
+        break
+      case 'counters_added':
+        effects.floats.push({
+          key: targetKey({ type: 'object', object: event.permanent }),
+          text: `+${event.amount}/+${event.amount}`,
+          tone: 'help',
         })
         break
       case 'creature_died':

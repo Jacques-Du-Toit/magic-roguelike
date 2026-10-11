@@ -600,6 +600,23 @@ fn scrying_it_bottoms_a_land_when_flooded_and_a_spell_it_cannot_cast_for_ages() 
     assert_eq!(scry_with(1, "coral_merfolk"), Action::ScryKeep);
 }
 
+#[test]
+fn puts_a_counter_on_its_own_best_creature_not_on_the_enemys() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 2);
+    put_on_battlefield(&mut state, me, "elvish_visionary");
+    put_on_battlefield(&mut state, opponent, "serra_angel");
+    let beetle = put_in_hand(&mut state, me, "ironshell_beetle");
+    apply_action(&mut state, me, cast(beetle)).unwrap();
+    crate::duel::test_support::pass_both(&mut state);
+    let Action::ChooseTargets { targets } = choose(&state, me) else {
+        panic!("expected to aim the Beetle's ability");
+    };
+    let Target::Object { object } = targets[0] else {
+        panic!("expected a creature");
+    };
+    assert_eq!(state.objects[&object].owner, me);
+}
 // ---- Enchantments ----
 
 #[test]

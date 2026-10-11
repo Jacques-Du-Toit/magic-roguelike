@@ -149,6 +149,11 @@ pub(crate) fn pass_until(state: &mut DuelState, turn: u32, step: Step) -> Vec<Ga
             Some(Decision::DeclareBlockers { player }) => {
                 events.extend(apply_action(state, player, Action::ConfirmBlockers).unwrap());
             }
+            // Too many cards at cleanup: the first goes.
+            Some(Decision::Discard { player, .. }) => {
+                let card = state.player(player).hand[0];
+                events.extend(apply_action(state, player, Action::Discard { card }).unwrap());
+            }
             other => panic!(
                 "can't pass at turn {} {:?}: waiting on {other:?}",
                 state.turn, state.step

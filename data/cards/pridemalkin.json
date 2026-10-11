@@ -1,0 +1,45 @@
+{
+  "id": "pridemalkin",
+  "name": "Pridemalkin",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Cat"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, put a +1/+1 counter on target creature you control.\nEach creature you control with a +1/+1 counter on it has trample. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "creature": {
+              "controller": "you"
+            }
+          },
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "creatures_you_control",
+      "keyword": "trample",
+      "with_counter": true
+    }
+  ]
+}
