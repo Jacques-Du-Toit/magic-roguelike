@@ -52,19 +52,11 @@
       "duel_loss": 10,
       "elite_win": 50,
       "elite_loss": 0,
-      "draw": 10,
-      "high_life": {
-        "min_life": 15,
-        "gold": 10
-      },
-      "fast_win": {
-        "max_turns": 14,
-        "gold": 10
-      }
+      "draw": 10
     },
     "rewards": {
       "choices": 3,
-      "own_color_choices": 2,
+      "own_color_choices": 3,
       "land_percent": 15,
       "duel": { "common": 75, "uncommon": 22, "rare": 3, "mythic": 0 },
       "elite": { "common": 40, "uncommon": 45, "rare": 15, "mythic": 0 }

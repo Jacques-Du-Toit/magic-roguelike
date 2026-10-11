@@ -70,10 +70,6 @@ export function describeRunEvent(event: RunEvent, names: RunNames): string | nul
           return `+${amount} all the same.`
         case 'duel_drawn':
           return `+${amount} for the draw.`
-        case 'high_life':
-          return `+${amount} for winning with plenty of life.`
-        case 'fast_win':
-          return `+${amount} for a quick win.`
         case 'relic':
           return `+${amount} from a relic.`
         case 'purchase':

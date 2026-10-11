@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M3**
+**Active milestone: M4** (part M4a: rules and the first cube)
 
 ---
 
@@ -135,6 +135,15 @@ Known limits, left for M4: the AI only ever double-blocks to survive a menace at
 
 ---
 ## M4 — Content expansion
+
+Built in four parts, each ending in something to play:
+
+- **M4a — rules and the first cube.** The Scryfall tool, then the rules the cube needs, a group at a time (keywords, target predicates, targeted triggers and small effects, more triggers and statics, tokens, +1/+1 counters, activated abilities, the graveyard), each with its cards, to about 114 spells. One act, played with the bigger pool.
+- **M4b — better AI.** Rollouts on copies of the game; double-blocks; holding mana for instants. Shown with the sim, old against new.
+- **M4c — three acts.** Acts, Draft, Event and Treasure nodes, upgrades, relics, bosses, new characters, a land collection with adjustable basics, consumables. Before it starts: play a commander prototype and decide whether characters become commanders.
+- **M4d — the cube to 250–300.** Archetype packages, the rules they need (asked for one at a time), balance passes.
+
+After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes.
 - [ ] Scryfall import tool.

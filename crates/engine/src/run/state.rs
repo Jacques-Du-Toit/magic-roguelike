@@ -214,10 +214,6 @@ pub enum GoldReason {
     DuelWon,
     DuelLost,
     DuelDrawn,
-    /// Won with plenty of life left.
-    HighLife,
-    /// Won quickly.
-    FastWin,
     Relic,
     Purchase,
     Removal,

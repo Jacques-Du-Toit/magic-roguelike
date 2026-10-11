@@ -274,12 +274,6 @@ fn winning_a_duel_pays_gold_and_offers_three_cards() {
     let mut state = run("warden", 3);
     let node = travels(&state)[0];
     act(&mut state, RunAction::Travel { node });
-    // A slow win at low life: no bonuses.
-    {
-        let duel = state.duel.as_mut().unwrap();
-        duel.turn = gold.fast_win.max_turns + 1;
-        duel.players[PLAYER.index()].life = gold.high_life.min_life - 1;
-    }
     let before = state.gold;
     let events = finish(&mut state, win());
     assert_eq!(state.gold, before + gold.duel_win);
@@ -319,37 +313,16 @@ fn winning_a_duel_pays_gold_and_offers_three_cards() {
 }
 
 #[test]
-fn a_dominant_win_pays_bonuses() {
+fn a_win_pays_the_same_however_it_was_won() {
     let gold = &data::embedded().unwrap().balance.run.gold;
     let mut state = run("warden", 3);
     let node = travels(&state)[0];
     act(&mut state, RunAction::Travel { node });
-    {
-        let duel = state.duel.as_mut().unwrap();
-        duel.turn = gold.fast_win.max_turns;
-        duel.players[PLAYER.index()].life = gold.high_life.min_life;
-    }
+    // A quick win at full life earns no more than any other.
+    state.duel.as_mut().unwrap().turn = 3;
     let before = state.gold;
-    let events = finish(&mut state, win());
-    assert_eq!(
-        state.gold,
-        before + gold.duel_win + gold.high_life.gold + gold.fast_win.gold
-    );
-    let reasons: Vec<GoldReason> = events
-        .iter()
-        .filter_map(|event| match event {
-            RunEvent::GoldChanged { reason, .. } => Some(*reason),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        reasons,
-        [
-            GoldReason::DuelWon,
-            GoldReason::HighLife,
-            GoldReason::FastWin
-        ]
-    );
+    finish(&mut state, win());
+    assert_eq!(state.gold, before + gold.duel_win);
 }
 
 #[test]

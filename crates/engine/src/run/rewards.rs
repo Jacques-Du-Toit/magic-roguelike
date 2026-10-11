@@ -239,11 +239,10 @@ mod tests {
     }
 
     #[test]
-    fn a_reward_is_three_different_cards_two_of_them_in_colour() {
+    fn a_reward_is_three_different_cards_in_the_players_colours() {
         let data = data::embedded().unwrap();
         let weights = &data.balance.run.rewards.duel;
         let mut lands = 0;
-        let mut off_colour = 0;
         for seed in 0..400 {
             let mut rng = DuelRng::from_seed(seed);
             let choices = card_reward(&mut rng, data, &GW, weights);
@@ -257,13 +256,26 @@ mod tests {
             if last.is_land() {
                 assert_eq!(last.id.as_str(), "selesnya_guildgate");
                 lands += 1;
-            } else if !in_colors(last, &GW) {
-                off_colour += 1;
+            } else {
+                assert!(in_colors(last, &GW), "{}", last.id);
             }
             assert!(choices.iter().all(|id| card(id).supertypes.is_empty()));
         }
-        // 15% of rewards have a land, and the third card is often off-colour.
+        // 15% of rewards have a land.
         assert!((30..=90).contains(&lands), "{lands} lands in 400 rewards");
+    }
+
+    #[test]
+    fn slots_past_the_own_colour_ones_offer_any_colour() {
+        let data = data::embedded().unwrap();
+        let weights = &data.balance.run.rewards.duel;
+        let mut off_colour = 0;
+        for seed in 0..400 {
+            let mut rng = DuelRng::from_seed(seed);
+            let offer = spell_offer(&mut rng, &data.cards, &GW, weights, 3, 2);
+            assert!(offer[..2].iter().all(|id| in_colors(card(id), &GW)));
+            off_colour += u32::from(!in_colors(card(&offer[2]), &GW));
+        }
         assert!(off_colour > 100, "{off_colour} off-colour cards");
     }
 

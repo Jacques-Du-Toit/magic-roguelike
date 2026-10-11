@@ -367,7 +367,7 @@ fn finish_duel(
     let Phase::Duel { enemy, kind } = state.phase.clone() else {
         return Err(RunError::NoDuel);
     };
-    let duel = state.duel.take().ok_or(RunError::NoDuel)?;
+    state.duel.take().ok_or(RunError::NoDuel)?;
     events.push(RunEvent::DuelEnded {
         enemy: enemy.clone(),
         kind,
@@ -405,22 +405,6 @@ fn finish_duel(
                 _ => gold.duel_win,
             };
             change_gold(state, events, i64::from(prize), GoldReason::DuelWon);
-            if duel.player(PLAYER).life >= gold.high_life.min_life {
-                change_gold(
-                    state,
-                    events,
-                    i64::from(gold.high_life.gold),
-                    GoldReason::HighLife,
-                );
-            }
-            if duel.turn <= gold.fast_win.max_turns {
-                change_gold(
-                    state,
-                    events,
-                    i64::from(gold.fast_win.gold),
-                    GoldReason::FastWin,
-                );
-            }
             change_gold(
                 state,
                 events,

@@ -15,12 +15,12 @@ describe('describeRunEvents', () => {
     const events: RunEvent[] = [
       { type: 'duel_ended', enemy: 'goblin_raid', kind: 'normal', outcome: 'won' },
       { type: 'gold_changed', change: 30, gold: 60, reason: 'duel_won' },
-      { type: 'gold_changed', change: 10, gold: 70, reason: 'high_life' },
+      { type: 'gold_changed', change: 10, gold: 70, reason: 'relic' },
     ]
     expect(describeRunEvents(events, names())).toEqual([
       'You beat Goblin Raid.',
       '+30 gold for the win.',
-      '+10 gold for winning with plenty of life.',
+      '+10 gold from a relic.',
     ])
   })
 

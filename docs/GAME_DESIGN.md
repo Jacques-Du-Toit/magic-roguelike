@@ -39,11 +39,9 @@ In-duel life and run health are **separate**.
   - Start with an extra land on the battlefield
 - Keep boons modest. A heart is an edge, not a win. Watch for snowballing.
 
-### 3.2 Win-margin bonuses
+### 3.2 Tying duels together
 
-Because life doesn't carry over, reward dominant wins so lifegain and aggro both have run-level value:
-- Bonus gold for winning above a life threshold (e.g. 15+).
-- Bonus gold for winning by a certain turn (e.g. turn 7).
+Because life doesn't carry over, each duel stands alone unless something else links them. Gold bonuses for winning fast or at high life were tried in M3 and dropped: they favour some archetypes over others (`DECISIONS.md` #36). The planned link is **consumables**: single-use items, each about as strong as a boon, earned at events, treasure and shops and spent in a duel of the player's choosing. A later maybe: wagers, where the player gives the enemy an emblem for a better reward.
 
 ## 4. The duel
 

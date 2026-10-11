@@ -191,25 +191,6 @@ pub struct GoldBalance {
     pub elite_win: u32,
     pub elite_loss: u32,
     pub draw: u32,
-    pub high_life: HighLifeBonus,
-    pub fast_win: FastWinBonus,
-}
-
-/// Extra gold for winning with at least `min_life` life.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HighLifeBonus {
-    pub min_life: i32,
-    pub gold: u32,
-}
-
-/// Extra gold for winning within `max_turns` turns, counting both players'
-/// turns.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FastWinBonus {
-    pub max_turns: u32,
-    pub gold: u32,
 }
 
 /// Card rewards: `choices` different cards, the first `own_color_choices`
