@@ -1,0 +1,111 @@
+# Tech Stack and Setup
+
+## Overview
+
+| Layer | Choice | Why |
+|---|---|---|
+| Rules engine | **Rust** (stable) | Strict compiler catches AI mistakes early; fast; tiny output; owner has Rust experience. |
+| Engine → browser | **WebAssembly** via `wasm-bindgen` + `wasm-pack` | Run the Rust engine in the browser at near-native speed. |
+| Data across the boundary | `serde` + JSON strings | Easy to log and paste into bug reports. `u64` seeds cross as decimal strings. |
+| Shared types | `ts-rs` | Generates TypeScript types from the Rust ones into `web/src/engine/types/`. |
+| Card embedding | `include_dir` | Bundles `data/` into the engine at compile time for native and wasm. |
+| Front end | **TypeScript** (strict) + **React** + **Vite** | Huge AI training data; great for card-game UI; fast dev server. |
+| Animation | CSS transitions / Framer Motion to start; PixiJS later if needed | Keep it simple until it isn't enough. |
+| RNG | `rand` + `rand_chacha` (seeded `ChaCha8Rng`) | Deterministic, reproducible games from a seed. |
+| Rust tests | `cargo test`, optionally `proptest` for property tests | Rules correctness. |
+| Web tests | **Vitest**; **Playwright** later for end-to-end | UI logic and smoke tests. |
+| Card data source | **Scryfall** bulk data (JSON) | Accurate card text, costs, types. |
+| Hosting | **Render** static site (or itch.io / GitHub Pages) | Free, just a static build. |
+| Desktop (later) | **Tauri** | Wraps the web build into a small native app for Steam. |
+| Version control | **Git + GitHub** | Essential safety net for AI-written code. |
+| Editor / AI | VS Code + Claude Code | |
+
+## Install (one time)
+
+1. **Rust**: install via [rustup](https://rustup.rs). Then:
+   ```bash
+   rustup update stable
+   rustup target add wasm32-unknown-unknown
+   rustup component add clippy rustfmt
+   ```
+2. **wasm-pack**:
+   ```bash
+   cargo install wasm-pack
+   ```
+   (wasm-pack and wasm-bindgen are maintained outside the old rustwasm org since 2025 but still active. If `wasm-pack` gives trouble, use `wasm-bindgen-cli` directly.)
+3. **Node.js**: current LTS from [nodejs.org](https://nodejs.org) (includes npm).
+4. **Git**, and a **GitHub** account.
+5. **VS Code** extensions: rust-analyzer, ESLint, Prettier, Even Better TOML.
+
+Commands in this doc are written one per line so they work in Windows PowerShell 5.1, which has no `&&`.
+
+Check everything:
+```bash
+rustc --version
+cargo --version
+wasm-pack --version
+node --version
+npm --version
+git --version
+```
+
+## Repository layout
+
+```
+/
+├─ CLAUDE.md
+├─ Cargo.toml              # Rust workspace
+├─ crates/
+│  ├─ engine/              # pure rules engine (no wasm, no IO)
+│  ├─ engine-wasm/         # thin wasm-bindgen wrapper around engine
+│  └─ sim/                 # CLI: headless AI-vs-AI games, balance checks
+├─ data/
+│  ├─ cards/               # card definitions (JSON)
+│  ├─ decks/               # starter + enemy decklists
+│  └─ balance.json         # all tunable numbers
+├─ tools/                  # scripts, e.g. Scryfall import
+├─ web/                    # Vite + React + TS front end
+│  └─ src/wasm/            # generated wasm package (gitignored)
+└─ docs/
+```
+
+## Day-to-day workflow
+
+```bash
+# 1. Engine work: write tests + code, then
+cargo test
+cargo clippy --all-targets -- -D warnings
+
+# 2. Rebuild wasm when engine API or behaviour changes
+wasm-pack build crates/engine-wasm --target web --out-dir ../../web/src/wasm
+
+# 3. Run the game (from web/)
+npm run dev                # open the printed localhost URL
+
+# 4. Simulate games headlessly
+cargo run -p sim -- --games 100 --seed 42
+```
+
+Add an npm script (e.g. `npm run wasm`) that runs the wasm-pack build so you don't retype it. Consider `vite-plugin-wasm` / `vite-plugin-top-level-await` if needed for loading.
+
+## Card data from Scryfall
+
+- Scryfall offers free bulk data downloads (see scryfall.com/docs/api/bulk-data). Use the "Oracle Cards" file.
+- A script in `tools/` filters it to cube cards and converts to our card format (`data/cards/`). Card **effects** are still hand-authored (or AI-authored) in our effect format; Scryfall supplies name, cost, types, P/T, oracle text, rarity, and image URIs.
+- Follow Scryfall's API guidelines (rate limits, attribution, don't hotlink in bulk carelessly). For the prototype, text-only cards with a placeholder frame are fine; card images can come later.
+
+## Git habits
+
+- Commit after every working step. Small commits make AI mistakes easy to undo.
+- Use branches for bigger features; merge when tests pass.
+- `.gitignore`: `target/`, `web/node_modules/`, `web/dist/`, `web/src/wasm/`, Scryfall bulk files.
+
+## Deploying (when ready to share)
+
+1. `npm run wasm`, then `npm run build` → static files in `web/dist`.
+2. Render: create a **Static Site**, point at the repo, build command runs the wasm + web build (the build environment needs Rust and wasm-pack; if that's awkward, build locally/in GitHub Actions and deploy the `dist` output, or use GitHub Pages / itch.io).
+3. Share the link.
+
+## Later: desktop with Tauri
+
+Tauri wraps `web/dist` in a native window with a small binary. Only worth doing if heading to Steam.
