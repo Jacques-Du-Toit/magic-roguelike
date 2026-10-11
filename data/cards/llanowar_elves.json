@@ -1,0 +1,28 @@
+{
+  "id": "llanowar_elves",
+  "name": "Llanowar Elves",
+  "mana_cost": "{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Druid"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "{T}: Add {G}.",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{G}"
+    }
+  ]
+}

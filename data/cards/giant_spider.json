@@ -1,0 +1,22 @@
+{
+  "id": "giant_spider",
+  "name": "Giant Spider",
+  "mana_cost": "{3}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Spider"
+  ],
+  "power": 2,
+  "toughness": 4,
+  "rarity": "common",
+  "keywords": [
+    "reach"
+  ],
+  "oracle_text": "Reach (This creature can block creatures with flying.)",
+  "abilities": []
+}

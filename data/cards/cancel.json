@@ -1,0 +1,26 @@
+{
+  "id": "cancel",
+  "name": "Cancel",
+  "mana_cost": "{1}{U}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Counter target spell.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "counter_spell",
+          "target": {
+            "spell": {}
+          }
+        }
+      ]
+    }
+  ]
+}

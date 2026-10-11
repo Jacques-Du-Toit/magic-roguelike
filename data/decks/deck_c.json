@@ -1,0 +1,30 @@
+{
+  "id": "deck_c",
+  "name": "Mono-red aggro and burn",
+  "cards": [
+    {
+      "card": "raging_goblin",
+      "count": 3
+    },
+    {
+      "card": "boggart_brute",
+      "count": 3
+    },
+    {
+      "card": "hill_giant",
+      "count": 3
+    },
+    {
+      "card": "shock",
+      "count": 3
+    },
+    {
+      "card": "lightning_strike",
+      "count": 3
+    },
+    {
+      "card": "mountain",
+      "count": 10
+    }
+  ]
+}

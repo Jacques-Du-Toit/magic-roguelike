@@ -1,0 +1,23 @@
+{
+  "id": "boggart_brute",
+  "name": "Boggart Brute",
+  "mana_cost": "{2}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Goblin",
+    "Warrior"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "menace"
+  ],
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)",
+  "abilities": []
+}

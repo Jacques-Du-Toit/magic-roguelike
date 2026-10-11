@@ -1,0 +1,23 @@
+{
+  "id": "youthful_knight",
+  "name": "Youthful Knight",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Knight"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "first_strike"
+  ],
+  "oracle_text": "First strike",
+  "abilities": []
+}

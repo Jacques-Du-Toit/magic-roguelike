@@ -50,7 +50,7 @@ Not in M1: manual mana tapping, manual damage division, and any rule in `RULES_S
 | Savannah Lions | {W} | 2/1 vanilla | A |
 | Healer's Hawk | {W} | 1/1 flying, lifelink | A |
 | Youthful Knight | {1}{W} | 2/1 first strike | A |
-| Inspiring Overseer | {2}{W} | 2/1 flying; ETB draw a card | A |
+| Inspiring Overseer | {2}{W} | 2/1 flying; ETB gain 1 life and draw a card | A |
 | Serra Angel | {3}{W}{W} | 4/4 flying, vigilance | A |
 | Pacifism | {1}{W} | Aura: can't attack or block | A |
 | Wind Drake | {2}{U} | 2/2 flying | B |

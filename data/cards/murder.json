@@ -1,0 +1,26 @@
+{
+  "id": "murder",
+  "name": "Murder",
+  "mana_cost": "{1}{B}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Destroy target creature.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "destroy",
+          "target": {
+            "creature": {}
+          }
+        }
+      ]
+    }
+  ]
+}

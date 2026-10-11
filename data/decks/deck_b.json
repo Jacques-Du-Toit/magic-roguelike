@@ -1,0 +1,38 @@
+{
+  "id": "deck_b",
+  "name": "Blue-Black fliers, removal and counterspells",
+  "cards": [
+    {
+      "card": "typhoid_rats",
+      "count": 3
+    },
+    {
+      "card": "wind_drake",
+      "count": 3
+    },
+    {
+      "card": "murder",
+      "count": 3
+    },
+    {
+      "card": "vampire_nighthawk",
+      "count": 2
+    },
+    {
+      "card": "cancel",
+      "count": 2
+    },
+    {
+      "card": "divination",
+      "count": 2
+    },
+    {
+      "card": "island",
+      "count": 5
+    },
+    {
+      "card": "swamp",
+      "count": 5
+    }
+  ]
+}

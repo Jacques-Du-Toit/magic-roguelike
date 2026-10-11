@@ -1,0 +1,22 @@
+{
+  "id": "typhoid_rats",
+  "name": "Typhoid Rats",
+  "mana_cost": "{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Rat"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "deathtouch"
+  ],
+  "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "abilities": []
+}

@@ -1,0 +1,25 @@
+{
+  "id": "island",
+  "name": "Island",
+  "mana_cost": "",
+  "supertypes": [
+    "Basic"
+  ],
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Island"
+  ],
+  "rarity": "common",
+  "oracle_text": "({T}: Add {U}.)",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{U}"
+    }
+  ]
+}

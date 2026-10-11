@@ -1,0 +1,25 @@
+{
+  "id": "forest",
+  "name": "Forest",
+  "mana_cost": "",
+  "supertypes": [
+    "Basic"
+  ],
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Forest"
+  ],
+  "rarity": "common",
+  "oracle_text": "({T}: Add {G}.)",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{G}"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "serra_angel",
+  "name": "Serra Angel",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying",
+    "vigilance"
+  ],
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "abilities": []
+}

@@ -1,0 +1,25 @@
+{
+  "id": "plains",
+  "name": "Plains",
+  "mana_cost": "",
+  "supertypes": [
+    "Basic"
+  ],
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Plains"
+  ],
+  "rarity": "common",
+  "oracle_text": "({T}: Add {W}.)",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{W}"
+    }
+  ]
+}

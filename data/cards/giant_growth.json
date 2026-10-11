@@ -1,0 +1,28 @@
+{
+  "id": "giant_growth",
+  "name": "Giant Growth",
+  "mana_cost": "{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Target creature gets +3/+3 until end of turn.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "creature": {}
+          },
+          "power": 3,
+          "toughness": 3
+        }
+      ]
+    }
+  ]
+}

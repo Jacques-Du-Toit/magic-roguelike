@@ -1,0 +1,27 @@
+{
+  "id": "shock",
+  "name": "Shock",
+  "mana_cost": "{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Shock deals 2 damage to any target.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 2,
+          "target": {
+            "any_target": {}
+          }
+        }
+      ]
+    }
+  ]
+}

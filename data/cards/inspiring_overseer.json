@@ -1,0 +1,43 @@
+{
+  "id": "inspiring_overseer",
+  "name": "Inspiring Overseer",
+  "mana_cost": "{2}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel",
+    "Cleric"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, you gain 1 life and draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        },
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

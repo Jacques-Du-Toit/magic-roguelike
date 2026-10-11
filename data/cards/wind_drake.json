@@ -1,0 +1,22 @@
+{
+  "id": "wind_drake",
+  "name": "Wind Drake",
+  "mana_cost": "{2}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Drake"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying",
+  "abilities": []
+}

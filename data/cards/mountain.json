@@ -1,0 +1,25 @@
+{
+  "id": "mountain",
+  "name": "Mountain",
+  "mana_cost": "",
+  "supertypes": [
+    "Basic"
+  ],
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Mountain"
+  ],
+  "rarity": "common",
+  "oracle_text": "({T}: Add {R}.)",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{R}"
+    }
+  ]
+}

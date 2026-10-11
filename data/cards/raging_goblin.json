@@ -1,0 +1,23 @@
+{
+  "id": "raging_goblin",
+  "name": "Raging Goblin",
+  "mana_cost": "{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Goblin",
+    "Berserker"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "haste"
+  ],
+  "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)",
+  "abilities": []
+}

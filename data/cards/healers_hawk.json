@@ -1,0 +1,23 @@
+{
+  "id": "healers_hawk",
+  "name": "Healer's Hawk",
+  "mana_cost": "{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Bird"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "flying",
+    "lifelink"
+  ],
+  "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "abilities": []
+}

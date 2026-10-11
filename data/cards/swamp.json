@@ -1,0 +1,25 @@
+{
+  "id": "swamp",
+  "name": "Swamp",
+  "mana_cost": "",
+  "supertypes": [
+    "Basic"
+  ],
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Swamp"
+  ],
+  "rarity": "common",
+  "oracle_text": "({T}: Add {B}.)",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{B}"
+    }
+  ]
+}

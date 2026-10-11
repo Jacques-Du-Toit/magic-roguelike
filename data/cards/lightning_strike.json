@@ -1,0 +1,27 @@
+{
+  "id": "lightning_strike",
+  "name": "Lightning Strike",
+  "mana_cost": "{1}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Lightning Strike deals 3 damage to any target.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 3,
+          "target": {
+            "any_target": {}
+          }
+        }
+      ]
+    }
+  ]
+}

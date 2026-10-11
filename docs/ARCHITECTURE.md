@@ -188,7 +188,7 @@ Enters-the-battlefield trigger:
   "subtypes": ["Elf", "Shaman"],
   "power": 1, "toughness": 1,
   "rarity": "common",
-  "oracle_text": "When Elvish Visionary enters, draw a card.",
+  "oracle_text": "When this creature enters, draw a card.",
   "abilities": [
     {
       "kind": "triggered",

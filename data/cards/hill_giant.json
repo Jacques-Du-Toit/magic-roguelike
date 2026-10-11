@@ -1,0 +1,18 @@
+{
+  "id": "hill_giant",
+  "name": "Hill Giant",
+  "mana_cost": "{3}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Giant"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common",
+  "abilities": []
+}

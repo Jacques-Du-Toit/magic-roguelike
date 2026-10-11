@@ -1,0 +1,18 @@
+{
+  "id": "savannah_lions",
+  "name": "Savannah Lions",
+  "mana_cost": "{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Cat"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "abilities": []
+}

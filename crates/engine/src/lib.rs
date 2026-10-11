@@ -1,8 +1,14 @@
 //! Pure rules engine. All game logic lives here; it knows nothing about
 //! rendering, wasm or IO.
 //!
-//! M0 only proves the pipeline from Rust to the browser, so the whole public
-//! API is [`engine_info`].
+//! So far it loads and validates the game data (cards, decklists, balance
+//! numbers). [`engine_info`] is what the web app calls to prove the wasm
+//! pipeline.
+
+pub mod balance;
+pub mod cards;
+pub mod data;
+pub mod decks;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

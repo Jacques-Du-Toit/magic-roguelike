@@ -1,0 +1,66 @@
+{
+  "id": "deck_a",
+  "name": "Green-White creatures and tricks",
+  "cards": [
+    {
+      "card": "llanowar_elves",
+      "count": 2
+    },
+    {
+      "card": "youthful_knight",
+      "count": 2
+    },
+    {
+      "card": "savannah_lions",
+      "count": 1
+    },
+    {
+      "card": "healers_hawk",
+      "count": 1
+    },
+    {
+      "card": "grizzly_bears",
+      "count": 1
+    },
+    {
+      "card": "elvish_visionary",
+      "count": 1
+    },
+    {
+      "card": "inspiring_overseer",
+      "count": 1
+    },
+    {
+      "card": "centaur_courser",
+      "count": 1
+    },
+    {
+      "card": "giant_spider",
+      "count": 1
+    },
+    {
+      "card": "serra_angel",
+      "count": 1
+    },
+    {
+      "card": "colossal_dreadmaw",
+      "count": 1
+    },
+    {
+      "card": "giant_growth",
+      "count": 1
+    },
+    {
+      "card": "pacifism",
+      "count": 1
+    },
+    {
+      "card": "forest",
+      "count": 5
+    },
+    {
+      "card": "plains",
+      "count": 5
+    }
+  ]
+}
