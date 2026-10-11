@@ -29,20 +29,26 @@ A **pure Rust rules engine** (`crates/engine`) holds all game logic and knows no
 
 ```bash
 # Rust
-cargo test                      # all engine tests (run before saying a task is done)
+cargo test                      # all engine tests (run before saying a task is done);
+                                # also regenerates the ts-rs types in web/src/engine/types/
 cargo clippy --all-targets -- -D warnings
 cargo fmt
-cargo run -p sim -- --games 100 # headless AI-vs-AI simulation
+cargo run -p sim -- --games 100 # headless AI-vs-AI simulation (placeholder until M1:
+                                # prints the engine version and ignores its arguments)
 
 # WASM build (from repo root)
 wasm-pack build crates/engine-wasm --target web --out-dir ../../web/src/wasm
 
 # Web (run these from web/)
 npm install
+npm run wasm                    # same wasm-pack build as above; needed before dev, build and test
 npm run dev                     # local dev server
 npm run build                   # production build to web/dist
 npm test                        # Vitest
+npm run lint                    # oxlint
 ```
+
+`web/src/wasm/` is gitignored, so on a fresh clone build the wasm before anything else in `web/`.
 
 The owner works in Windows PowerShell 5.1, where `&&` is not available. Give commands one per line.
 
