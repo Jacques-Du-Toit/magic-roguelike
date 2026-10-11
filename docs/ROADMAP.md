@@ -10,7 +10,7 @@ Build in small milestones. Each has **acceptance criteria**; a milestone is done
 
 Goal: an empty but working pipeline from Rust to browser.
 
-- [ ] `git init`, first commit, GitHub remote.
+- [x] `git init`, first commit, GitHub remote.
 - [x] Cargo workspace with `crates/engine`, `crates/engine-wasm`, `crates/sim`.
 - [x] `web/` Vite + React + TypeScript (strict) app.
 - [x] Engine exposes one trivial function through wasm; web app calls it and displays the result.
