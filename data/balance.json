@@ -30,6 +30,7 @@
   "run": {
     "hearts": 3,
     "starting_gold": 30,
+    "min_deck_cards": 10,
     "lands": {
       "land_percent": 40,
       "min_per_color": 2

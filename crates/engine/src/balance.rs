@@ -134,6 +134,9 @@ pub struct RunBalance {
     /// Hearts at the start of an act.
     pub hearts: u8,
     pub starting_gold: u32,
+    /// A card can't be removed from a deck with this many spells and
+    /// non-basic lands or fewer.
+    pub min_deck_cards: u32,
     pub lands: LandBalance,
     pub map: MapBalance,
     pub gold: GoldBalance,

@@ -33,6 +33,11 @@ impl DuelRng {
         }
     }
 
+    /// A new seed, e.g. for a duel started by a run.
+    pub fn next_seed(&mut self) -> u64 {
+        self.0.next_u64()
+    }
+
     /// Fisher-Yates shuffle.
     pub fn shuffle<T>(&mut self, items: &mut [T]) {
         for last in (1..items.len()).rev() {
