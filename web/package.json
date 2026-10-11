@@ -10,6 +10,7 @@
     "wasm": "wasm-pack build ../crates/engine-wasm --target web --out-dir ../../web/src/wasm",
     "types": "cargo test -p engine export_bindings",
     "test": "vitest run",
+    "e2e": "playwright test",
     "lint": "oxlint"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
