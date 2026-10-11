@@ -1,0 +1,37 @@
+{
+  "id": "dawning_angel",
+  "name": "Dawning Angel",
+  "mana_cost": "{4}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, you gain 4 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 4
+        }
+      ]
+    }
+  ]
+}

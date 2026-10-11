@@ -1,0 +1,28 @@
+{
+  "id": "titanic_growth",
+  "name": "Titanic Growth",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Target creature gets +4/+4 until end of turn.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "creature": {}
+          },
+          "power": 4,
+          "toughness": 4
+        }
+      ]
+    }
+  ]
+}

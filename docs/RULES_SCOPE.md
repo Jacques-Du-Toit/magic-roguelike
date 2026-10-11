@@ -79,7 +79,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 
 ## Keywords
 
-**In (v1):** flying, reach, first strike, double strike, deathtouch, lifelink, trample, haste, vigilance, menace, defender, hexproof, flash, indestructible.
+**In (v1):** flying, reach, first strike, double strike, deathtouch, lifelink, trample, haste, vigilance, menace, defender, hexproof, flash, indestructible. All are built except indestructible, which comes with the first card that grants it (M4a).
 
 **Later:** ward, prowess, surveil, fight, kicker, flashback, cycling, landfall, cascade.
 

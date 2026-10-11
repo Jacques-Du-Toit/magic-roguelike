@@ -1,0 +1,23 @@
+{
+  "id": "ambush_viper",
+  "name": "Ambush Viper",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Snake"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "deathtouch",
+    "flash"
+  ],
+  "oracle_text": "Flash\nDeathtouch",
+  "abilities": []
+}

@@ -1,0 +1,30 @@
+{
+  "id": "orzhov_guildgate",
+  "name": "Orzhov Guildgate",
+  "mana_cost": "",
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Gate"
+  ],
+  "rarity": "common",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.",
+  "enters_tapped": true,
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{W}"
+    },
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{B}"
+    }
+  ]
+}

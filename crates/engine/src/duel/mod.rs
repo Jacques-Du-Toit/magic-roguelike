@@ -13,6 +13,8 @@ mod effects;
 mod emblem_tests;
 mod error;
 mod ids;
+#[cfg(test)]
+mod keyword_tests;
 mod mana;
 mod mulligan;
 mod rng;
@@ -21,6 +23,8 @@ mod setup;
 mod spell_tests;
 mod stack;
 mod state;
+#[cfg(test)]
+mod target_tests;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod turn;

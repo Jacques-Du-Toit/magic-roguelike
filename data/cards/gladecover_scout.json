@@ -1,0 +1,23 @@
+{
+  "id": "gladecover_scout",
+  "name": "Gladecover Scout",
+  "mana_cost": "{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Scout"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "hexproof"
+  ],
+  "oracle_text": "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
+  "abilities": []
+}

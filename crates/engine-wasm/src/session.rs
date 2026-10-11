@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn card_definitions_and_decks_cross_as_json() {
         let cards: Vec<CardDef> = serde_json::from_str(&card_defs_json().unwrap()).unwrap();
-        assert_eq!(cards.len(), 53);
+        assert_eq!(cards.len(), data::embedded().unwrap().cards.iter().count());
         assert!(cards.iter().any(|card| card.name == "Vampire Nighthawk"));
         // Costs cross in the same text form the card files use.
         assert!(

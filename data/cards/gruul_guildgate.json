@@ -1,0 +1,30 @@
+{
+  "id": "gruul_guildgate",
+  "name": "Gruul Guildgate",
+  "mana_cost": "",
+  "types": [
+    "Land"
+  ],
+  "subtypes": [
+    "Gate"
+  ],
+  "rarity": "common",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {G}.",
+  "enters_tapped": true,
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{R}"
+    },
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{G}"
+    }
+  ]
+}

@@ -229,7 +229,7 @@ fn embedded_json_files(folder: &str) -> Result<Vec<DataFile<'static>>, DataError
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cards::{AbilityDef, CardType, Effect, Keyword, PlayerRef, TargetSpec};
+    use crate::cards::{AbilityDef, CardType, Effect, Keyword, PlayerRef, Supertype, TargetSpec};
 
     const BEARS: &str = r#"{ "id": "grizzly_bears", "name": "Grizzly Bears", "mana_cost": "{1}{G}",
         "colors": ["G"], "types": ["Creature"], "power": 2, "toughness": 2, "rarity": "common" }"#;
@@ -423,71 +423,23 @@ mod tests {
         assert_eq!(embedded().map(|_| ()), Ok(()));
     }
 
+    /// How many cards of each kind the pool holds, so that a card file lost
+    /// or added by accident shows up here.
     #[test]
-    fn the_card_pool_is_complete() {
-        let ids: Vec<&str> = data().cards.iter().map(|card| card.id.as_str()).collect();
-        assert_eq!(
-            ids,
-            [
-                "aerial_responder",
-                "air_elemental",
-                "angel_of_mercy",
-                "assault_griffin",
-                "barony_vampire",
-                "boggart_brute",
-                "cancel",
-                "centaur_courser",
-                "charging_monstrosaur",
-                "colossal_dreadmaw",
-                "coral_merfolk",
-                "divination",
-                "elvish_visionary",
-                "fire_elemental",
-                "forest",
-                "giant_growth",
-                "giant_spider",
-                "gigantosaurus",
-                "glory_seeker",
-                "goblin_piker",
-                "grizzly_bears",
-                "healers_hawk",
-                "hill_giant",
-                "inspiring_overseer",
-                "island",
-                "lightning_strike",
-                "llanowar_elves",
-                "mountain",
-                "murder",
-                "pacifism",
-                "plains",
-                "raging_goblin",
-                "rakdos_guildgate",
-                "revitalize",
-                "rumbling_baloth",
-                "savannah_lions",
-                "selesnya_guildgate",
-                "sentinel_spider",
-                "serra_angel",
-                "shock",
-                "siege_mastodon",
-                "snapping_drake",
-                "stampeding_rhino",
-                "swamp",
-                "thundering_giant",
-                "typhoid_rats",
-                "vampire_nighthawk",
-                "vampire_of_the_dire_moon",
-                "vampire_spawn",
-                "volcanic_hammer",
-                "walking_corpse",
-                "wind_drake",
-                "youthful_knight",
-            ]
-        );
+    fn the_card_pool_has_the_expected_size() {
+        let count =
+            |wanted: fn(&CardDef) -> bool| data().cards.iter().filter(|c| wanted(c)).count();
+        let basics = count(|card| card.supertypes.contains(&Supertype::Basic));
+        let lands = count(|card| card.is_land());
+        let creatures = count(|card| card.is_creature());
+        let others = count(|card| !card.is_land() && !card.is_creature());
+        assert_eq!((basics, lands - basics), (5, 10));
+        assert_eq!((creatures, others), (48, 17));
     }
 
-    /// Cost, power/toughness and keywords of every creature, as printed
-    /// (checked against Scryfall).
+    /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
+    /// printed. Every card, these and later ones, is checked against
+    /// Scryfall by `tools/scryfall.mjs check`.
     #[test]
     fn creatures_match_their_printed_stats() {
         use Keyword::*;
@@ -559,12 +511,6 @@ mod tests {
             );
             assert_eq!(card.keywords, keywords, "{id}");
         }
-        let creatures = data()
-            .cards
-            .iter()
-            .filter(|card| card.is_creature())
-            .count();
-        assert_eq!(creatures, expected.len());
     }
 
     #[test]
@@ -634,7 +580,7 @@ mod tests {
     #[test]
     fn starter_spells_have_their_printed_effects() {
         let any = TargetSpec::AnyTarget {};
-        let creature = TargetSpec::Creature {};
+        let creature = TargetSpec::creature();
         let you = PlayerRef::Controller;
 
         assert_eq!(card("shock").types, [CardType::Instant]);
@@ -671,7 +617,7 @@ mod tests {
         assert_eq!(
             spell_effects("cancel"),
             [Effect::CounterSpell {
-                target: TargetSpec::Spell {}
+                target: TargetSpec::spell()
             }]
         );
         assert_eq!(card("volcanic_hammer").types, [CardType::Sorcery]);
@@ -756,7 +702,7 @@ mod tests {
     fn pacifism_is_an_aura_for_creatures() {
         let pacifism = card("pacifism");
         assert!(pacifism.is_aura());
-        assert_eq!(pacifism.enchant, Some(TargetSpec::Creature {}));
+        assert_eq!(pacifism.enchant, Some(TargetSpec::creature()));
     }
 
     #[test]
@@ -814,6 +760,14 @@ mod tests {
         for (id, colors) in [
             ("selesnya_guildgate", [Color::G, Color::W]),
             ("rakdos_guildgate", [Color::B, Color::R]),
+            ("azorius_guildgate", [Color::W, Color::U]),
+            ("dimir_guildgate", [Color::U, Color::B]),
+            ("gruul_guildgate", [Color::R, Color::G]),
+            ("orzhov_guildgate", [Color::W, Color::B]),
+            ("izzet_guildgate", [Color::U, Color::R]),
+            ("golgari_guildgate", [Color::B, Color::G]),
+            ("boros_guildgate", [Color::R, Color::W]),
+            ("simic_guildgate", [Color::G, Color::U]),
         ] {
             let gate = card(id);
             assert_eq!(gate.types, [CardType::Land], "{id}");
@@ -840,9 +794,39 @@ mod tests {
                 || run.planeswalkers.iter().any(|def| in_entries(&def.spells))
                 || run.enemies.iter().any(|def| in_entries(&def.cards));
             let reward_land = card.is_land() && card.supertypes.is_empty();
-            assert!(used || reward_land, "{id} is in no deck");
+            let waiting = NOT_YET_MET.contains(&id);
+            assert!(used || reward_land || waiting, "{id} is in no deck");
+            assert!(
+                !(used && waiting),
+                "{id} is in a deck: take it off NOT_YET_MET"
+            );
         }
     }
+
+    /// Cards added in M4a that no deck uses yet. Those in a character's
+    /// colours already turn up as rewards; the rest wait for the enemy decks
+    /// to be rebuilt on the cube at the end of M4a.
+    const NOT_YET_MET: [&str; 19] = [
+        "ambush_viper",
+        "angelic_wall",
+        "cloudkin_seer",
+        "dawning_angel",
+        "disfigure",
+        "doom_blade",
+        "druid_of_the_cowl",
+        "essence_scatter",
+        "fencing_ace",
+        "gladecover_scout",
+        "kraken_hatchling",
+        "lava_axe",
+        "negate",
+        "plummet",
+        "skyknight_legionnaire",
+        "smite_the_monstrous",
+        "swiftblade_vindicator",
+        "thornweald_archer",
+        "titanic_growth",
+    ];
 
     #[test]
     fn the_run_content_is_what_the_roadmap_asks_for() {

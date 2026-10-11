@@ -1,0 +1,26 @@
+{
+  "id": "swiftblade_vindicator",
+  "name": "Swiftblade Vindicator",
+  "mana_cost": "{R}{W}",
+  "colors": [
+    "W",
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Soldier"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "rare",
+  "keywords": [
+    "double_strike",
+    "trample",
+    "vigilance"
+  ],
+  "oracle_text": "Double strike (This creature deals both first-strike and regular combat damage.)\nVigilance (Attacking doesn't cause this creature to tap.)\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "abilities": []
+}

@@ -283,7 +283,9 @@ Dual land (one mana ability per colour; it still makes one mana per tap):
 
 Built so far: `deal_damage`, `destroy`, `counter_spell`, `draw_cards`, `gain_life`, `lose_life`, `modify_pt_until_eot`. `gain_life`, `lose_life` and `draw_cards` name a player: `controller` or `opponent`.
 
-Targets and filters are structured data (`creature`, `creature_you_control`, `any_target`, `player`, `spell`, with predicates like `power_lte`, `has_keyword`, `color`).
+Targets are structured data: `any_target`, `creature`, `player` and `spell`, each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
+
+Keywords built so far: deathtouch, defender, double strike, first strike, flash, flying, haste, hexproof, lifelink, menace, reach, trample, vigilance.
 
 ### Custom escape hatch
 If a card truly can't be expressed, it may reference `{ "type": "custom", "id": "card_specific_fn" }` implemented in Rust. Keep a list here:

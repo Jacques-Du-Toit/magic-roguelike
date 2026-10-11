@@ -1,0 +1,28 @@
+{
+  "id": "druid_of_the_cowl",
+  "name": "Druid of the Cowl",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Druid"
+  ],
+  "power": 1,
+  "toughness": 3,
+  "rarity": "common",
+  "oracle_text": "{T}: Add {G}.",
+  "abilities": [
+    {
+      "kind": "mana",
+      "cost": {
+        "tap": true
+      },
+      "produces": "{G}"
+    }
+  ]
+}

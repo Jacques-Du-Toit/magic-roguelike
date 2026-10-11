@@ -25,7 +25,8 @@ describe('engineInfo', () => {
 describe('card and deck data', () => {
   it('brings every card definition across', () => {
     const cards = cardDefs()
-    expect(cards).toHaveLength(53)
+    // The whole pool crosses; its exact size is checked on the Rust side.
+    expect(cards.length).toBeGreaterThanOrEqual(53)
     const nighthawk = cards.find((card) => card.id === 'vampire_nighthawk')
     expect(nighthawk).toMatchObject({
       name: 'Vampire Nighthawk',

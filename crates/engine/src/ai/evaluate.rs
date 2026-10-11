@@ -16,8 +16,14 @@ pub(super) fn creature_value(state: &DuelState, creature: ObjectId) -> Result<i3
     let mut value = 1 + 2 * def.power.unwrap_or(0) + def.toughness.unwrap_or(0);
     for keyword in &def.keywords {
         value += match keyword {
+            // It hits twice.
+            Keyword::DoubleStrike => 1 + 2 * def.power.unwrap_or(0),
             Keyword::Flying | Keyword::Deathtouch => 2,
+            // It never attacks.
+            Keyword::Defender => -def.power.unwrap_or(0),
+            Keyword::Flash => 0,
             Keyword::FirstStrike
+            | Keyword::Hexproof
             | Keyword::Lifelink
             | Keyword::Menace
             | Keyword::Reach

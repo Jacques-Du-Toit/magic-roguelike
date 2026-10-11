@@ -1,0 +1,23 @@
+{
+  "id": "angelic_wall",
+  "name": "Angelic Wall",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Wall"
+  ],
+  "power": 0,
+  "toughness": 4,
+  "rarity": "common",
+  "keywords": [
+    "defender",
+    "flying"
+  ],
+  "oracle_text": "Defender (This creature can't attack.)\nFlying",
+  "abilities": []
+}

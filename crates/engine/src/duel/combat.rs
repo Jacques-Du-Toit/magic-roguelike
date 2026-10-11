@@ -29,6 +29,7 @@ pub(crate) fn possible_attackers(state: &DuelState) -> Result<Vec<ObjectId>, Int
         let permanent = state.object(creature)?;
         let ready = !permanent.summoning_sick || state.has_keyword(creature, Keyword::Haste)?;
         if ready
+            && !state.has_keyword(creature, Keyword::Defender)?
             && !permanent.tapped
             && !combat.is_attacking(creature)
             && !state.is_restricted(creature, Restricted::Attack)?
@@ -274,10 +275,16 @@ pub(crate) fn has_attackers(state: &DuelState) -> bool {
         .is_some_and(|combat| !combat.attackers.is_empty())
 }
 
+/// Whether the creature deals its damage in the first-strike step.
+fn strikes_first(state: &DuelState, creature: ObjectId) -> Result<bool, InternalError> {
+    Ok(state.has_keyword(creature, Keyword::FirstStrike)?
+        || state.has_keyword(creature, Keyword::DoubleStrike)?)
+}
+
 /// Whether the first-strike damage step is needed.
 pub(crate) fn any_first_strike(state: &DuelState) -> Result<bool, InternalError> {
     for creature in creatures_in_combat(state)? {
-        if state.has_keyword(creature, Keyword::FirstStrike)? {
+        if strikes_first(state, creature)? {
             return Ok(true);
         }
     }
@@ -285,16 +292,17 @@ pub(crate) fn any_first_strike(state: &DuelState) -> Result<bool, InternalError>
 }
 
 /// The creatures that deal damage in this damage step: in the first-strike
-/// step those with first strike, in the regular step those that didn't deal
-/// it then.
+/// step those with first strike or double strike, in the regular step those
+/// that didn't deal it then and those with double strike.
 fn dealers(state: &DuelState, first_strike_step: bool) -> Result<Vec<ObjectId>, InternalError> {
     let combat = combat(state)?;
     let mut dealers = Vec::new();
     for creature in creatures_in_combat(state)? {
         let deals = if first_strike_step {
-            state.has_keyword(creature, Keyword::FirstStrike)?
+            strikes_first(state, creature)?
         } else {
             !combat.dealt_first_strike_damage.contains(&creature)
+                || state.has_keyword(creature, Keyword::DoubleStrike)?
         };
         if deals {
             dealers.push(creature);

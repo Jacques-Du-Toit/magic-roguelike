@@ -1,0 +1,28 @@
+{
+  "id": "essence_scatter",
+  "name": "Essence Scatter",
+  "mana_cost": "{1}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Counter target creature spell.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "counter_spell",
+          "target": {
+            "spell": {
+              "kind": "creature"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

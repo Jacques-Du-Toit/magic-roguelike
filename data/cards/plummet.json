@@ -1,0 +1,28 @@
+{
+  "id": "plummet",
+  "name": "Plummet",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Destroy target creature with flying.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "destroy",
+          "target": {
+            "creature": {
+              "keyword": "flying"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

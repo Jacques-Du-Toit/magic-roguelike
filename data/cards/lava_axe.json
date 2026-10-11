@@ -1,0 +1,27 @@
+{
+  "id": "lava_axe",
+  "name": "Lava Axe",
+  "mana_cost": "{4}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Lava Axe deals 5 damage to target player or planeswalker.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 5,
+          "target": {
+            "player": {}
+          }
+        }
+      ]
+    }
+  ]
+}

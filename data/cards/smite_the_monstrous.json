@@ -1,0 +1,28 @@
+{
+  "id": "smite_the_monstrous",
+  "name": "Smite the Monstrous",
+  "mana_cost": "{3}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Destroy target creature with power 4 or greater.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "destroy",
+          "target": {
+            "creature": {
+              "min_power": 4
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

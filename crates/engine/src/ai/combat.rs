@@ -17,23 +17,34 @@ fn fight(
     attacker: ObjectId,
     blocker: ObjectId,
 ) -> Result<(bool, bool), InternalError> {
-    let kills = |source: ObjectId, victim: ObjectId| -> Result<bool, InternalError> {
+    // Whether `source` kills `victim` with `hits` rounds of its damage.
+    let kills = |source: ObjectId, victim: ObjectId, hits: i32| -> Result<bool, InternalError> {
         let power = state.power(source)?;
         let toughness_left = state.toughness(victim)? - state.object(victim)?.damage;
         Ok(power > 0
-            && (state.has_keyword(source, Keyword::Deathtouch)? || power >= toughness_left))
+            && (state.has_keyword(source, Keyword::Deathtouch)? || power * hits >= toughness_left))
     };
-    let attacker_kills = kills(attacker, blocker)?;
-    let blocker_kills = kills(blocker, attacker)?;
-    let attacker_first = state.has_keyword(attacker, Keyword::FirstStrike)?;
-    let blocker_first = state.has_keyword(blocker, Keyword::FirstStrike)?;
-    Ok(if attacker_first && !blocker_first && attacker_kills {
-        (false, true)
-    } else if blocker_first && !attacker_first && blocker_kills {
-        (true, false)
-    } else {
-        (blocker_kills, attacker_kills)
-    })
+    let double = |creature: ObjectId| state.has_keyword(creature, Keyword::DoubleStrike);
+    let first = |creature: ObjectId| -> Result<bool, InternalError> {
+        Ok(state.has_keyword(creature, Keyword::FirstStrike)? || double(creature)?)
+    };
+    let hits = |creature: ObjectId| -> Result<i32, InternalError> {
+        Ok(if double(creature)? { 2 } else { 1 })
+    };
+    let (attacker_first, blocker_first) = (first(attacker)?, first(blocker)?);
+    // A kill in the first-strike step leaves the other no chance to hit back.
+    Ok(
+        if attacker_first && !blocker_first && kills(attacker, blocker, 1)? {
+            (false, true)
+        } else if blocker_first && !attacker_first && kills(blocker, attacker, 1)? {
+            (true, false)
+        } else {
+            (
+                kills(blocker, attacker, hits(blocker)?)?,
+                kills(attacker, blocker, hits(attacker)?)?,
+            )
+        },
+    )
 }
 
 /// Whether `blocker` is able to block `attacker` at all.
@@ -165,7 +176,12 @@ fn damage_past_blockers(
 ) -> Result<i32, InternalError> {
     let mut by_power = Vec::new();
     for &attacker in attackers {
-        by_power.push((state.power(attacker)?.max(0), attacker));
+        let hits = if state.has_keyword(attacker, Keyword::DoubleStrike)? {
+            2
+        } else {
+            1
+        };
+        by_power.push((state.power(attacker)?.max(0) * hits, attacker));
     }
     by_power.sort_unstable_by(|a, b| b.cmp(a));
 

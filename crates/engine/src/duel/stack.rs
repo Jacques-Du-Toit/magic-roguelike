@@ -10,7 +10,10 @@ use super::state::{
     AbilityRef, DuelState, PendingTrigger, StackItem, StackItemKind, TriggeredAbility, Zone,
     card_def,
 };
-use crate::cards::{AbilityDef, CardDef, CardType, Effect, TargetSpec, Trigger, TriggerSubject};
+use crate::cards::{
+    AbilityDef, CardDef, CardType, CreatureFilter, Effect, Keyword, SpellKind, TargetSpec, Trigger,
+    TriggerSubject,
+};
 
 /// Every spell the player could cast right now, as concrete actions: one
 /// per legal choice of targets.
@@ -27,7 +30,7 @@ pub(crate) fn legal_casts(
         if plan_payment(state, player, &def.mana_cost, Some(card))?.is_none() {
             continue;
         }
-        for targets in target_choices(state, &target_specs(def))? {
+        for targets in target_choices(state, player, &target_specs(def))? {
             actions.push(Action::CastSpell { card, targets });
         }
     }
@@ -40,16 +43,44 @@ fn can_cast_now(state: &DuelState, player: PlayerId, def: &CardDef) -> bool {
     if def.is_land() {
         return false;
     }
-    def.has_type(CardType::Instant) || has_sorcery_timing(state, player)
+    def.has_type(CardType::Instant)
+        || def.has_keyword(Keyword::Flash)
+        || has_sorcery_timing(state, player)
 }
 
-/// Whether `target` is something the spec allows, right now.
+/// Whether `target` is something the spec describes, right now. This is
+/// what keeps an Aura attached; whether a player may aim at it is
+/// `is_legal_target`.
 pub(crate) fn fits_target_spec(
     state: &DuelState,
     spec: TargetSpec,
     target: Target,
 ) -> Result<bool, InternalError> {
     Ok(candidates(state, spec)?.contains(&target))
+}
+
+/// Whether `player` may aim a spell or ability at `target`: it fits the
+/// spec, and it isn't an opponent's permanent with hexproof.
+pub(crate) fn is_legal_target(
+    state: &DuelState,
+    player: PlayerId,
+    spec: TargetSpec,
+    target: Target,
+) -> Result<bool, InternalError> {
+    Ok(fits_target_spec(state, spec, target)? && !is_hexproof_from(state, player, target)?)
+}
+
+fn is_hexproof_from(
+    state: &DuelState,
+    player: PlayerId,
+    target: Target,
+) -> Result<bool, InternalError> {
+    let Target::Object { object } = target else {
+        return Ok(false);
+    };
+    Ok(state.is_on_battlefield(object)
+        && state.object(object)?.owner != player
+        && state.has_keyword(object, Keyword::Hexproof)?)
 }
 
 /// The player's own main phase with an empty stack.
@@ -83,25 +114,39 @@ fn target_specs(def: &CardDef) -> Vec<TargetSpec> {
 /// Everything that fits a target spec right now.
 fn candidates(state: &DuelState, spec: TargetSpec) -> Result<Vec<Target>, InternalError> {
     let mut targets = Vec::new();
-    let creatures = |targets: &mut Vec<Target>| -> Result<(), InternalError> {
-        for &object in &state.battlefield {
-            if state.is_creature(object)? {
-                targets.push(Target::Object { object });
+    let creatures =
+        |targets: &mut Vec<Target>, filter: CreatureFilter| -> Result<(), InternalError> {
+            for &object in &state.battlefield {
+                if state.is_creature(object)? && creature_passes(state, object, filter)? {
+                    targets.push(Target::Object { object });
+                }
             }
+            Ok(())
+        };
+    let players = |targets: &mut Vec<Target>| {
+        for player in PlayerId::ALL {
+            targets.push(Target::Player { player });
         }
-        Ok(())
     };
     match spec {
         TargetSpec::AnyTarget {} => {
-            for player in PlayerId::ALL {
-                targets.push(Target::Player { player });
-            }
-            creatures(&mut targets)?;
+            players(&mut targets);
+            creatures(&mut targets, CreatureFilter::default())?;
         }
-        TargetSpec::Creature {} => creatures(&mut targets)?,
-        TargetSpec::Spell {} => {
+        TargetSpec::Creature(filter) => creatures(&mut targets, filter)?,
+        TargetSpec::Player {} => players(&mut targets),
+        TargetSpec::Spell(filter) => {
             for item in &state.stack {
-                if item.kind == StackItemKind::Spell {
+                if item.kind != StackItemKind::Spell {
+                    continue;
+                }
+                let is_creature = state.def(item.id)?.is_creature();
+                let passes = match filter.kind {
+                    None => true,
+                    Some(SpellKind::Creature) => is_creature,
+                    Some(SpellKind::Noncreature) => !is_creature,
+                };
+                if passes {
                     targets.push(Target::Object { object: item.id });
                 }
             }
@@ -110,15 +155,46 @@ fn candidates(state: &DuelState, spec: TargetSpec) -> Result<Vec<Target>, Intern
     Ok(targets)
 }
 
-/// Every way to choose one target per spec. A spell with no targets has
-/// exactly one way (no targets); a spec nothing fits leaves no way at all.
+/// Whether a creature on the battlefield meets a filter's conditions.
+fn creature_passes(
+    state: &DuelState,
+    creature: ObjectId,
+    filter: CreatureFilter,
+) -> Result<bool, InternalError> {
+    if let Some(color) = filter.not_color
+        && state.def(creature)?.colors.contains(&color)
+    {
+        return Ok(false);
+    }
+    if let Some(power) = filter.min_power
+        && state.power(creature)? < power
+    {
+        return Ok(false);
+    }
+    if let Some(keyword) = filter.keyword
+        && !state.has_keyword(creature, keyword)?
+    {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Every way for `player` to choose one target per spec. A spell with no
+/// targets has exactly one way (no targets); a spec nothing fits leaves no
+/// way at all.
 fn target_choices(
     state: &DuelState,
+    player: PlayerId,
     specs: &[TargetSpec],
 ) -> Result<Vec<Vec<Target>>, InternalError> {
     let mut choices: Vec<Vec<Target>> = vec![Vec::new()];
     for &spec in specs {
-        let options = candidates(state, spec)?;
+        let mut options = Vec::new();
+        for target in candidates(state, spec)? {
+            if !is_hexproof_from(state, player, target)? {
+                options.push(target);
+            }
+        }
         let mut extended = Vec::new();
         for chosen in &choices {
             for &option in &options {
@@ -204,7 +280,7 @@ fn resolve_spell(
     let specs = target_specs(def);
     let mut still_legal = Vec::new();
     for (&spec, &target) in specs.iter().zip(&item.targets) {
-        still_legal.push(fits_target_spec(state, spec, target)?);
+        still_legal.push(is_legal_target(state, player, spec, target)?);
     }
     let fizzles = !still_legal.is_empty() && !still_legal.contains(&true);
 
@@ -478,17 +554,23 @@ mod tests {
             .iter()
             .filter(|card| card.is_creature())
             .collect();
-        assert_eq!(creatures.len(), 37);
+        assert!(creatures.len() >= 37);
         for def in creatures {
             let (mut state, me, _) = in_main_phase("deck_a", "deck_c", 1);
-            let color = def.colors[0];
+            // A land for each coloured symbol, and the first colour's for
+            // the generic mana.
+            let mut lands: Vec<&str> = def.mana_cost.colored().map(land_for).collect();
+            for _ in 0..def.mana_cost.generic() {
+                lands.push(land_for(def.colors[0]));
+            }
             // One land short is not enough.
-            for _ in 1..def.mana_cost.mana_value() {
-                put_on_battlefield(&mut state, me, land_for(color));
+            let last = lands.pop().unwrap();
+            for land in lands {
+                put_on_battlefield(&mut state, me, land);
             }
             let creature = put_in_hand(&mut state, me, def.id.as_str());
             assert!(!can_cast(&state, me, creature), "{}", def.id);
-            put_on_battlefield(&mut state, me, land_for(color));
+            put_on_battlefield(&mut state, me, last);
             assert!(can_cast(&state, me, creature), "{}", def.id);
 
             apply_action(&mut state, me, cast(creature)).unwrap();

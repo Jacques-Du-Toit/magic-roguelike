@@ -141,9 +141,13 @@ pub enum Rarity {
 #[serde(rename_all = "snake_case")]
 pub enum Keyword {
     Deathtouch,
+    Defender,
+    DoubleStrike,
     FirstStrike,
+    Flash,
     Flying,
     Haste,
+    Hexproof,
     Lifelink,
     Menace,
     Reach,
@@ -302,16 +306,59 @@ pub enum PlayerRef {
     Opponent,
 }
 
-/// What a target must be. Written as `{ "creature": {} }`; the braces are
-/// where predicates (`power_lte`, `has_keyword`...) will go.
+/// What a target must be. Written as `{ "creature": {} }`; the braces hold
+/// any further conditions, e.g. `{ "creature": { "min_power": 4 } }`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum TargetSpec {
     /// A creature or a player.
     AnyTarget {},
-    Creature {},
+    Creature(CreatureFilter),
+    Player {},
     /// A spell on the stack.
-    Spell {},
+    Spell(SpellFilter),
+}
+
+/// Conditions a creature must meet to be a target. Empty means any creature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct CreatureFilter {
+    /// "Nonblack": the creature must not be this colour.
+    #[serde(default)]
+    pub not_color: Option<Color>,
+    /// "With power N or greater".
+    #[serde(default)]
+    pub min_power: Option<i32>,
+    /// "With flying": the creature must have this keyword.
+    #[serde(default)]
+    pub keyword: Option<Keyword>,
+}
+
+/// Conditions a spell must meet to be a target. Empty means any spell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct SpellFilter {
+    #[serde(default)]
+    pub kind: Option<SpellKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum SpellKind {
+    Creature,
+    Noncreature,
+}
+
+impl TargetSpec {
+    /// Any creature.
+    pub fn creature() -> TargetSpec {
+        TargetSpec::Creature(CreatureFilter::default())
+    }
+
+    /// Any spell.
+    pub fn spell() -> TargetSpec {
+        TargetSpec::Spell(SpellFilter::default())
+    }
 }
 
 impl TargetSpec {
@@ -319,8 +366,9 @@ impl TargetSpec {
     pub fn name(&self) -> &'static str {
         match self {
             TargetSpec::AnyTarget {} => "any_target",
-            TargetSpec::Creature {} => "creature",
-            TargetSpec::Spell {} => "spell",
+            TargetSpec::Creature(_) => "creature",
+            TargetSpec::Player {} => "player",
+            TargetSpec::Spell(_) => "spell",
         }
     }
 }
@@ -418,7 +466,7 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
         return Err(CardError::AuraNotEnchantment);
     }
     match (&card.enchant, card.is_aura()) {
-        (Some(TargetSpec::Creature {}), true) | (None, false) => {}
+        (Some(TargetSpec::Creature(_)), true) | (None, false) => {}
         (Some(target), true) => {
             return Err(CardError::BadTarget {
                 effect: "enchant",
@@ -494,12 +542,15 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
 
 pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     let target_ok = match effect {
-        Effect::CounterSpell { target } => matches!(target, TargetSpec::Spell {}),
+        Effect::CounterSpell { target } => matches!(target, TargetSpec::Spell(_)),
         Effect::DealDamage { target, .. } => {
-            matches!(target, TargetSpec::AnyTarget {} | TargetSpec::Creature {})
+            matches!(
+                target,
+                TargetSpec::AnyTarget {} | TargetSpec::Creature(_) | TargetSpec::Player {}
+            )
         }
         Effect::Destroy { target } | Effect::ModifyPtUntilEot { target, .. } => {
-            matches!(target, TargetSpec::Creature {})
+            matches!(target, TargetSpec::Creature(_))
         }
         Effect::DrawCards { .. } | Effect::GainLife { .. } | Effect::LoseLife { .. } => true,
     };

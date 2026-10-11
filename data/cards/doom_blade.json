@@ -1,0 +1,28 @@
+{
+  "id": "doom_blade",
+  "name": "Doom Blade",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Destroy target nonblack creature.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "destroy",
+          "target": {
+            "creature": {
+              "not_color": "B"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

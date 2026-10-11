@@ -1,0 +1,24 @@
+{
+  "id": "thornweald_archer",
+  "name": "Thornweald Archer",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Archer"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "deathtouch",
+    "reach"
+  ],
+  "oracle_text": "Reach (This creature can block creatures with flying.)\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "abilities": []
+}

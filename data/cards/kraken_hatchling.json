@@ -1,0 +1,19 @@
+{
+  "id": "kraken_hatchling",
+  "name": "Kraken Hatchling",
+  "mana_cost": "{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Kraken"
+  ],
+  "power": 0,
+  "toughness": 4,
+  "rarity": "common",
+  "oracle_text": "",
+  "abilities": []
+}

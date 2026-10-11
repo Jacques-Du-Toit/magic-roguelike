@@ -1,0 +1,25 @@
+{
+  "id": "skyknight_legionnaire",
+  "name": "Skyknight Legionnaire",
+  "mana_cost": "{1}{R}{W}",
+  "colors": [
+    "W",
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Knight"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying",
+    "haste"
+  ],
+  "oracle_text": "Flying, haste",
+  "abilities": []
+}

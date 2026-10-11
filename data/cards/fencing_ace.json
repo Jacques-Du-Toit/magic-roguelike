@@ -1,0 +1,23 @@
+{
+  "id": "fencing_ace",
+  "name": "Fencing Ace",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Soldier"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "keywords": [
+    "double_strike"
+  ],
+  "oracle_text": "Double strike (This creature deals both first-strike and regular combat damage.)",
+  "abilities": []
+}
