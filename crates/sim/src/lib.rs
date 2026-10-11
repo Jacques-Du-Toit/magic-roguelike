@@ -3,6 +3,7 @@
 
 pub mod game;
 pub mod report;
+pub mod runs;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::thread;
@@ -18,6 +19,7 @@ use report::{PairingStats, format_report};
 pub const USAGE: &str = "\
 Usage: sim [--games N] [--seed S]
        sim --enemies [--games N] [--seed S]
+       sim --runs [--games N] [--seed S]
        sim --replay P1_DECK P2_DECK [--seed S]
 
 Plays N AI-vs-AI games (default 100) for every pairing of the decks in
@@ -29,6 +31,10 @@ is even and P2 when i is odd.
 --enemies plays each planeswalker's starting deck, with its passive, against
 every enemy deck of the run, with its emblems, instead of the test decks.
 The planeswalker is always P1, as the human is in a run.
+
+--runs plays N whole runs with each planeswalker instead: the AI plays both
+sides of every duel and a simple policy makes the run's choices. It reports
+how often the act is won and where runs end.
 
 --replay plays one game with seed S instead and prints what each player
 did, e.g. to look into a game the report flagged.";
@@ -43,6 +49,8 @@ pub struct Options {
     pub replay: Option<(String, String)>,
     /// Play the run's starting decks against its enemy decks.
     pub enemies: bool,
+    /// Play whole runs.
+    pub runs: bool,
 }
 
 impl Default for Options {
@@ -52,6 +60,7 @@ impl Default for Options {
             seed: 1,
             replay: None,
             enemies: false,
+            runs: false,
         }
     }
 }
@@ -81,6 +90,7 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
                     .map_err(|_| format!("--seed: `{text}` is not a whole number"))?;
             }
             "--enemies" => options.enemies = true,
+            "--runs" => options.runs = true,
             "--replay" => {
                 let p1 = value("--replay")?.to_string();
                 let p2 = value("--replay")?.to_string();
@@ -232,12 +242,48 @@ pub fn run_report(options: &Options) -> Result<(String, bool), String> {
         let config = DuelConfig::from_decks(deck(p1)?, deck(p2)?, &data.balance.duel);
         return Ok(game::replay(config, options.seed, limits));
     }
+    if options.runs {
+        return run_runs(options);
+    }
     let stats = run(options)?;
     let failed = stats.iter().any(|pairing| !pairing.errors.is_empty());
     Ok((
         format_report(&stats, options.games, options.seed, limits),
         failed,
     ))
+}
+
+/// Plays whole runs with every planeswalker and returns the report and
+/// whether any run failed.
+fn run_runs(options: &Options) -> Result<(String, bool), String> {
+    let data = data::embedded().map_err(|error| error.to_string())?;
+    let mut text = format!(
+        "Whole runs, seeds {} to {}.\n\n",
+        options.seed,
+        options.seed + u64::from(options.games.saturating_sub(1))
+    );
+    let mut failed = false;
+    for planeswalker in &data.run.planeswalkers {
+        let id = planeswalker.id.as_str();
+        let played = in_parallel(options.games, |game| {
+            let seed = options.seed + u64::from(game);
+            match catch_unwind(AssertUnwindSafe(|| runs::play_run(id, seed))) {
+                Ok(result) => result,
+                Err(_) => Err("panic".to_string()),
+            }
+        });
+        let results: Vec<(u64, Result<runs::RunRecord, String>)> = (0..options.games)
+            .zip(played)
+            .map(|(game, result)| {
+                let result = result.unwrap_or_else(|| Err("the run was never played".to_string()));
+                (options.seed + u64::from(game), result)
+            })
+            .collect();
+        failed |= results.iter().any(|(_, result)| result.is_err());
+        text.push_str(&runs::format_runs(id, &results));
+        text.push('\n');
+    }
+    Ok((text, failed))
 }
 
 #[cfg(test)]
@@ -257,7 +303,8 @@ mod tests {
                 games: 100,
                 seed: 1,
                 replay: None,
-                enemies: false
+                enemies: false,
+                runs: false
             }))
         );
         assert_eq!(
@@ -266,7 +313,8 @@ mod tests {
                 games: 1000,
                 seed: 42,
                 replay: None,
-                enemies: false
+                enemies: false,
+                runs: false
             }))
         );
         assert_eq!(parse_args(&args("--seed 7")).unwrap().unwrap().games, 100);
@@ -277,7 +325,8 @@ mod tests {
                 games: 100,
                 seed: 9,
                 replay: Some(("deck_b".to_string(), "deck_c".to_string())),
-                enemies: false
+                enemies: false,
+                runs: false
             }))
         );
         assert_eq!(
@@ -354,6 +403,19 @@ mod tests {
             );
             assert_eq!(pairing.errors, []);
         }
+    }
+
+    #[test]
+    fn whole_runs_can_be_played_and_reported() {
+        let options = parse_args(&args("--runs --games 2 --seed 5"))
+            .unwrap()
+            .unwrap();
+        assert!(options.runs);
+        let (report, failed) = run_report(&options).unwrap();
+        assert!(!failed, "{report}");
+        assert!(report.starts_with("Whole runs, seeds 5 to 6."), "{report}");
+        assert!(report.contains("warden: 2 runs") && report.contains("firebrand: 2 runs"));
+        assert_eq!(run_report(&options).unwrap().0, report);
     }
 
     #[test]
