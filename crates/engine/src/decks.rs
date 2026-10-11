@@ -78,7 +78,8 @@ pub fn validate(deck: &DeckDef, cards: &CardDatabase) -> Result<(), DeckError> {
     }
     let mut seen = BTreeSet::new();
     for entry in &deck.cards {
-        if cards.get(&entry.card).is_none() {
+        // A token is not a card a deck can hold.
+        if cards.get(&entry.card).is_none_or(|card| card.token) {
             return Err(DeckError::UnknownCard(entry.card.clone()));
         }
         if entry.count == 0 {

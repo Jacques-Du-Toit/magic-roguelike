@@ -85,7 +85,8 @@ npm run e2e
 │  └─ sim/                 # CLI: headless AI-vs-AI games, balance checks
 ├─ data/
 │  ├─ cards/               # card definitions (JSON)
-│  ├─ decks/               # the three test decklists
+│  ├─ tokens/              # token definitions (JSON, same format)
+│  ├─ decks/               # the test decklists
 │  ├─ run/                 # planeswalkers, enemy decks and relics
 │  └─ balance.json         # all tunable numbers, the run's and the boons included
 ├─ tools/                  # scripts, e.g. Scryfall import

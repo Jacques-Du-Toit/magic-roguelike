@@ -103,7 +103,7 @@ fn spell_offer(
     for slot in 0..count {
         let candidates: Vec<&CardDef> = cards
             .iter()
-            .filter(|card| !card.is_land() && !chosen.contains(&card.id))
+            .filter(|card| !card.is_land() && !card.token && !chosen.contains(&card.id))
             .filter(|card| slot >= own || in_colors(card, colors))
             .collect();
         if let Some(card) = pick_card(rng, &candidates, weights) {

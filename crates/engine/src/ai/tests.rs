@@ -637,6 +637,7 @@ fn pool_deck(colors: [Color; 2], seed: u64) -> crate::duel::PlayerConfig {
         .iter()
         .filter(|card| {
             !card.is_land()
+                && !card.token
                 && !card.colors.is_empty()
                 && card.colors.iter().all(|color| colors.contains(color))
         })
@@ -705,7 +706,11 @@ fn plays_whole_games_with_decks_drawn_from_the_whole_pool() {
         }
     }
     // Most of the pool gets cast along the way.
-    let spells = data.cards.iter().filter(|card| !card.is_land()).count();
+    let spells = data
+        .cards
+        .iter()
+        .filter(|card| !card.is_land() && !card.token)
+        .count();
     assert!(
         cast_cards.len() * 10 >= spells * 7,
         "only {} of {spells} spells were ever cast",

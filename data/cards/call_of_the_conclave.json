@@ -1,0 +1,25 @@
+{
+  "id": "call_of_the_conclave",
+  "name": "Call of the Conclave",
+  "mana_cost": "{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Create a 3/3 green Centaur creature token.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "centaur_token"
+        }
+      ]
+    }
+  ]
+}

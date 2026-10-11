@@ -693,7 +693,7 @@ mod tests {
             .unwrap()
             .cards
             .iter()
-            .filter(|card| card.is_creature())
+            .filter(|card| card.is_creature() && !card.token)
             .collect();
         assert!(creatures.len() >= 37);
         for def in creatures {

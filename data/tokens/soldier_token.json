@@ -1,0 +1,11 @@
+{
+  "id": "soldier_token",
+  "name": "Soldier",
+  "mana_cost": "",
+  "colors": ["W"],
+  "types": ["Creature"],
+  "subtypes": ["Soldier"],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common"
+}

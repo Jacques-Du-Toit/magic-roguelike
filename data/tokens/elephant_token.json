@@ -1,0 +1,11 @@
+{
+  "id": "elephant_token",
+  "name": "Elephant",
+  "mana_cost": "",
+  "colors": ["G"],
+  "types": ["Creature"],
+  "subtypes": ["Elephant"],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common"
+}

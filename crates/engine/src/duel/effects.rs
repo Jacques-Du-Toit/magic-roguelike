@@ -4,6 +4,7 @@ use super::action::{GameEvent, Target};
 use super::damage::{LifeCause, change_life, deal_damage, destroy_creature};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
+use super::stack::permanent_entered;
 use super::state::{Decision, DuelState, StackItemKind, Zone};
 use super::turn::{discard_card, draw_card};
 use crate::cards::{Effect, PlayerRef};
@@ -31,6 +32,16 @@ pub(crate) fn apply_effect(
     targets: &[Target],
 ) -> Result<Applied, InternalError> {
     match *effect {
+        Effect::CreateToken { ref token, count } => {
+            for _ in 0..count {
+                let id = state.create_card(controller, token.clone(), Zone::Battlefield);
+                events.push(GameEvent::TokenCreated {
+                    player: controller,
+                    card: state.card_ref(id)?,
+                });
+                permanent_entered(state, id)?;
+            }
+        }
         Effect::DealDamage { amount, .. } => {
             let amount = i32::try_from(amount).unwrap_or(i32::MAX);
             deal_damage(state, events, source, needed(effect, targets, 0)?, amount)?;

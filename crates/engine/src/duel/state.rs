@@ -36,6 +36,9 @@ pub struct DuelState {
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItem>,
     pub pending_triggers: Vec<PendingTrigger>,
+    /// Tokens that have left the battlefield. They cease to exist the next
+    /// time state-based actions are checked.
+    pub stray_tokens: Vec<ObjectId>,
     /// The "once each turn" abilities that have triggered this turn.
     pub triggered_this_turn: Vec<TriggeredAbility>,
     /// Who gets priority once the waiting triggered abilities are on the
@@ -475,6 +478,7 @@ impl DuelState {
             emblems: Vec::new(),
             stack: Vec::new(),
             pending_triggers: Vec::new(),
+            stray_tokens: Vec::new(),
             triggered_this_turn: Vec::new(),
             priority_to: starting_player,
             resolving: None,
@@ -821,8 +825,26 @@ impl DuelState {
         self.static_sources.retain(|source| *source != id);
 
         let new_id = self.next_object_id();
+        if to != Zone::Battlefield && card_def(&old.def)?.token {
+            self.stray_tokens.push(new_id);
+        }
         self.add_to_zone(GameObject::new(new_id, old.card, old.def, old.owner, to));
         Ok(new_id)
+    }
+
+    /// Tokens that have left the battlefield cease to exist. Returns
+    /// whether any did.
+    pub(crate) fn remove_stray_tokens(&mut self) -> bool {
+        let strays = std::mem::take(&mut self.stray_tokens);
+        for &id in &strays {
+            if let Some(object) = self.objects.remove(&id) {
+                if let Some(list) = self.zone_mut(object.owner, object.zone) {
+                    list.retain(|listed| *listed != id);
+                }
+                self.stack.retain(|item| item.id != id);
+            }
+        }
+        !strays.is_empty()
     }
 }
 

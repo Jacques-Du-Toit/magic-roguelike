@@ -1,0 +1,11 @@
+{
+  "id": "zombie_token",
+  "name": "Zombie",
+  "mana_cost": "",
+  "colors": ["B"],
+  "types": ["Creature"],
+  "subtypes": ["Zombie"],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common"
+}

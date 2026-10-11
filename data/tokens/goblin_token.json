@@ -1,0 +1,11 @@
+{
+  "id": "goblin_token",
+  "name": "Goblin",
+  "mana_cost": "",
+  "colors": ["R"],
+  "types": ["Creature"],
+  "subtypes": ["Goblin"],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common"
+}

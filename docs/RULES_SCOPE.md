@@ -74,7 +74,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Equipment | Later | |
 | Planeswalker cards | Later | Open question. |
 | Vehicles, Sagas, Battles, Classes, Rooms | Out (for now) | |
-| Tokens | In | Creature tokens, Treasure, Food (later), Clue (later). |
+| Tokens | In | Creature tokens are built (M4a). Treasure needs artifacts; Food and Clue are later. |
 | Double-faced / split / adventure / MDFC | Out | |
 
 ## Keywords
@@ -142,7 +142,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 | Example | Needs |
 |---|---|
 | Boss emblem: "creatures have ward {1}" | Ward (Later) |
-| Boss emblem: "upkeep, create a 2/2 Zombie" | Tokens are In but not built yet |
+| Boss emblem: "upkeep, create a 2/2 Zombie" | Nothing: tokens are built, and an emblem can create one |
 | Boon: "free mulligan to 7" | A mulligan rule change; not built |
 | Relic: "the first instant each turn costs {1} less" | Cost reduction (Simplified, not built) and per-turn counting |
 | Relic: "+1/+1 counters, that many plus one instead" | General replacement effects (Out for now) |

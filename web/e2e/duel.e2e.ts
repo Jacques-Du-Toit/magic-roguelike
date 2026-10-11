@@ -86,12 +86,14 @@ test('holding priority stops in steps that are otherwise passed through', async 
   await expect(page.getByTestId('prompt')).not.toContainText('Beginning of combat')
 })
 
-// The last has the human on the drain deck, whose cards trigger on deaths,
-// attacks and life gained, against the tempo deck's bounce and discard.
+// The last two have the human on the drain deck, whose cards trigger on
+// deaths, attacks and life gained, against the tempo deck's bounce and
+// discard; and on the token deck against the drain deck.
 for (const [you, ai, seed] of [
   ['deck_b', 'deck_a', 11],
   ['deck_b', 'deck_c', 12],
   ['deck_e', 'deck_d', 13],
+  ['deck_f', 'deck_e', 14],
 ] as const) {
   test(`a whole game as ${you} against ${ai} can be clicked through`, async ({ page }) => {
     const errors = watchForErrors(page)

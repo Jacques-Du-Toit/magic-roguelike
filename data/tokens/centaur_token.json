@@ -1,0 +1,11 @@
+{
+  "id": "centaur_token",
+  "name": "Centaur",
+  "mana_cost": "",
+  "colors": ["G"],
+  "types": ["Creature"],
+  "subtypes": ["Centaur"],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common"
+}

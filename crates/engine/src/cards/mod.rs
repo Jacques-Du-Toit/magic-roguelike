@@ -66,6 +66,11 @@ pub struct CardDef {
     /// "This land enters tapped." A property, not a replacement effect.
     #[serde(default)]
     pub enters_tapped: bool,
+    /// A token, made by an effect and never in a deck. The loader decides
+    /// it by folder: true for `data/tokens/`, false for `data/cards/`,
+    /// whatever the file says.
+    #[serde(default)]
+    pub token: bool,
     #[serde(default)]
     pub abilities: Vec<AbilityDef>,
 }
@@ -281,6 +286,13 @@ pub enum Effect {
         amount: u32,
         target: TargetSpec,
     },
+    /// The controller creates `count` of the token `token`, a file in
+    /// `data/tokens/`.
+    CreateToken {
+        token: CardDefId,
+        #[serde(default = "one")]
+        count: u32,
+    },
     /// `source` deals damage equal to its power to `target`.
     DealPowerDamage {
         source: TargetSpec,
@@ -339,6 +351,7 @@ impl Effect {
     pub fn name(&self) -> &'static str {
         match self {
             Effect::CounterSpell { .. } => "counter_spell",
+            Effect::CreateToken { .. } => "create_token",
             Effect::DealDamage { .. } => "deal_damage",
             Effect::DealPowerDamage { .. } => "deal_power_damage",
             Effect::Destroy { .. } => "destroy",
@@ -371,9 +384,13 @@ impl Effect {
             | Effect::DrawCards { player, .. }
             | Effect::GainLife { player, .. }
             | Effect::LoseLife { player, .. } => player.target().into_iter().collect(),
-            Effect::Scry { .. } => Vec::new(),
+            Effect::CreateToken { .. } | Effect::Scry { .. } => Vec::new(),
         }
     }
+}
+
+fn one() -> u32 {
+    1
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -518,6 +535,10 @@ pub enum CardError {
     ColorsMismatch(String),
     #[error("a land cannot have a mana cost")]
     LandWithCost,
+    #[error("a token must be a creature with no mana cost")]
+    Token,
+    #[error("`create_token` needs a count above zero")]
+    NoTokens,
     #[error("only lands may have `enters_tapped`")]
     EntersTapped,
     #[error("an Aura must be an Enchantment")]
@@ -589,7 +610,13 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
     if !(card.is_creature() && has_pt || !card.is_creature() && has_no_pt) {
         return Err(CardError::PowerToughness);
     }
-    if card.colors.iter().copied().collect::<BTreeSet<_>>() != card.mana_cost.colors() {
+    // A token has a colour and no cost.
+    let colors_from_cost = card.colors.iter().copied().collect::<BTreeSet<_>>();
+    if card.token {
+        if !card.mana_cost.is_empty() || !card.is_creature() {
+            return Err(CardError::Token);
+        }
+    } else if colors_from_cost != card.mana_cost.colors() {
         return Err(CardError::ColorsMismatch(card.mana_cost.to_string()));
     }
     if card.is_land() && !card.mana_cost.is_empty() {
@@ -746,7 +773,8 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
                 Some(source)
             }
         }
-        Effect::Discard { .. }
+        Effect::CreateToken { .. }
+        | Effect::Discard { .. }
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }
         | Effect::LoseLife { .. }
@@ -765,6 +793,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::GainLife { amount: 0, .. }
         | Effect::LoseLife { amount: 0, .. }
         | Effect::Scry { amount: 0 } => Err(CardError::ZeroAmount(effect.name())),
+        Effect::CreateToken { count: 0, .. } => Err(CardError::NoTokens),
         _ => Ok(()),
     }
 }

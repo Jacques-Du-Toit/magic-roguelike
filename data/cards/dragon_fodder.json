@@ -1,0 +1,25 @@
+{
+  "id": "dragon_fodder",
+  "name": "Dragon Fodder",
+  "mana_cost": "{1}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Create two 1/1 red Goblin creature tokens.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "goblin_token",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}

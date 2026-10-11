@@ -1,0 +1,11 @@
+{
+  "id": "wolf_token",
+  "name": "Wolf",
+  "mana_cost": "",
+  "colors": ["G"],
+  "types": ["Creature"],
+  "subtypes": ["Wolf"],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common"
+}

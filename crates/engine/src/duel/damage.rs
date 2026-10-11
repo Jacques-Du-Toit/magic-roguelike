@@ -156,12 +156,14 @@ pub(crate) fn destroy_creature(
 ///   it is indestructible;
 /// - an Aura that isn't attached to something it can enchant goes to the
 ///   graveyard;
+/// - a token that has left the battlefield ceases to exist;
 /// - a player at 0 life or less loses, and if both are, the game is a draw.
 pub(crate) fn check_state_based_actions(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
 ) -> Result<(), InternalError> {
     while state.result.is_none() {
+        state.remove_stray_tokens();
         let mut dying = Vec::new();
         let mut falling_off = Vec::new();
         for &id in &state.battlefield {

@@ -1,0 +1,32 @@
+{
+  "id": "bestial_menace",
+  "name": "Bestial Menace",
+  "mana_cost": "{3}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Create a 1/1 green Snake creature token, a 2/2 green Wolf creature token, and a 3/3 green Elephant creature token.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "snake_token"
+        },
+        {
+          "type": "create_token",
+          "token": "wolf_token"
+        },
+        {
+          "type": "create_token",
+          "token": "elephant_token"
+        }
+      ]
+    }
+  ]
+}

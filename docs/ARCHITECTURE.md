@@ -296,6 +296,9 @@ Two effects on one target ("target creature gets +3/+0 and gains first strike") 
 
 `discard` takes `"random": true` for a discard at random, which uses the duel's seeded RNG.
 
+### Tokens
+A token is defined like a card, in `data/tokens/` (one file per token, e.g. `soldier_token.json`): a creature with a name, colours, subtypes and power and toughness, and no mana cost. The loader marks everything in that folder as a token (`CardDef::token`), whatever the file says, and puts it in the same card database, so the engine and the UI treat a token on the battlefield like any other permanent. `{ "type": "create_token", "token": "soldier_token", "count": 2 }` creates them under the controller's control; a token named by an effect must exist. Tokens are never in a deck, a reward or a shop, and `tools/scryfall.mjs check` doesn't look at them. A token that leaves the battlefield goes where it was sent and then ceases to exist the next time state-based actions are checked, as in Magic, so "when this dies" abilities see it die.
+
 Targets are structured data: `any_target`, `creature`, `player`, `opponent` and `spell`, each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, `{ "creature": { "controller": "you" } }` or `"opponent"`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
 
 Keywords built so far: deathtouch, defender, double strike, first strike, flash, flying, haste, hexproof, indestructible, lifelink, menace, reach, trample, vigilance.
@@ -313,7 +316,7 @@ On load, every card is validated (costs parse, targets exist, keywords known, Au
 The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and an emblem's triggered ability can't have targets (a card's can). A restriction ("can't attack or block") is still for Auras only.
 
 ### Decklists
-`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo) and E (white-black drain) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
+`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo), E (white-black drain) and F (green-white tokens) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
 
 ## 5. Duel internals
 

@@ -70,6 +70,8 @@ pub struct DataFile<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataFiles<'a> {
     pub cards: Vec<DataFile<'a>>,
+    /// Token definitions: card files that the loader marks as tokens.
+    pub tokens: Vec<DataFile<'a>>,
     pub decks: Vec<DataFile<'a>>,
     pub balance: &'a str,
     pub run: RunFiles<'a>,
@@ -101,6 +103,8 @@ pub enum DataError {
     },
     #[error("{file}: {source}")]
     Deck { file: String, source: DeckError },
+    #[error("{file}: `create_token` names `{token}`, which is not a file in tokens/")]
+    UnknownToken { file: String, token: CardDefId },
     #[error("balance.json: {0}")]
     Balance(#[from] BalanceError),
     #[error("run/: {0}")]
@@ -112,9 +116,15 @@ impl GameData {
     pub fn load(files: &DataFiles<'_>) -> Result<GameData, DataError> {
         let mut cards = CardDatabase::default();
         let mut names: BTreeMap<String, CardDefId> = BTreeMap::new();
-        for source in &files.cards {
-            let file = format!("cards/{}.json", source.name);
-            let card: CardDef = parse(&file, source.text)?;
+        let sources = files
+            .cards
+            .iter()
+            .map(|source| ("cards", false, source))
+            .chain(files.tokens.iter().map(|source| ("tokens", true, source)));
+        for (folder, token, source) in sources {
+            let file = format!("{folder}/{}.json", source.name);
+            let mut card: CardDef = parse(&file, source.text)?;
+            card.token = token;
             if card.id.as_str() != source.name {
                 return Err(DataError::IdMismatch {
                     file,
@@ -132,6 +142,17 @@ impl GameData {
                 });
             }
             cards.cards.insert(card.id.clone(), card);
+        }
+        // Every token an effect creates has to exist.
+        for card in cards.iter() {
+            for token in card.abilities.iter().flat_map(tokens_created) {
+                if !cards.get(token).is_some_and(|def| def.token) {
+                    return Err(DataError::UnknownToken {
+                        file: format!("cards/{}.json", card.id),
+                        token: token.clone(),
+                    });
+                }
+            }
         }
 
         let mut decks = BTreeMap::new();
@@ -173,6 +194,23 @@ impl GameData {
     }
 }
 
+/// The tokens an ability's effects create.
+fn tokens_created(ability: &cards::AbilityDef) -> Vec<&CardDefId> {
+    let effects = match ability {
+        cards::AbilityDef::Spell { effects } | cards::AbilityDef::Triggered { effects, .. } => {
+            effects.as_slice()
+        }
+        _ => &[],
+    };
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            cards::Effect::CreateToken { token, .. } => Some(token),
+            _ => None,
+        })
+        .collect()
+}
+
 fn parse<T: DeserializeOwned>(file: &str, text: &str) -> Result<T, DataError> {
     serde_json::from_str(text).map_err(|error| DataError::Parse {
         file: file.to_string(),
@@ -193,6 +231,7 @@ fn embedded_files() -> Result<DataFiles<'static>, DataError> {
     };
     Ok(DataFiles {
         cards: embedded_json_files("cards")?,
+        tokens: embedded_json_files("tokens")?,
         decks: embedded_json_files("decks")?,
         balance,
         run: RunFiles {
@@ -261,6 +300,7 @@ mod tests {
                 .iter()
                 .map(|&(name, text)| DataFile { name, text })
                 .collect(),
+            tokens: Vec::new(),
             decks: vec![DataFile {
                 name: "bears",
                 text: deck,
@@ -286,6 +326,65 @@ mod tests {
         assert_eq!(bears.size(), 3);
         assert_eq!(bears.count_of("grizzly_bears"), 2);
         assert_eq!(data.balance.duel.starting_life, 20);
+    }
+
+    #[test]
+    fn tokens_load_from_their_own_folder_and_stay_out_of_decks() {
+        const ALARM: &str = r#"{ "id": "alarm", "name": "Alarm", "mana_cost": "{W}",
+            "colors": ["W"], "types": ["Instant"], "rarity": "common",
+            "abilities": [{ "kind": "spell",
+                "effects": [{ "type": "create_token", "token": "soldier_token" }] }] }"#;
+        const SOLDIER: &str = r#"{ "id": "soldier_token", "name": "Soldier", "mana_cost": "",
+            "colors": ["W"], "types": ["Creature"], "power": 1, "toughness": 1,
+            "rarity": "common" }"#;
+        let soldier = CardDefId("soldier_token".to_string());
+        let cards = [CARDS[0], CARDS[1], ("alarm", ALARM)];
+
+        // The token an effect names has to be there.
+        assert_eq!(
+            load_with(&cards, DECK, BALANCE).map(|_| ()),
+            Err(DataError::UnknownToken {
+                file: "cards/alarm.json".to_string(),
+                token: soldier.clone()
+            })
+        );
+        let with_token = |deck: &'static str| {
+            let mut files = files(&cards, deck, BALANCE);
+            files.tokens = vec![DataFile {
+                name: "soldier_token",
+                text: SOLDIER,
+            }];
+            GameData::load(&files)
+        };
+        let data = with_token(DECK).unwrap();
+        assert!(data.cards.get(&soldier).unwrap().token);
+        assert!(
+            !data
+                .cards
+                .get(&CardDefId("alarm".to_string()))
+                .unwrap()
+                .token
+        );
+
+        // A deck can't hold one, and a card file isn't one: the same file
+        // in cards/ has a colour its cost doesn't explain.
+        const TOKEN_DECK: &str = r#"{ "id": "bears", "name": "Bears",
+            "cards": [{ "card": "soldier_token", "count": 2 }] }"#;
+        assert_eq!(
+            with_token(TOKEN_DECK).map(|_| ()),
+            Err(DataError::Deck {
+                file: "decks/bears.json".to_string(),
+                source: DeckError::UnknownCard(soldier)
+            })
+        );
+        let as_card = [CARDS[0], CARDS[1], ("soldier_token", SOLDIER)];
+        assert!(matches!(
+            load_with(&as_card, DECK, BALANCE),
+            Err(DataError::Card {
+                source: CardError::ColorsMismatch(_),
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -427,14 +526,20 @@ mod tests {
     /// or added by accident shows up here.
     #[test]
     fn the_card_pool_has_the_expected_size() {
-        let count =
-            |wanted: fn(&CardDef) -> bool| data().cards.iter().filter(|c| wanted(c)).count();
+        let count = |wanted: fn(&CardDef) -> bool| {
+            data()
+                .cards
+                .iter()
+                .filter(|card| !card.token && wanted(card))
+                .count()
+        };
         let basics = count(|card| card.supertypes.contains(&Supertype::Basic));
         let lands = count(|card| card.is_land());
         let creatures = count(|card| card.is_creature());
         let others = count(|card| !card.is_land() && !card.is_creature());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (64, 26));
+        assert_eq!((creatures, others), (67, 30));
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 7);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -793,6 +898,9 @@ mod tests {
             let used = data().decks.values().any(|deck| deck.count_of(id) > 0)
                 || run.planeswalkers.iter().any(|def| in_entries(&def.spells))
                 || run.enemies.iter().any(|def| in_entries(&def.cards));
+            if card.token {
+                continue;
+            }
             let reward_land = card.is_land() && card.supertypes.is_empty();
             let waiting = NOT_YET_MET.contains(&id);
             assert!(used || reward_land || waiting, "{id} is in no deck");
@@ -806,7 +914,7 @@ mod tests {
     /// Cards added in M4a that no deck uses yet. Those in a character's
     /// colours already turn up as rewards; the rest wait for the enemy decks
     /// to be rebuilt on the cube at the end of M4a.
-    const NOT_YET_MET: [&str; 24] = [
+    const NOT_YET_MET: [&str; 27] = [
         "ambush_viper",
         "angelic_wall",
         "druid_of_the_cowl",
@@ -821,6 +929,9 @@ mod tests {
         "swiftblade_vindicator",
         "thornweald_archer",
         "titanic_growth",
+        "doomed_dissenter",
+        "dragon_fodder",
+        "goblin_instigator",
         "empyrean_eagle",
         "monastery_swiftspear",
         "pitchburn_devils",

@@ -1,0 +1,25 @@
+{
+  "id": "raise_the_alarm",
+  "name": "Raise the Alarm",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "soldier_token",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}

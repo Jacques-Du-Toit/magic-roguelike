@@ -257,7 +257,8 @@ fn validate_entries(
     }
     let mut seen = BTreeSet::new();
     for entry in entries {
-        if cards.get(&entry.card).is_none() {
+        // A token is not a card a deck can hold.
+        if cards.get(&entry.card).is_none_or(|card| card.token) {
             return Err(RunDataError::UnknownCard {
                 id: id.to_string(),
                 card: entry.card.clone(),

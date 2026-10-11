@@ -166,6 +166,8 @@ export function describeEvent(event: GameEvent, context: NameContext): LogEntry 
       return line(`${object(event.source)} deals ${event.amount} damage to ${target(event.target)}`)
     case 'creature_died':
       return line(`${whose(event.player)} ${face(event.card)} dies`)
+    case 'token_created':
+      return line(`${who(event.player)} ${verb(event.player, 'create')} a ${face(event.card)} token`)
     case 'keyword_granted':
       return line(
         `${object(event.permanent)} gains ${event.keyword.replaceAll('_', ' ')} until end of turn`,
@@ -216,6 +218,7 @@ function holdFor(event: GameEvent, viewer: PlayerId): number {
     case 'ability_triggered':
       return hold.abilityTriggered
     case 'permanent_entered':
+    case 'token_created':
       return hold.permanentEntered
     case 'spell_resolved':
     case 'spell_fizzled':

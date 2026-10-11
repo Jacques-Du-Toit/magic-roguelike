@@ -1,0 +1,11 @@
+{
+  "id": "snake_token",
+  "name": "Snake",
+  "mana_cost": "",
+  "colors": ["G"],
+  "types": ["Creature"],
+  "subtypes": ["Snake"],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common"
+}

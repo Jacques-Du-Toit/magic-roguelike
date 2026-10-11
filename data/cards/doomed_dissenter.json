@@ -1,0 +1,33 @@
+{
+  "id": "doomed_dissenter",
+  "name": "Doomed Dissenter",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "When this creature dies, create a 2/2 black Zombie creature token.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "zombie_token"
+        }
+      ]
+    }
+  ]
+}

@@ -224,6 +224,11 @@ pub enum GameEvent {
         target: Target,
         amount: i32,
     },
+    /// A token was created on the battlefield.
+    TokenCreated {
+        player: PlayerId,
+        card: CardRef,
+    },
     /// A creature gained a keyword until end of turn.
     KeywordGranted {
         permanent: ObjectId,

@@ -19,7 +19,8 @@ export function ManaCost({ cost }: { cost: string }) {
 }
 
 function typeLine(def: CardDef): string {
-  const types = [...def.supertypes, ...def.types].join(' ')
+  // As a token's type line reads: "Token Creature — Soldier".
+  const types = [...(def.token ? ['Token'] : []), ...def.supertypes, ...def.types].join(' ')
   return def.subtypes.length > 0 ? `${types} — ${def.subtypes.join(' ')}` : types
 }
 
