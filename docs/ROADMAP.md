@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M0**
+**Active milestone: M1**
 
 ---
 
