@@ -169,6 +169,18 @@ pub enum GameEvent {
         power: i32,
         toughness: i32,
     },
+    /// An Aura entered the battlefield attached to `enchanted`.
+    AuraAttached {
+        aura: ObjectId,
+        enchanted: ObjectId,
+    },
+    /// A permanent that isn't a creature went from the battlefield to its
+    /// owner's graveyard, e.g. an Aura whose creature is gone.
+    PermanentPutIntoGraveyard {
+        player: PlayerId,
+        permanent: ObjectId,
+        card: CardRef,
+    },
     AttackersDeclared {
         player: PlayerId,
         attackers: Vec<ObjectId>,

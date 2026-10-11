@@ -5,7 +5,7 @@ use super::damage::deal_damage;
 use super::error::InternalError;
 use super::ids::ObjectId;
 use super::state::{Attacker, Combat, DuelState};
-use crate::cards::Keyword;
+use crate::cards::{Keyword, Restricted};
 
 fn combat(state: &DuelState) -> Result<&Combat, InternalError> {
     state
@@ -28,7 +28,11 @@ pub(crate) fn possible_attackers(state: &DuelState) -> Result<Vec<ObjectId>, Int
     for creature in state.creatures_of(state.active_player)? {
         let permanent = state.object(creature)?;
         let ready = !permanent.summoning_sick || state.has_keyword(creature, Keyword::Haste)?;
-        if ready && !permanent.tapped && !combat.is_attacking(creature) {
+        if ready
+            && !permanent.tapped
+            && !combat.is_attacking(creature)
+            && !state.is_restricted(creature, Restricted::Attack)?
+        {
             attackers.push(creature);
         }
     }
@@ -111,7 +115,10 @@ fn can_block(
     if !state.is_creature(attacker)? || !combat.is_attacking(attacker) {
         return Ok(false);
     }
-    if state.object(blocker)?.tapped || combat.is_blocking(blocker) {
+    if state.object(blocker)?.tapped
+        || combat.is_blocking(blocker)
+        || state.is_restricted(blocker, Restricted::Block)?
+    {
         return Ok(false);
     }
     if state.has_keyword(attacker, Keyword::Flying)? {

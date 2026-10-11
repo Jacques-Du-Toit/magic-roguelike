@@ -11,7 +11,7 @@ use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::mana::ManaPool;
 use super::rng::DuelRng;
-use crate::cards::{CardDef, CardDefId, Keyword};
+use crate::cards::{AbilityDef, Affects, CardDef, CardDefId, Keyword, Restricted, StaticAbility};
 use crate::data;
 
 /// Everything about a duel in progress. It is plain data: it serialises, it
@@ -103,6 +103,8 @@ pub struct GameObject {
     /// Power and toughness changes that last until end of turn.
     pub power_bonus: i32,
     pub toughness_bonus: i32,
+    /// For an Aura on the battlefield, the permanent it enchants.
+    pub attached_to: Option<ObjectId>,
 }
 
 /// A triggered ability that has triggered and is waiting to be put on the
@@ -168,6 +170,7 @@ impl GameObject {
             deathtouch_damage: false,
             power_bonus: 0,
             toughness_bonus: 0,
+            attached_to: None,
         }
     }
 }
@@ -378,6 +381,31 @@ impl DuelState {
         keyword: Keyword,
     ) -> Result<bool, InternalError> {
         Ok(self.def(id)?.has_keyword(keyword))
+    }
+
+    /// Whether an effect stops this creature from attacking or blocking.
+    /// So far only an Aura's "enchanted creature can't..." does.
+    pub(crate) fn is_restricted(
+        &self,
+        creature: ObjectId,
+        from: Restricted,
+    ) -> Result<bool, InternalError> {
+        for &id in &self.battlefield {
+            if self.object(id)?.attached_to != Some(creature) {
+                continue;
+            }
+            for ability in &self.def(id)?.abilities {
+                if let AbilityDef::Static(StaticAbility::Restriction {
+                    affects: Affects::Enchanted,
+                    cant,
+                }) = ability
+                    && cant.contains(&from)
+                {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
     }
 
     /// The creatures a player controls, in the order they entered.

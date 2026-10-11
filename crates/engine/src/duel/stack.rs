@@ -36,10 +36,19 @@ pub(crate) fn legal_casts(
 /// Whether the rules allow the player to cast this card at this moment,
 /// leaving aside targets and whether they can pay for it.
 fn can_cast_now(state: &DuelState, player: PlayerId, def: &CardDef) -> bool {
-    if def.is_land() || def.is_aura() {
+    if def.is_land() {
         return false;
     }
     def.has_type(CardType::Instant) || has_sorcery_timing(state, player)
+}
+
+/// Whether `target` is something the spec allows, right now.
+pub(crate) fn fits_target_spec(
+    state: &DuelState,
+    spec: TargetSpec,
+    target: Target,
+) -> Result<bool, InternalError> {
+    Ok(candidates(state, spec)?.contains(&target))
 }
 
 /// The player's own main phase with an empty stack.
@@ -58,9 +67,12 @@ fn spell_effects(def: &CardDef) -> &[Effect] {
         .unwrap_or(&[])
 }
 
-/// What the spell's targets must be, in the order they are chosen: one per
-/// targeted effect.
+/// What the spell's targets must be, in the order they are chosen: what an
+/// Aura enchants, or one per targeted effect of an instant or sorcery.
 fn target_specs(def: &CardDef) -> Vec<TargetSpec> {
+    if let Some(enchant) = def.enchant {
+        return vec![enchant];
+    }
     spell_effects(def)
         .iter()
         .filter_map(|effect| effect.target().copied())
@@ -178,24 +190,34 @@ fn resolve_spell(
 ) -> Result<(), InternalError> {
     let def = state.def(item.id)?;
     let player = item.controller;
-    if !def.is_instant_or_sorcery() {
-        // A permanent spell becomes a permanent.
-        let permanent = state.move_object(item.id, Zone::Battlefield)?;
-        events.push(GameEvent::PermanentEntered {
-            player,
-            card: state.card_ref(permanent)?,
-        });
-        return permanent_entered(state, permanent);
-    }
 
     // Targets are checked again on resolution. A spell whose targets have
     // all become illegal does nothing; otherwise it does what it can.
     let specs = target_specs(def);
     let mut still_legal = Vec::new();
-    for (&spec, target) in specs.iter().zip(&item.targets) {
-        still_legal.push(candidates(state, spec)?.contains(target));
+    for (&spec, &target) in specs.iter().zip(&item.targets) {
+        still_legal.push(fits_target_spec(state, spec, target)?);
     }
     let fizzles = !still_legal.is_empty() && !still_legal.contains(&true);
+
+    if !fizzles && !def.is_instant_or_sorcery() {
+        // A permanent spell becomes a permanent. An Aura enters attached
+        // to its target.
+        let permanent = state.move_object(item.id, Zone::Battlefield)?;
+        events.push(GameEvent::PermanentEntered {
+            player,
+            card: state.card_ref(permanent)?,
+        });
+        if let (true, Some(&Target::Object { object })) = (def.is_aura(), item.targets.first()) {
+            state.object_mut(permanent)?.attached_to = Some(object);
+            events.push(GameEvent::AuraAttached {
+                aura: permanent,
+                enchanted: object,
+            });
+        }
+        return permanent_entered(state, permanent);
+    }
+
     if !fizzles {
         let mut targets = item.targets.iter().zip(&still_legal);
         for effect in spell_effects(def) {

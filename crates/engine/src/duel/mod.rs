@@ -1,6 +1,8 @@
 //! The duel: state, actions and rules. See `docs/ARCHITECTURE.md` §2 and §5.
 
 mod action;
+#[cfg(test)]
+mod aura_tests;
 mod combat;
 #[cfg(test)]
 mod combat_tests;

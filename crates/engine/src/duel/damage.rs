@@ -3,6 +3,7 @@
 use super::action::{GameEvent, Target};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
+use super::stack::fits_target_spec;
 use super::state::{DuelState, GameResult, WinReason, Zone};
 use crate::cards::Keyword;
 
@@ -108,6 +109,8 @@ pub(crate) fn creature_dies(
 ///
 /// - a creature with toughness 0 or less, lethal damage, or damage from a
 ///   source with deathtouch goes to the graveyard;
+/// - an Aura that isn't attached to something it can enchant goes to the
+///   graveyard;
 /// - a player at 0 life or less loses, and if both are, the game is a draw.
 pub(crate) fn check_state_based_actions(
     state: &mut DuelState,
@@ -115,18 +118,36 @@ pub(crate) fn check_state_based_actions(
 ) -> Result<(), InternalError> {
     while state.result.is_none() {
         let mut dying = Vec::new();
+        let mut falling_off = Vec::new();
         for &id in &state.battlefield {
-            if !state.is_creature(id)? {
-                continue;
-            }
-            let toughness = state.toughness(id)?;
-            let creature = state.object(id)?;
-            if toughness <= 0 || creature.damage >= toughness || creature.deathtouch_damage {
-                dying.push(id);
+            let def = state.def(id)?;
+            let permanent = state.object(id)?;
+            if def.is_creature() {
+                let toughness = state.toughness(id)?;
+                if toughness <= 0 || permanent.damage >= toughness || permanent.deathtouch_damage {
+                    dying.push(id);
+                }
+            } else if let Some(enchant) = def.enchant {
+                let attached_legally = match permanent.attached_to {
+                    Some(object) => fits_target_spec(state, enchant, Target::Object { object })?,
+                    None => false,
+                };
+                if !attached_legally {
+                    falling_off.push(id);
+                }
             }
         }
         for &id in &dying {
             creature_dies(state, events, id)?;
+        }
+        for &id in &falling_off {
+            let player = state.object(id)?.owner;
+            let card = state.move_object(id, Zone::Graveyard)?;
+            events.push(GameEvent::PermanentPutIntoGraveyard {
+                player,
+                permanent: id,
+                card: state.card_ref(card)?,
+            });
         }
 
         let lost = |player: PlayerId| state.player(player).life <= 0;
@@ -140,7 +161,7 @@ pub(crate) fn check_state_based_actions(
             state.result = Some(result);
             events.push(GameEvent::GameOver { result });
         }
-        if dying.is_empty() {
+        if dying.is_empty() && falling_off.is_empty() {
             break;
         }
     }
