@@ -11,11 +11,11 @@ use super::ids::{ObjectId, PlayerId};
 use super::mana::empty_mana_pools;
 use super::setup::take_top_card;
 use super::stack::{
-    choose_targets, continue_resolution, emblems_trigger, has_sorcery_timing, legal_casts,
-    permanent_entered, put_triggers_on_stack, resolve_top,
+    choose_targets, continue_resolution, has_sorcery_timing, legal_casts, permanent_entered,
+    put_triggers_on_stack, resolve_top,
 };
 use super::state::{Combat, Decision, DuelState, Step, Zone};
-use crate::cards::Trigger;
+use super::triggers::{Happening, fire};
 
 /// A rule of Magic rather than a balance number.
 const LAND_DROPS_PER_TURN: u8 = 1;
@@ -39,6 +39,7 @@ fn begin_turn(
     for player_state in &mut state.players {
         player_state.lands_played_this_turn = 0;
     }
+    state.triggered_this_turn.clear();
     events.push(GameEvent::TurnBegan {
         turn: state.turn,
         player,
@@ -147,7 +148,7 @@ fn run_from_step(
                 return open_priority(state, events);
             }
             Step::Upkeep => {
-                emblems_trigger(state, active, &Trigger::BeginningOfUpkeep {});
+                fire(state, Happening::Upkeep(active))?;
                 return open_priority(state, events);
             }
             Step::PrecombatMain | Step::EndCombat | Step::End => {
@@ -229,6 +230,18 @@ pub(crate) fn open_priority(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
 ) -> Result<(), InternalError> {
+    let active = state.active_player;
+    open_priority_for(state, events, active)
+}
+
+/// As `open_priority`, but `player` gets priority: a player who has just
+/// cast a spell keeps it, whoever's turn it is.
+pub(crate) fn open_priority_for(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    player: PlayerId,
+) -> Result<(), InternalError> {
+    state.priority_to = player;
     loop {
         check_state_based_actions(state, events)?;
         if state.result.is_some() || state.pending_triggers.is_empty() {
@@ -241,9 +254,7 @@ pub(crate) fn open_priority(
     state.consecutive_passes = 0;
     state.decision = match state.result {
         Some(_) => None,
-        None => Some(Decision::Priority {
-            player: state.active_player,
-        }),
+        None => Some(Decision::Priority { player }),
     };
     Ok(())
 }
@@ -319,7 +330,8 @@ pub(crate) fn choose_trigger_targets(
     targets: &[Target],
 ) -> Result<(), InternalError> {
     choose_targets(state, events, targets)?;
-    open_priority(state, events)
+    let player = state.priority_to;
+    open_priority_for(state, events, player)
 }
 
 /// While scrying, the player keeps the card they are looking at on top of
@@ -475,8 +487,7 @@ pub(crate) fn draw_card(
         player,
         life_lost.saturating_neg(),
         LifeCause::Fatigue,
-    );
-    Ok(())
+    )
 }
 
 #[cfg(test)]
@@ -817,7 +828,7 @@ mod tests {
     fn a_player_at_zero_life_loses_when_priority_would_be_given() {
         let (mut state, first, second) = started("deck_a", "deck_c", 1);
         let mut events = Vec::new();
-        change_life(&mut state, &mut events, second, -20, LifeCause::Other);
+        change_life(&mut state, &mut events, second, -20, LifeCause::Other).unwrap();
         let events = pass_both(&mut state);
         let expected = GameResult::Win {
             player: first,
@@ -834,8 +845,8 @@ mod tests {
     fn both_players_at_zero_life_is_a_draw() {
         let (mut state, first, second) = started("deck_a", "deck_c", 1);
         let mut events = Vec::new();
-        change_life(&mut state, &mut events, first, -25, LifeCause::Other);
-        change_life(&mut state, &mut events, second, -20, LifeCause::Other);
+        change_life(&mut state, &mut events, first, -25, LifeCause::Other).unwrap();
+        change_life(&mut state, &mut events, second, -20, LifeCause::Other).unwrap();
         pass_both(&mut state);
         assert_eq!(result(&state), Some(GameResult::Draw));
         assert_eq!(state.decision, None);
@@ -845,11 +856,11 @@ mod tests {
     fn regaining_life_before_the_check_clears_a_fatigue_loss() {
         let (mut state, first, _) = started("deck_a", "deck_c", 1);
         let mut events = Vec::new();
-        change_life(&mut state, &mut events, first, -20, LifeCause::Fatigue);
+        change_life(&mut state, &mut events, first, -20, LifeCause::Fatigue).unwrap();
         assert!(state.player(first).lost_to_fatigue);
-        change_life(&mut state, &mut events, first, 5, LifeCause::Other);
+        change_life(&mut state, &mut events, first, 5, LifeCause::Other).unwrap();
         assert!(!state.player(first).lost_to_fatigue);
-        change_life(&mut state, &mut events, first, -5, LifeCause::Other);
+        change_life(&mut state, &mut events, first, -5, LifeCause::Other).unwrap();
         assert!(!state.player(first).lost_to_fatigue);
     }
 

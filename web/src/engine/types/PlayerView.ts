@@ -31,6 +31,11 @@ battlefield: Array<PermanentView>,
  */
 stack: Array<StackItemView>, combat: Combat | null, 
 /**
+ * While a triggered ability waits for its targets: the name of the
+ * card or emblem it is on.
+ */
+aiming: string | null, 
+/**
  * The card the viewer is looking at while they scry. Only they see it.
  */
 looking_at: CardRef | null, result: GameResult | null, };

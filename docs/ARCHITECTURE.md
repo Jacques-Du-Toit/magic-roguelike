@@ -117,7 +117,7 @@ pub struct PlayerConfig {
 }
 ```
 
-An `EmblemDef` is a name, a text and a list of abilities in the card ability format. Emblems may have triggered abilities (`beginning_of_upkeep`, and `enters_battlefield` with subject `creature_you_control`) and static ones (`anthem` and `grant_keyword`, affecting `creatures_you_control`). Their triggers use the stack like any other. The run builds them from modifiers (§6).
+An `EmblemDef` is a name, a text and a list of abilities in the card ability format. Emblems may have triggered abilities and static ones (`anthem` and `grant_keyword`, affecting `creatures_you_control`). An emblem is not a permanent, so its triggers are the ones about its controller: `beginning_of_upkeep`, `gain_life`, `cast_spell`, and `enters_battlefield` or `dies` with subject `creature_you_control`; and its effects can't have chosen targets yet, though they may refer to `triggering`. Their triggers use the stack like any other. The run builds them from modifiers (§6).
 
 `RulesConfig` holds duel-wide numbers (max hand size, opening-hand smoothing, fatigue progression). Defaults for all of these come from `data/balance.json`; nothing is hard-coded.
 
@@ -280,9 +280,9 @@ Dual land (one mana ability per colour; it still makes one mana per tap):
 
 ### Ability kinds
 - `spell` — effects when an instant/sorcery resolves.
-- `triggered` — `{ "trigger": {...}, "effects": [...] }` e.g. `enters_battlefield`, `dies`, `attacks`, `beginning_of_upkeep`, `cast_spell { filter }`.
+- `triggered` — `{ "trigger": {...}, "effects": [...] }`. Built so far: `enters_battlefield` and `dies` (each with `"subject": "self"` or `"creature_you_control"`, the latter including the permanent itself), `attacks`, `deals_damage_to_opponent`, `gain_life`, `cast_spell` (with `"kind": "instant_or_sorcery"` or `"noncreature"`) and `beginning_of_upkeep`. `"once_each_turn": true` makes it "the first time each turn". Prowess is a keyword, not an ability in the data: the engine supplies its trigger.
 - `activated` — `{ "cost": {...}, "effects": [...] }` costs: mana, tap, sacrifice, pay life.
-- `static` — continuous effects, e.g. `{ "type": "anthem", "filter": ..., "power": 1, "toughness": 1 }` or `{ "type": "restriction", "affects": ..., "cant": [...] }`.
+- `static` — continuous effects: `{ "type": "anthem", "affects": ..., "power": 1, "toughness": 1 }` (optionally `"with_keyword": "flying"`), `{ "type": "grant_keyword", "affects": ..., "keyword": ... }` and `{ "type": "restriction", "affects": "enchanted", "cant": [...] }`. `affects` is `enchanted` (an Aura's creature), `creatures_you_control` or `other_creatures_you_control`.
 - `mana` — mana abilities (don't use the stack).
 
 ### Effect primitives (initial set; grow carefully)
@@ -292,7 +292,9 @@ Built so far: `deal_damage`, `deal_power_damage` (a creature deals damage equal 
 
 Effects on a player name one: `controller`, `opponent`, or a targeted one, `target_player` or `target_opponent`.
 
-Two effects on one target ("target creature gets +3/+0 and gains first strike") are written as two effects, the second with `"target": { "same": {} }`, which reuses the target before it instead of asking for another.
+Two effects on one target ("target creature gets +3/+0 and gains first strike") are written as two effects, the second with `"target": { "same": {} }`, which reuses the target before it instead of asking for another. Two more entries stand for something known rather than chosen, in triggered abilities only: `{ "this": {} }` is the permanent the ability is on ("this creature gets +2/+0"), and `{ "triggering": {} }` is the creature that set the ability off ("that creature gains haste"). They do nothing if that permanent has left the battlefield.
+
+`discard` takes `"random": true` for a discard at random, which uses the duel's seeded RNG.
 
 Targets are structured data: `any_target`, `creature`, `player`, `opponent` and `spell`, each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, `{ "creature": { "controller": "you" } }` or `"opponent"`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
 
@@ -308,10 +310,10 @@ If a card truly can't be expressed, it may reference `{ "type": "custom", "id": 
 ### Validation
 On load, every card is validated (costs parse, targets exist, keywords known, Auras have `enchant`). A test loads all card files and fails on any error.
 
-The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and an emblem's triggered ability can't have targets (a card's can). The upkeep trigger, the `creature_you_control` subject, anthems and keyword grants are for emblems only so far; a card that uses one fails to load.
+The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and an emblem's triggered ability can't have targets (a card's can). A restriction ("can't attack or block") is still for Auras only.
 
 ### Decklists
-`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. There are four: A, B and C from M1, and D (blue-black tempo), added in M4a so that the cards which ask for a choice can be played in a practice duel.
+`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo) and E (white-black drain) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
 
 ## 5. Duel internals
 
@@ -323,8 +325,10 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 - **Priority**: real priority passing; the *UI* auto-passes for the human when `has_meaningful_action` is false (Arena-style), configurable.
 - **Stack**: spells and abilities as stack objects; resolves LIFO when all players pass in succession.
 - **State-based actions**: checked whenever a player would receive priority.
+- **Triggers** (`triggers.rs`): whatever an ability could be waiting for (a permanent entering, a creature about to die, an attacker declared, damage dealt to an opponent, life gained, a spell cast, an upkeep beginning) is reported as a `Happening`; every permanent and emblem is asked whether an ability of its triggers, and those that do wait until a player would next get priority. Creatures that die together are all reported before any leaves, so each sees the others go. An ability whose source has gone by the time it resolves (a "when this dies" ability) still resolves; damage it deals has no deathtouch or lifelink.
 - **Simultaneous triggers**: ordered automatically, APNAP then by `ObjectId` of the source.
-- **Continuous effects**: simplified layer handling — apply in order: base characteristics → P/T setting → P/T modifications (incl. counters) → ability grants. Full layer system is out of scope.
+- **A spell being cast** triggers abilities too. They go on the stack above the spell, and then the caster has priority again, whoever's turn it is.
+- **Continuous effects**: simplified layer handling — apply in order: base characteristics → P/T setting → P/T modifications (incl. counters) → ability grants. Full layer system is out of scope. Anthems and keyword grants come from emblems and from permanents; `DuelState::static_sources` lists the permanents that have one, so that working out a creature's power doesn't read every card on the battlefield.
 - **Combat**: declare attackers → declare blockers → (first strike damage) → damage → end of combat. Damage among multiple blockers follows the current rules (no damage assignment order: the attacker divides freely, and must assign lethal to every blocker before trampling over). The automatic division is lethal to each blocker in turn (in the order they were declared), the rest to the last blocker or, with trample, to the player. An attacker with two or more blockers gets a decision for its controller at the start of the damage step, before any damage is dealt: the automatic division is filled in and may be changed a point at a time. With fewer blockers the automatic division is used without asking. Declarations that have no choice in them are skipped: if nothing can attack, or no block is possible, the player isn't asked. With no attackers, combat goes from the declare-attackers step straight to the end-of-combat step, and nobody gets priority in between.
 - **Game end**: `result()` returns the winner and reason, or a draw (both players at 0 simultaneously). `sim` also enforces a turn cap and reports any game that hits it.
 
@@ -346,7 +350,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 
 - Lives in `engine/ai/`. Uses only `legal_actions` + state evaluation; never cheats with hidden info unless explicitly configured.
 - v1: heuristics (play lands, cast best castable spell, attack if favourable, block to avoid bad trades, remove biggest threat). Mulligan: keep any hand with 2–5 lands, and never go below 5 cards (numbers in `balance.json`).
-- How v1 picks a spell: it tries each castable spell on a copy of the game, lets the stack and any combat damage still to come play out with both players passing, scores the result (life, creatures, cards in hand), and casts the best one if it beats doing nothing. That one rule covers removal, burn to the face when it matters, combat tricks after blocks, and countering a spell when mana happens to be open. Passing needs no hidden information, so the AI still doesn't cheat.
+- How v1 picks a spell: it tries each castable spell on a copy of the game, lets the stack and any combat damage still to come play out with both players passing, scores the result (life, creatures with their lasting bonuses from anthems and Auras, enchantments, cards in hand), and casts the best one if it beats doing nothing. That one rule covers removal, burn to the face when it matters, combat tricks after blocks, and countering a spell when mana happens to be open. Passing needs no hidden information, so the AI still doesn't cheat.
 - How v1 fights: it attacks with each creature that no single blocker beats, or with everything when that is lethal; it blocks to kill an attacker, to stop damage safely or to trade evenly, and chump-blocks only to survive.
 - v1 is expected to pilot creature and burn decks acceptably and reactive decks badly (it won't hold mana for a counterspell). That's accepted for now; the human plays the control deck in M2.
 - Later: shallow search / Monte Carlo rollouts using engine cloning (determinism makes this easy). This is the planned route to competent control play, rather than piling up heuristics.

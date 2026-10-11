@@ -7,12 +7,13 @@ use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::{pay_cost, plan_payment};
 use super::state::{
-    AbilityRef, Decision, DuelState, EffectStep, PendingTrigger, Resolving, StackItem,
-    StackItemKind, TriggeredAbility, Zone, card_def,
+    Decision, DuelState, EffectStep, PendingTrigger, Resolving, StackItem, StackItemKind,
+    TriggeredAbility, Zone, card_def,
 };
+use super::triggers::{Happening, fire};
 use crate::cards::{
     AbilityDef, CardDef, CardType, ControlledBy, CreatureFilter, Effect, Keyword, SpellKind,
-    TargetSpec, Trigger, TriggerSubject,
+    TargetSpec,
 };
 
 /// Every spell the player could cast right now, as concrete actions: one
@@ -100,13 +101,14 @@ fn spell_effects(def: &CardDef) -> &[Effect] {
         .unwrap_or(&[])
 }
 
-/// The targets a list of effects needs chosen, in order. A `same` entry is
-/// not a choice: it reuses the one before it.
+/// The targets a list of effects needs chosen, in order. The entries that
+/// stand for something already known (`same`, `this`, `triggering`) are not
+/// choices.
 fn chosen_specs(effects: &[Effect]) -> Vec<TargetSpec> {
     effects
         .iter()
         .flat_map(Effect::targets)
-        .filter(|spec| *spec != TargetSpec::Same {})
+        .filter(TargetSpec::is_chosen)
         .collect()
 }
 
@@ -151,8 +153,8 @@ fn candidates(
             player: player.opponent(),
         }),
         TargetSpec::Player {} => players(&mut targets),
-        // Never chosen: it stands for the target before it.
-        TargetSpec::Same {} => {}
+        // Never chosen: they stand for something already known.
+        TargetSpec::Same {} | TargetSpec::This {} | TargetSpec::Triggering {} => {}
         TargetSpec::Spell(filter) => {
             for item in &state.stack {
                 if item.kind != StackItemKind::Spell {
@@ -251,6 +253,7 @@ pub(crate) fn cast_spell(
         controller: player,
         kind: StackItemKind::Spell,
         targets: targets.to_vec(),
+        subject: None,
     });
     events.push(GameEvent::SpellCast {
         player,
@@ -258,9 +261,9 @@ pub(crate) fn cast_spell(
         targets: targets.to_vec(),
     });
     pay_cost(state, events, player, &def.mana_cost, &plan)?;
-    // The caster keeps priority.
-    state.consecutive_passes = 0;
-    Ok(())
+    // The caster keeps priority, once whatever triggers on the spell being
+    // cast is on the stack above it.
+    fire(state, Happening::CastSpell { player, spell })
 }
 
 /// Starts resolving the top item of the stack and carries on until it has
@@ -300,20 +303,26 @@ pub(crate) fn resolve_top(
     let (mut any_target, mut any_legal) = (false, false);
     let mut steps = Vec::new();
     let missing = || InternalError::new(format!("{:?} is short of targets", item.id));
+    // Something the ability refers to without targeting it: there to be
+    // acted on only while it is still on the battlefield.
+    let known = |object: ObjectId| (Target::Object { object }, state.is_on_battlefield(object));
     for effect in effects {
         let mut targets = Vec::new();
         let mut all_legal = true;
         for spec in effect.targets() {
-            let (target, legal) = if spec == (TargetSpec::Same {}) {
-                last.ok_or_else(missing)?
-            } else {
-                let target = *chosen.next().ok_or_else(missing)?;
-                let legal = is_legal_target(state, item.controller, spec, target)?;
-                any_target = true;
-                any_legal |= legal;
-                last = Some((target, legal));
-                (target, legal)
+            let (target, legal) = match spec {
+                TargetSpec::Same {} => last.ok_or_else(missing)?,
+                TargetSpec::This {} => known(item.source()),
+                TargetSpec::Triggering {} => known(item.subject.ok_or_else(missing)?),
+                _ => {
+                    let target = *chosen.next().ok_or_else(missing)?;
+                    let legal = is_legal_target(state, item.controller, spec, target)?;
+                    any_target = true;
+                    any_legal |= legal;
+                    (target, legal)
+                }
             };
+            last = Some((target, legal));
             all_legal &= legal;
             targets.push(target);
         }
@@ -418,45 +427,14 @@ fn resolve_permanent_spell(
     permanent_entered(state, permanent)
 }
 
-/// Notes the "when this enters" abilities of a permanent that has just
-/// entered the battlefield. They go on the stack the next time a player
-/// would get priority.
+/// Notes the abilities that trigger on a permanent having just entered the
+/// battlefield. They go on the stack the next time a player would get
+/// priority.
 pub(crate) fn permanent_entered(
     state: &mut DuelState,
     permanent: ObjectId,
 ) -> Result<(), InternalError> {
-    let object = state.object(permanent)?;
-    let (def_id, controller) = (object.def.clone(), object.owner);
-    for (index, ability) in state.def(permanent)?.abilities.iter().enumerate() {
-        let AbilityDef::Triggered { trigger, .. } = ability else {
-            continue;
-        };
-        match trigger {
-            Trigger::EntersBattlefield {
-                subject: TriggerSubject::This,
-            } => state.pending_triggers.push(PendingTrigger {
-                ability: TriggeredAbility::Card {
-                    ability: AbilityRef {
-                        source: permanent,
-                        def: def_id.clone(),
-                        index,
-                    },
-                },
-                controller,
-            }),
-            Trigger::EntersBattlefield {
-                subject: TriggerSubject::CreatureYouControl,
-            }
-            | Trigger::BeginningOfUpkeep {} => {}
-        }
-    }
-    if state.def(permanent)?.is_creature() {
-        let entered = Trigger::EntersBattlefield {
-            subject: TriggerSubject::CreatureYouControl,
-        };
-        emblems_trigger(state, controller, &entered);
-    }
-    Ok(())
+    fire(state, Happening::Entered(permanent))
 }
 
 /// Puts the waiting triggered abilities on the stack: the active player's
@@ -525,6 +503,7 @@ fn push_trigger(
             ability: trigger.ability,
         },
         targets,
+        subject: trigger.subject,
     });
 }
 
@@ -558,36 +537,29 @@ pub(crate) fn choose_targets(
     Ok(())
 }
 
-/// Notes every ability of `controller`'s emblems that triggers on
-/// `trigger`. They go on the stack the next time a player would get
-/// priority.
-pub(crate) fn emblems_trigger(state: &mut DuelState, controller: PlayerId, trigger: &Trigger) {
-    let mut triggered = Vec::new();
-    for emblem in &state.emblems {
-        if emblem.controller != controller {
-            continue;
-        }
-        for (index, ability) in emblem.def.abilities.iter().enumerate() {
-            if matches!(ability, AbilityDef::Triggered { trigger: on, .. } if on == trigger) {
-                triggered.push(PendingTrigger {
-                    ability: TriggeredAbility::Emblem {
-                        emblem: emblem.id,
-                        index,
-                    },
-                    controller,
-                });
-            }
-        }
-    }
-    state.pending_triggers.extend(triggered);
-}
-
 /// The effects of a triggered ability.
 fn ability_effects(
     state: &DuelState,
     ability: &TriggeredAbility,
 ) -> Result<Vec<Effect>, InternalError> {
     let abilities = match ability {
+        // "Whenever you cast a noncreature spell, this creature gets +1/+1
+        // until end of turn."
+        TriggeredAbility::Keyword {
+            keyword: Keyword::Prowess,
+            ..
+        } => {
+            return Ok(vec![Effect::ModifyPtUntilEot {
+                target: TargetSpec::This {},
+                power: 1,
+                toughness: 1,
+            }]);
+        }
+        TriggeredAbility::Keyword { keyword, .. } => {
+            return Err(InternalError::new(format!(
+                "{keyword:?} is not a triggered ability"
+            )));
+        }
         TriggeredAbility::Card { ability } => &card_def(&ability.def)?.abilities,
         TriggeredAbility::Emblem { emblem, .. } => {
             &state
@@ -602,6 +574,7 @@ fn ability_effects(
     let index = match ability {
         TriggeredAbility::Card { ability } => ability.index,
         TriggeredAbility::Emblem { index, .. } => *index,
+        TriggeredAbility::Keyword { .. } => usize::MAX,
     };
     match abilities.get(index) {
         Some(AbilityDef::Triggered { effects, .. }) => Ok(effects.clone()),

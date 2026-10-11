@@ -24,6 +24,7 @@ function viewWith(change: Partial<PlayerView>): PlayerView {
     battlefield: [],
     stack: [],
     combat: null,
+    aiming: null,
     looking_at: null,
     result: null,
     ...change,

@@ -1,0 +1,33 @@
+{
+  "id": "phyrexian_arena",
+  "name": "Phyrexian Arena",
+  "mana_cost": "{1}{B}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "At the beginning of your upkeep, you draw a card and lose 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_upkeep"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        },
+        {
+          "type": "lose_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

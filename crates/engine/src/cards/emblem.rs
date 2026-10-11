@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
-use super::{AbilityDef, Affects, CardError, StaticAbility, Trigger, TriggerSubject};
+use super::{AbilityDef, Affects, CardError, StaticAbility, TargetSpec, Trigger, TriggerSubject};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -29,7 +29,7 @@ pub enum EmblemError {
     UnsupportedAbility(&'static str),
     #[error("an emblem's static ability must affect `creatures_you_control`")]
     Affects,
-    #[error("an emblem can't trigger on itself entering the battlefield")]
+    #[error("an emblem isn't a permanent: nothing can trigger on it or refer to it")]
     SelfTrigger,
     #[error("an anthem must change power or toughness")]
     EmptyAnthem,
@@ -50,24 +50,29 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
         match ability {
             AbilityDef::Spell { .. } => return Err(EmblemError::UnsupportedAbility("spell")),
             AbilityDef::Mana { .. } => return Err(EmblemError::UnsupportedAbility("mana")),
-            AbilityDef::Triggered { trigger, effects } => {
+            AbilityDef::Triggered {
+                trigger, effects, ..
+            } => {
                 if matches!(
                     trigger,
                     Trigger::EntersBattlefield {
                         subject: TriggerSubject::This
-                    }
+                    } | Trigger::Dies {
+                        subject: TriggerSubject::This
+                    } | Trigger::Attacks {}
+                        | Trigger::DealsDamageToOpponent {}
                 ) {
                     return Err(EmblemError::SelfTrigger);
                 }
-                if effects.is_empty() {
-                    return Err(CardError::NoEffects.into());
-                }
-                for effect in effects {
-                    if !effect.targets().is_empty() {
+                for spec in effects.iter().flat_map(|effect| effect.targets()) {
+                    if spec == (TargetSpec::This {}) {
+                        return Err(EmblemError::SelfTrigger);
+                    }
+                    if spec.is_chosen() {
                         return Err(CardError::TargetedTrigger.into());
                     }
-                    super::validate_effect(effect)?;
                 }
+                super::validate_triggered(trigger, effects)?;
             }
             AbilityDef::Static(StaticAbility::Restriction { .. }) => {
                 return Err(EmblemError::UnsupportedAbility("restriction"));
@@ -76,6 +81,7 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
                 affects,
                 power,
                 toughness,
+                ..
             }) => {
                 if *affects != Affects::CreaturesYouControl {
                     return Err(EmblemError::Affects);
@@ -124,6 +130,33 @@ mod tests {
             ])),
             Ok(())
         );
+    }
+
+    #[test]
+    fn an_emblem_may_trigger_on_what_its_controller_does_but_never_on_itself() {
+        let on = |trigger: Value, effect: Value| {
+            emblem(json!([{ "kind": "triggered", "trigger": trigger, "effects": [effect] }]))
+        };
+        let gain = json!({ "type": "gain_life", "player": "controller", "amount": 1 });
+        for trigger in [
+            json!({ "type": "dies", "subject": "creature_you_control" }),
+            json!({ "type": "gain_life" }),
+            json!({ "type": "cast_spell", "kind": "instant_or_sorcery" }),
+        ] {
+            assert_eq!(on(trigger, gain.clone()), Ok(()));
+        }
+        for trigger in [
+            json!({ "type": "dies", "subject": "self" }),
+            json!({ "type": "attacks" }),
+            json!({ "type": "deals_damage_to_opponent" }),
+        ] {
+            assert_eq!(on(trigger, gain.clone()), Err(EmblemError::SelfTrigger));
+        }
+        // "That creature" is fine; "this creature" is not.
+        let haste = |target: &str| json!({ "type": "grant_keyword_until_eot", "target": { target: {} }, "keyword": "haste" });
+        let enters = json!({ "type": "enters_battlefield", "subject": "creature_you_control" });
+        assert_eq!(on(enters.clone(), haste("triggering")), Ok(()));
+        assert_eq!(on(enters, haste("this")), Err(EmblemError::SelfTrigger));
     }
 
     #[test]

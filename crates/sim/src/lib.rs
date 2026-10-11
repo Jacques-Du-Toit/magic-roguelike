@@ -497,21 +497,17 @@ mod tests {
             .iter()
             .map(|pairing| (pairing.first_deck.as_str(), pairing.second_deck.as_str()))
             .collect();
-        assert_eq!(
-            pairings,
-            [
-                ("deck_a", "deck_a"),
-                ("deck_a", "deck_b"),
-                ("deck_a", "deck_c"),
-                ("deck_a", "deck_d"),
-                ("deck_b", "deck_b"),
-                ("deck_b", "deck_c"),
-                ("deck_b", "deck_d"),
-                ("deck_c", "deck_c"),
-                ("deck_c", "deck_d"),
-                ("deck_d", "deck_d"),
-            ]
-        );
+        // Every deck against itself and every deck after it.
+        let data = data::embedded().unwrap();
+        let ids: Vec<&str> = data.decks.keys().map(|id| id.0.as_str()).collect();
+        let mut expected = Vec::new();
+        for (index, first) in ids.iter().enumerate() {
+            for second in &ids[index..] {
+                expected.push((*first, *second));
+            }
+        }
+        assert_eq!(pairings, expected);
+        assert!(pairings.contains(&("deck_a", "deck_c")));
         for pairing in &stats {
             assert_eq!(pairing.games, 2);
             assert_eq!(pairing.errors, []);

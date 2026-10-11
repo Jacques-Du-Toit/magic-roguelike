@@ -11,6 +11,7 @@ use super::legal_actions;
 use super::mana::ManaPool;
 use super::state::{
     AbilityRef, Combat, Decision, DuelState, GameResult, StackItemKind, Step, TriggeredAbility,
+    card_def,
 };
 use super::turn::scry_card;
 use crate::cards::{CardDefId, Keyword};
@@ -34,6 +35,9 @@ pub struct PlayerView {
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItemView>,
     pub combat: Option<Combat>,
+    /// While a triggered ability waits for its targets: the name of the
+    /// card or emblem it is on.
+    pub aiming: Option<String>,
     /// The card the viewer is looking at while they scry. Only they see it.
     pub looking_at: Option<CardRef>,
     pub result: Option<GameResult>,
@@ -102,6 +106,12 @@ pub enum StackItemViewKind {
     Emblem {
         emblem: ObjectId,
         name: String,
+    },
+    /// The triggered ability a keyword of the card `def` stands for.
+    Keyword {
+        source: ObjectId,
+        def: CardDefId,
+        keyword: Keyword,
     },
 }
 
@@ -194,12 +204,19 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
                 ability: TriggeredAbility::Emblem { emblem, .. },
             } => StackItemViewKind::Emblem {
                 emblem: *emblem,
-                name: state
-                    .emblems
-                    .iter()
-                    .find(|candidate| candidate.id == *emblem)
-                    .map(|candidate| candidate.def.name.clone())
-                    .unwrap_or_default(),
+                name: emblem_name(state, *emblem),
+            },
+            StackItemKind::Trigger {
+                ability:
+                    TriggeredAbility::Keyword {
+                        source,
+                        def,
+                        keyword,
+                    },
+            } => StackItemViewKind::Keyword {
+                source: *source,
+                def: def.clone(),
+                keyword: *keyword,
             },
         };
         stack.push(StackItemView {
@@ -221,6 +238,14 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
         battlefield,
         stack,
         combat: state.combat.clone(),
+        aiming: match (state.decision, state.pending_triggers.first()) {
+            (Some(Decision::ChooseTargets { .. }), Some(trigger)) => Some(match &trigger.ability {
+                TriggeredAbility::Card { ability } => card_name(&ability.def),
+                TriggeredAbility::Keyword { def, .. } => card_name(def),
+                TriggeredAbility::Emblem { emblem, .. } => emblem_name(state, *emblem),
+            }),
+            _ => None,
+        },
         looking_at: match state.decision {
             Some(Decision::Scry { player, kept, .. }) if player == viewer => {
                 Some(state.card_ref(scry_card(state, player, kept)?)?)
@@ -229,6 +254,19 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
         },
         result: state.result,
     })
+}
+
+fn emblem_name(state: &DuelState, emblem: ObjectId) -> String {
+    state
+        .emblems
+        .iter()
+        .find(|candidate| candidate.id == emblem)
+        .map(|candidate| candidate.def.name.clone())
+        .unwrap_or_default()
+}
+
+fn card_name(def: &CardDefId) -> String {
+    card_def(def).map_or_else(|_| def.to_string(), |card| card.name.clone())
 }
 
 /// Removes what `viewer` isn't allowed to know from a list of events: which

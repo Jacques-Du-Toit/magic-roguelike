@@ -29,6 +29,9 @@ mod state;
 mod target_tests;
 #[cfg(test)]
 pub(crate) mod test_support;
+#[cfg(test)]
+mod trigger_tests;
+mod triggers;
 mod turn;
 mod view;
 #[cfg(test)]
@@ -125,6 +128,7 @@ fn perform(
         }
         (Action::CastSpell { card, targets }, _) => {
             stack::cast_spell(state, &mut events, player, *card, targets)?;
+            turn::open_priority_for(state, &mut events, player)?;
         }
         (Action::Attack { creature }, _) => combat::declare_attacker(state, *creature)?,
         (Action::Block { blocker, attacker }, _) => {

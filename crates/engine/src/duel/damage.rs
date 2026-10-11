@@ -5,6 +5,7 @@ use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::stack::fits_target_spec;
 use super::state::{DuelState, GameResult, WinReason, Zone};
+use super::triggers::{Happening, fire};
 use crate::cards::Keyword;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,9 +20,9 @@ pub(crate) fn change_life(
     player: PlayerId,
     change: i32,
     cause: LifeCause,
-) {
+) -> Result<(), InternalError> {
     if change == 0 {
-        return;
+        return Ok(());
     }
     let player_state = state.player_mut(player);
     let was_alive = player_state.life > 0;
@@ -36,6 +37,10 @@ pub(crate) fn change_life(
         change,
         life: player_state.life,
     });
+    if change > 0 {
+        fire(state, Happening::GainedLife(player))?;
+    }
+    Ok(())
 }
 
 /// `source` deals `amount` damage to a player or a creature. Deathtouch and
@@ -51,9 +56,17 @@ pub(crate) fn deal_damage(
     if amount <= 0 {
         return Ok(());
     }
-    let deathtouch = state.has_keyword(source, Keyword::Deathtouch)?;
-    let lifelink = state.has_keyword(source, Keyword::Lifelink)?;
-    let controller = state.object(source)?.owner;
+    // The source may be gone by now (a creature whose "when this dies"
+    // ability deals the damage), or be an emblem. Then it has no keywords.
+    let (deathtouch, lifelink, controller, is_permanent) = match state.objects.get(&source) {
+        Some(object) => (
+            state.has_keyword(source, Keyword::Deathtouch)?,
+            state.has_keyword(source, Keyword::Lifelink)?,
+            Some(object.owner),
+            object.zone == Zone::Battlefield,
+        ),
+        None => (false, false, None, false),
+    };
     match target {
         Target::Player { player } => {
             events.push(GameEvent::DamageDealt {
@@ -67,7 +80,10 @@ pub(crate) fn deal_damage(
                 player,
                 amount.saturating_neg(),
                 LifeCause::Other,
-            );
+            )?;
+            if is_permanent && controller.is_some_and(|controller| controller != player) {
+                fire(state, Happening::DealtDamageToOpponent(source))?;
+            }
         }
         Target::Object { object } => {
             if !state.is_creature(object)? {
@@ -83,8 +99,8 @@ pub(crate) fn deal_damage(
             });
         }
     }
-    if lifelink {
-        change_life(state, events, controller, amount, LifeCause::Other);
+    if let (true, Some(controller)) = (lifelink, controller) {
+        change_life(state, events, controller, amount, LifeCause::Other)?;
     }
     Ok(())
 }
@@ -95,13 +111,29 @@ pub(crate) fn creature_dies(
     events: &mut Vec<GameEvent>,
     creature: ObjectId,
 ) -> Result<(), InternalError> {
-    let player = state.object(creature)?.owner;
-    let card = state.move_object(creature, Zone::Graveyard)?;
-    events.push(GameEvent::CreatureDied {
-        player,
-        permanent: creature,
-        card: state.card_ref(card)?,
-    });
+    creatures_die(state, events, &[creature])
+}
+
+/// Moves creatures that die at the same time to their owners' graveyards.
+/// Abilities that trigger on a creature dying see all of them go, their own
+/// permanent included, before any has left.
+pub(crate) fn creatures_die(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    creatures: &[ObjectId],
+) -> Result<(), InternalError> {
+    for &creature in creatures {
+        fire(state, Happening::Dies(creature))?;
+    }
+    for &creature in creatures {
+        let player = state.object(creature)?.owner;
+        let card = state.move_object(creature, Zone::Graveyard)?;
+        events.push(GameEvent::CreatureDied {
+            player,
+            permanent: creature,
+            card: state.card_ref(card)?,
+        });
+    }
     Ok(())
 }
 
@@ -155,9 +187,7 @@ pub(crate) fn check_state_based_actions(
                 }
             }
         }
-        for &id in &dying {
-            creature_dies(state, events, id)?;
-        }
+        creatures_die(state, events, &dying)?;
         for &id in &falling_off {
             let player = state.object(id)?.owner;
             let card = state.move_object(id, Zone::Graveyard)?;

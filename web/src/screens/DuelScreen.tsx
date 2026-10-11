@@ -140,7 +140,7 @@ function PlayerPanel({
           Graveyard {summary.graveyard.length}
         </button>
         {summary.emblems.length > 0 && (
-          <ul className="emblems" aria-label={`: emblems`}>
+          <ul className="emblems" aria-label={`${name}: emblems`}>
             {summary.emblems.map((emblem) => (
               <li key={emblem.id} className="emblem" data-testid="emblem">
                 <strong>{emblem.name}</strong> {emblem.text}
@@ -196,10 +196,7 @@ export function DuelScreen({
   const name = (def: string | undefined) => (def ? (cards.get(def)?.name ?? def) : 'a card')
   const permanentName = (object: number) =>
     name(view.battlefield.find((permanent) => permanent.object === object)?.def)
-  // What an ability comes from: a permanent, or one of the emblems.
-  const sourceName = (source: number): string =>
-    view.players.flatMap((player) => player.emblems).find((emblem) => emblem.id === source)
-      ?.name ?? permanentName(source)
+
   const targetName = (target: Target): string => {
     if (target.type === 'player') return target.player === HUMAN ? 'you' : 'the opponent'
     const item = view.stack.find((entry) => entry.id === target.object)
@@ -320,8 +317,7 @@ export function DuelScreen({
     mode: promptMode,
     topOfStack: top ? stackItemName(top, cards) : null,
     canConfirmBlocks: confirmBlockers !== undefined,
-    abilitySource:
-      view.decision?.type === 'choose_targets' ? sourceName(view.decision.source) : undefined,
+    abilitySource: view.aiming ?? undefined,
   })
 
   const copyReport = () => {

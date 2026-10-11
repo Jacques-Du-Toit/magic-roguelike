@@ -1,0 +1,33 @@
+{
+  "id": "epicure_of_blood",
+  "name": "Epicure of Blood",
+  "mana_cost": "{4}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "common",
+  "oracle_text": "Whenever you gain life, each opponent loses 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "gain_life"
+      },
+      "effects": [
+        {
+          "type": "lose_life",
+          "player": "opponent",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

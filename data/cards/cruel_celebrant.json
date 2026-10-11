@@ -1,0 +1,40 @@
+{
+  "id": "cruel_celebrant",
+  "name": "Cruel Celebrant",
+  "mana_cost": "{W}{B}",
+  "colors": [
+    "W",
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire"
+  ],
+  "power": 1,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "lose_life",
+          "player": "opponent",
+          "amount": 1
+        },
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

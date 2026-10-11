@@ -1,0 +1,36 @@
+{
+  "id": "black_cat",
+  "name": "Black Cat",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Zombie",
+    "Cat"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "When this creature dies, target opponent discards a card at random.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "discard",
+          "player": "target_opponent",
+          "amount": 1,
+          "random": true
+        }
+      ]
+    }
+  ]
+}

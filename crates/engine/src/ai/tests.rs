@@ -600,6 +600,31 @@ fn scrying_it_bottoms_a_land_when_flooded_and_a_spell_it_cannot_cast_for_ages() 
     assert_eq!(scry_with(1, "coral_merfolk"), Action::ScryKeep);
 }
 
+// ---- Enchantments ----
+
+#[test]
+fn casts_an_anthem_and_puts_a_shrinking_aura_on_the_enemy() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 3);
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    let anthem = put_in_hand(&mut state, me, "glorious_anthem");
+    assert_eq!(choose(&state, me), cast(anthem));
+
+    let (mut state, me, opponent_two) = empty_board(1);
+    let _ = opponent;
+    put_lands(&mut state, me, "swamp", 1);
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent_two, "grizzly_bears");
+    let weight = put_in_hand(&mut state, me, "dead_weight");
+    assert_eq!(choose(&state, me), cast_at(weight, at(theirs)));
+
+    // On a bigger creature it is still worth it: the creature is worth less.
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "swamp", 1);
+    let giant = put_on_battlefield(&mut state, opponent, "hill_giant");
+    let weight = put_in_hand(&mut state, me, "dead_weight");
+    assert_eq!(choose(&state, me), cast_at(weight, at(giant)));
+}
 // ---- The whole pool ----
 
 /// A deck for a colour pair: fifteen spells of those colours, picked from

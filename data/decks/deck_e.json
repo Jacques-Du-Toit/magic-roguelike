@@ -1,0 +1,19 @@
+{
+  "id": "deck_e",
+  "name": "White-Black drain: life gain, deaths and enchantments",
+  "cards": [
+    { "card": "cruel_celebrant", "count": 2 },
+    { "card": "epicure_of_blood", "count": 1 },
+    { "card": "healers_hawk", "count": 2 },
+    { "card": "black_cat", "count": 2 },
+    { "card": "audacious_thief", "count": 1 },
+    { "card": "vampire_nighthawk", "count": 1 },
+    { "card": "dawning_angel", "count": 1 },
+    { "card": "glorious_anthem", "count": 1 },
+    { "card": "dead_weight", "count": 2 },
+    { "card": "phyrexian_arena", "count": 1 },
+    { "card": "revitalize", "count": 1 },
+    { "card": "plains", "count": 5 },
+    { "card": "swamp", "count": 5 }
+  ]
+}

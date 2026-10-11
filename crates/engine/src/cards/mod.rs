@@ -151,6 +151,7 @@ pub enum Keyword {
     Indestructible,
     Lifelink,
     Menace,
+    Prowess,
     Reach,
     Trample,
     Vigilance,
@@ -166,6 +167,9 @@ pub enum AbilityDef {
     Triggered {
         trigger: Trigger,
         effects: Vec<Effect>,
+        /// "The first time each turn": it triggers once a turn at most.
+        #[serde(default)]
+        once_each_turn: bool,
     },
     Static(StaticAbility),
     /// A mana ability; it doesn't use the stack.
@@ -183,14 +187,35 @@ pub struct AbilityCost {
     pub tap: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Trigger {
     EntersBattlefield {
         subject: TriggerSubject,
     },
-    /// At the beginning of its controller's upkeep. Emblems only, so far.
+    /// The subject is put into a graveyard from the battlefield.
+    Dies {
+        subject: TriggerSubject,
+    },
+    /// The permanent the ability is on attacks.
+    Attacks {},
+    /// The permanent the ability is on deals damage to an opponent.
+    DealsDamageToOpponent {},
+    /// The controller gains life.
+    GainLife {},
+    /// The controller casts a spell of this kind.
+    CastSpell {
+        kind: CastKind,
+    },
+    /// At the beginning of its controller's upkeep.
     BeginningOfUpkeep {},
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum CastKind {
+    InstantOrSorcery,
+    Noncreature,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -199,8 +224,8 @@ pub enum TriggerSubject {
     /// The permanent the ability is on.
     #[serde(rename = "self")]
     This,
-    /// Any creature entering under the controller's control. Emblems only,
-    /// so far.
+    /// Any creature the controller controls, the one the ability is on
+    /// included.
     CreatureYouControl,
 }
 
@@ -216,6 +241,9 @@ pub enum StaticAbility {
         affects: Affects,
         power: i32,
         toughness: i32,
+        /// "With flying": only those that have this keyword.
+        #[serde(default)]
+        with_keyword: Option<Keyword>,
     },
     GrantKeyword {
         affects: Affects,
@@ -228,8 +256,11 @@ pub enum StaticAbility {
 pub enum Affects {
     /// The permanent this Aura is attached to.
     Enchanted,
-    /// Every creature the controller controls. Emblems only, so far.
+    /// Every creature the controller controls.
     CreaturesYouControl,
+    /// Every creature the controller controls except the one the ability
+    /// is on.
+    OtherCreaturesYouControl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -258,10 +289,12 @@ pub enum Effect {
     Destroy {
         target: TargetSpec,
     },
-    /// The player discards cards of their choice.
+    /// The player discards cards: of their choice, or at random.
     Discard {
         player: PlayerRef,
         amount: u32,
+        #[serde(default)]
+        random: bool,
     },
     DrawCards {
         player: PlayerRef,
@@ -381,6 +414,12 @@ pub enum TargetSpec {
     /// Not a new target: the one chosen just before, as in "target creature
     /// gets +3/+0 and gains first strike".
     Same {},
+    /// Not a target: the permanent the ability is on ("this creature gets
+    /// +2/+0").
+    This {},
+    /// Not a target: what made the ability trigger ("that creature gains
+    /// haste").
+    Triggering {},
     /// A spell on the stack.
     Spell(SpellFilter),
 }
@@ -439,6 +478,15 @@ impl TargetSpec {
 }
 
 impl TargetSpec {
+    /// Whether this is chosen when the spell or ability goes on the stack.
+    /// The others stand for something already known.
+    pub fn is_chosen(&self) -> bool {
+        !matches!(
+            self,
+            TargetSpec::Same {} | TargetSpec::This {} | TargetSpec::Triggering {}
+        )
+    }
+
     /// The spec's name as written in card data.
     pub fn name(&self) -> &'static str {
         match self {
@@ -447,6 +495,8 @@ impl TargetSpec {
             TargetSpec::Opponent {} => "opponent",
             TargetSpec::Player {} => "player",
             TargetSpec::Same {} => "same",
+            TargetSpec::This {} => "this",
+            TargetSpec::Triggering {} => "triggering",
             TargetSpec::Spell(_) => "spell",
         }
     }
@@ -484,6 +534,12 @@ pub enum CardError {
     TargetedTrigger,
     #[error("`same` needs a target chosen before it")]
     SameWithoutTarget,
+    #[error("`{0}` is only for triggered abilities")]
+    NotOnASpell(&'static str),
+    #[error("`triggering` needs a trigger that something else sets off")]
+    NothingTriggering,
+    #[error("only `enters_battlefield` and `dies` take the subject `creature_you_control`")]
+    BadSubject,
     #[error("`{effect}` cannot target `{target}`")]
     BadTarget {
         effect: &'static str,
@@ -572,23 +628,20 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
 
 fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardError> {
     match ability {
-        AbilityDef::Triggered {
-            trigger: Trigger::BeginningOfUpkeep {},
-            ..
-        } => Err(CardError::EmblemOnly("beginning_of_upkeep")),
-        AbilityDef::Triggered {
-            trigger:
-                Trigger::EntersBattlefield {
-                    subject: TriggerSubject::CreatureYouControl,
-                },
-            ..
-        } => Err(CardError::EmblemOnly("creature_you_control")),
-        AbilityDef::Spell { effects } | AbilityDef::Triggered { effects, .. } => {
+        AbilityDef::Spell { effects } => {
             if effects.is_empty() {
                 return Err(CardError::NoEffects);
             }
+            for spec in effects.iter().flat_map(Effect::targets) {
+                if matches!(spec, TargetSpec::This {} | TargetSpec::Triggering {}) {
+                    return Err(CardError::NotOnASpell(spec.name()));
+                }
+            }
             validate_effects(effects)
         }
+        AbilityDef::Triggered {
+            trigger, effects, ..
+        } => validate_triggered(trigger, effects),
         AbilityDef::Static(StaticAbility::Restriction { affects, cant }) => {
             if cant.is_empty() {
                 return Err(CardError::EmptyRestriction);
@@ -597,12 +650,18 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             match affects {
                 Affects::Enchanted if card.is_aura() => Ok(()),
                 Affects::Enchanted => Err(CardError::EnchantedOnNonAura),
-                Affects::CreaturesYouControl => Err(CardError::EmblemOnly("creatures_you_control")),
+                Affects::CreaturesYouControl | Affects::OtherCreaturesYouControl => {
+                    Err(CardError::EmblemOnly("a restriction on your creatures"))
+                }
             }
         }
-        AbilityDef::Static(StaticAbility::Anthem { .. }) => Err(CardError::EmblemOnly("anthem")),
-        AbilityDef::Static(StaticAbility::GrantKeyword { .. }) => {
-            Err(CardError::EmblemOnly("grant_keyword"))
+        AbilityDef::Static(
+            StaticAbility::Anthem { affects, .. } | StaticAbility::GrantKeyword { affects, .. },
+        ) => {
+            if *affects == Affects::Enchanted && !card.is_aura() {
+                return Err(CardError::EnchantedOnNonAura);
+            }
+            Ok(())
         }
         AbilityDef::Mana { cost, produces } => {
             if !cost.tap {
@@ -615,6 +674,31 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             Ok(())
         }
     }
+}
+
+/// Checks a triggered ability: its trigger, and that its effects only refer
+/// to what the trigger provides.
+pub(crate) fn validate_triggered(trigger: &Trigger, effects: &[Effect]) -> Result<(), CardError> {
+    if effects.is_empty() {
+        return Err(CardError::NoEffects);
+    }
+    // Something other than the ability's own permanent sets these off.
+    let has_subject = matches!(
+        trigger,
+        Trigger::EntersBattlefield {
+            subject: TriggerSubject::CreatureYouControl
+        } | Trigger::Dies {
+            subject: TriggerSubject::CreatureYouControl
+        }
+    );
+    let uses_triggering = effects
+        .iter()
+        .flat_map(Effect::targets)
+        .any(|spec| spec == TargetSpec::Triggering {});
+    if uses_triggering && !has_subject {
+        return Err(CardError::NothingTriggering);
+    }
+    validate_effects(effects)
 }
 
 /// Checks the effects of one spell or ability, in order.
@@ -635,8 +719,9 @@ pub(crate) fn validate_effects(effects: &[Effect]) -> Result<(), CardError> {
 
 pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     let creature = |target: &TargetSpec| matches!(target, TargetSpec::Creature(_));
+    // A creature to choose, or one already known.
     let creature_or_same =
-        |target: &TargetSpec| matches!(target, TargetSpec::Creature(_) | TargetSpec::Same {});
+        |target: &TargetSpec| matches!(target, TargetSpec::Creature(_)) || !target.is_chosen();
     let bad_target = match effect {
         Effect::CounterSpell { target } => {
             (!matches!(target, TargetSpec::Spell(_))).then_some(target)
@@ -1049,6 +1134,60 @@ mod tests {
                 effect: "deal_damage",
                 target: "same"
             })
+        );
+    }
+
+    #[test]
+    fn this_and_triggering_are_for_triggers_that_provide_them() {
+        let trigger = |trigger: Value, target: &str| {
+            with(
+                bears(),
+                "abilities",
+                json!([{
+                    "kind": "triggered",
+                    "trigger": trigger,
+                    "effects": [{
+                        "type": "modify_pt_until_eot", "target": { target: {} },
+                        "power": 1, "toughness": 1
+                    }]
+                }]),
+            )
+        };
+        let cast = json!({ "type": "cast_spell", "kind": "noncreature" });
+        let dies = json!({ "type": "dies", "subject": "creature_you_control" });
+        assert_eq!(check(trigger(cast.clone(), "this")), Ok(()));
+        assert_eq!(check(trigger(dies, "triggering")), Ok(()));
+        // Nothing but the permanent itself sets a "you cast" ability off.
+        assert_eq!(
+            check(trigger(cast, "triggering")),
+            Err(CardError::NothingTriggering)
+        );
+        // A spell is not a permanent and nothing triggers it.
+        let spell = with(
+            shock(),
+            "abilities",
+            json!([{ "kind": "spell", "effects": [{
+                "type": "modify_pt_until_eot", "target": { "this": {} }, "power": 1, "toughness": 1
+            }] }]),
+        );
+        assert_eq!(check(spell), Err(CardError::NotOnASpell("this")));
+    }
+
+    #[test]
+    fn anthems_on_cards_affect_your_creatures_or_an_auras_creature() {
+        let anthem = |affects: &str| {
+            with(
+                bears(),
+                "abilities",
+                json!([{ "kind": "static", "type": "anthem", "affects": affects,
+                    "power": 1, "toughness": 1 }]),
+            )
+        };
+        assert_eq!(check(anthem("creatures_you_control")), Ok(()));
+        assert_eq!(check(anthem("other_creatures_you_control")), Ok(()));
+        assert_eq!(
+            check(anthem("enchanted")),
+            Err(CardError::EnchantedOnNonAura)
         );
     }
 

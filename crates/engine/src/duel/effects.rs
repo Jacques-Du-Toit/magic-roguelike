@@ -49,13 +49,24 @@ pub(crate) fn apply_effect(
             }
         }
         Effect::CounterSpell { .. } => counter_spell(state, events, object(effect, targets, 0)?)?,
-        Effect::Discard { player, amount } => {
+        Effect::Discard {
+            player,
+            amount,
+            random,
+        } => {
             let player = resolve_player(effect, player, controller, targets)?;
             let hand = state.player(player).hand.clone();
             let amount = usize::try_from(amount).unwrap_or(usize::MAX);
             if hand.len() <= amount {
                 // No choice to make: the whole hand goes.
                 for card in hand {
+                    discard_card(state, events, player, card)?;
+                }
+            } else if random {
+                for _ in 0..amount {
+                    let cards = state.player(player).hand.len();
+                    let pick = state.rng.below(u32::try_from(cards).unwrap_or(u32::MAX));
+                    let card = state.player(player).hand[pick as usize];
                     discard_card(state, events, player, card)?;
                 }
             } else {
@@ -75,7 +86,7 @@ pub(crate) fn apply_effect(
         Effect::GainLife { player, amount } => {
             let player = resolve_player(effect, player, controller, targets)?;
             let amount = i32::try_from(amount).unwrap_or(i32::MAX);
-            change_life(state, events, player, amount, LifeCause::Other);
+            change_life(state, events, player, amount, LifeCause::Other)?;
         }
         Effect::GrantKeywordUntilEot { keyword, .. } => {
             let permanent = object(effect, targets, 0)?;
@@ -96,7 +107,7 @@ pub(crate) fn apply_effect(
                 player,
                 amount.saturating_neg(),
                 LifeCause::Other,
-            );
+            )?;
         }
         Effect::ModifyPtUntilEot {
             power, toughness, ..

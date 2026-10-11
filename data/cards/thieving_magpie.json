@@ -1,0 +1,36 @@
+{
+  "id": "thieving_magpie",
+  "name": "Thieving Magpie",
+  "mana_cost": "{2}{U}{U}",
+  "colors": [
+    "U"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Bird"
+  ],
+  "power": 1,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals damage to an opponent, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "deals_damage_to_opponent"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

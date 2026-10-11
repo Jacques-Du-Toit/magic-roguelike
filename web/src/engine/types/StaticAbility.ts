@@ -3,4 +3,8 @@ import type { Affects } from "./Affects";
 import type { Keyword } from "./Keyword";
 import type { Restricted } from "./Restricted";
 
-export type StaticAbility = { "type": "restriction", affects: Affects, cant: Array<Restricted>, } | { "type": "anthem", affects: Affects, power: number, toughness: number, } | { "type": "grant_keyword", affects: Affects, keyword: Keyword, };
+export type StaticAbility = { "type": "restriction", affects: Affects, cant: Array<Restricted>, } | { "type": "anthem", affects: Affects, power: number, toughness: number, 
+/**
+ * "With flying": only those that have this keyword.
+ */
+with_keyword: Keyword | null, } | { "type": "grant_keyword", affects: Affects, keyword: Keyword, };

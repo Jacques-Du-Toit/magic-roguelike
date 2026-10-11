@@ -81,7 +81,9 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 
 **In (v1):** flying, reach, first strike, double strike, deathtouch, lifelink, trample, haste, vigilance, menace, defender, hexproof, flash, indestructible. All are built.
 
-**Later:** ward, prowess, surveil, fight, kicker, flashback, cycling, landfall, cascade.
+**In, added in M4a:** prowess (built), surveil (to build with the graveyard cards).
+
+**Later:** ward, fight, kicker, flashback, cycling, landfall, cascade.
 
 **Out:** protection (complex), banding, phasing, morph/disguise, mutate, partner, companion.
 

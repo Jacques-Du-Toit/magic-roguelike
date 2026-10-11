@@ -1,0 +1,36 @@
+{
+  "id": "raging_regisaur",
+  "name": "Raging Regisaur",
+  "mana_cost": "{2}{R}{G}",
+  "colors": [
+    "R",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Dinosaur"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "oracle_text": "Whenever this creature attacks, it deals 1 damage to any target.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "attacks"
+      },
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 1,
+          "target": {
+            "any_target": {}
+          }
+        }
+      ]
+    }
+  ]
+}

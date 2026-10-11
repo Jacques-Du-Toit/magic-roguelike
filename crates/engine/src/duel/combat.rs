@@ -5,6 +5,7 @@ use super::damage::deal_damage;
 use super::error::InternalError;
 use super::ids::ObjectId;
 use super::state::{Attacker, Combat, DamageAssignment, DamageShare, DuelState};
+use super::triggers::{Happening, fire};
 use crate::cards::{Keyword, Restricted};
 
 fn combat(state: &DuelState) -> Result<&Combat, InternalError> {
@@ -121,13 +122,16 @@ pub(crate) fn confirm_attackers(
         player: state.active_player,
         attackers: attackers.clone(),
     });
-    for attacker in attackers {
+    for &attacker in &attackers {
         if !state.has_keyword(attacker, Keyword::Vigilance)? {
             state.object_mut(attacker)?.tapped = true;
             events.push(GameEvent::PermanentTapped {
                 permanent: attacker,
             });
         }
+    }
+    for attacker in attackers {
+        fire(state, Happening::Attacked(attacker))?;
     }
     Ok(())
 }

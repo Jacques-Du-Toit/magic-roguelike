@@ -1,0 +1,39 @@
+{
+  "id": "audacious_thief",
+  "name": "Audacious Thief",
+  "mana_cost": "{2}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Rogue"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "Whenever this creature attacks, you draw a card and you lose 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "attacks"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        },
+        {
+          "type": "lose_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

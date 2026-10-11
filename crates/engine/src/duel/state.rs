@@ -27,11 +27,20 @@ pub struct DuelState {
     pub objects: BTreeMap<ObjectId, GameObject>,
     /// Permanents, in the order they entered.
     pub battlefield: Vec<ObjectId>,
+    /// The permanents with an anthem or a keyword grant, in the order they
+    /// entered. Kept beside `battlefield` so that working out a creature's
+    /// power doesn't mean reading every permanent's card.
+    pub static_sources: Vec<ObjectId>,
     /// The command zone: emblems last the whole duel.
     pub emblems: Vec<Emblem>,
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItem>,
     pub pending_triggers: Vec<PendingTrigger>,
+    /// The "once each turn" abilities that have triggered this turn.
+    pub triggered_this_turn: Vec<TriggeredAbility>,
+    /// Who gets priority once the waiting triggered abilities are on the
+    /// stack: the active player, or a player who has just cast a spell.
+    pub priority_to: PlayerId,
     /// The spell or ability that is part-way through resolving, while one
     /// of its effects waits for a player's choice.
     pub resolving: Option<Resolving>,
@@ -142,6 +151,9 @@ pub struct EffectStep {
 pub struct PendingTrigger {
     pub ability: TriggeredAbility,
     pub controller: PlayerId,
+    /// What set it off, when that is something other than the permanent
+    /// the ability is on: the creature that entered or died.
+    pub subject: Option<ObjectId>,
 }
 
 /// An emblem in the command zone. It has an object id so that its abilities
@@ -165,6 +177,13 @@ pub enum TriggeredAbility {
         emblem: ObjectId,
         index: usize,
     },
+    /// The triggered ability a keyword stands for (prowess), on the
+    /// permanent `source`, a card `def`.
+    Keyword {
+        source: ObjectId,
+        def: CardDefId,
+        keyword: Keyword,
+    },
 }
 
 impl TriggeredAbility {
@@ -173,6 +192,7 @@ impl TriggeredAbility {
         match self {
             TriggeredAbility::Card { ability } => ability.source,
             TriggeredAbility::Emblem { emblem, .. } => *emblem,
+            TriggeredAbility::Keyword { source, .. } => *source,
         }
     }
 }
@@ -303,6 +323,8 @@ pub struct StackItem {
     pub controller: PlayerId,
     pub kind: StackItemKind,
     pub targets: Vec<Target>,
+    /// For a triggered ability, what set it off (see `PendingTrigger`).
+    pub subject: Option<ObjectId>,
 }
 
 impl StackItem {
@@ -449,9 +471,12 @@ impl DuelState {
             players,
             objects: BTreeMap::new(),
             battlefield: Vec::new(),
+            static_sources: Vec::new(),
             emblems: Vec::new(),
             stack: Vec::new(),
             pending_triggers: Vec::new(),
+            triggered_this_turn: Vec::new(),
+            priority_to: starting_player,
             resolving: None,
             combat: None,
             starting_player,
@@ -532,19 +557,71 @@ impl DuelState {
             })
     }
 
-    /// What anthems add to a creature's power and toughness.
-    fn anthem_bonus(&self, id: ObjectId) -> Result<(i32, i32), InternalError> {
-        let mut bonus = (0, 0);
-        if !self.def(id)?.is_creature() {
-            return Ok(bonus);
+    /// Calls `visit` with every anthem and keyword grant that reaches the
+    /// creature `id`: those of its controller's emblems, and those of the
+    /// permanents on the battlefield (an Aura on it, or a permanent of its
+    /// controller's that affects their creatures). Nothing reaches a card
+    /// that isn't a creature on the battlefield.
+    fn statics_on(
+        &self,
+        id: ObjectId,
+        mut visit: impl FnMut(&StaticAbility),
+    ) -> Result<(), InternalError> {
+        let object = self.object(id)?;
+        if object.zone != Zone::Battlefield || !self.def(id)?.is_creature() {
+            return Ok(());
         }
-        for ability in self.emblem_statics(self.object(id)?.owner) {
+        let controller = object.owner;
+        for ability in self.emblem_statics(controller) {
+            visit(ability);
+        }
+        for &other in &self.static_sources {
+            let holder = self.object(other)?;
+            for ability in &self.def(other)?.abilities {
+                let AbilityDef::Static(ability) = ability else {
+                    continue;
+                };
+                let affects = match ability {
+                    StaticAbility::Anthem { affects, .. }
+                    | StaticAbility::GrantKeyword { affects, .. } => *affects,
+                    StaticAbility::Restriction { .. } => continue,
+                };
+                let reaches = match affects {
+                    Affects::Enchanted => holder.attached_to == Some(id),
+                    Affects::CreaturesYouControl => holder.owner == controller,
+                    Affects::OtherCreaturesYouControl => holder.owner == controller && other != id,
+                };
+                if reaches {
+                    visit(ability);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// What lasting effects add to a creature's power and toughness:
+    /// anthems, and Auras that change them. Not what wears off at end of
+    /// turn.
+    pub(crate) fn static_bonus(&self, id: ObjectId) -> Result<(i32, i32), InternalError> {
+        let mut anthems = Vec::new();
+        self.statics_on(id, |ability| {
             if let StaticAbility::Anthem {
-                affects: Affects::CreaturesYouControl,
                 power,
                 toughness,
+                with_keyword,
+                ..
             } = ability
             {
+                anthems.push((*power, *toughness, *with_keyword));
+            }
+        })?;
+        let mut bonus = (0, 0);
+        for (power, toughness, with_keyword) in anthems {
+            let applies = match with_keyword {
+                Some(keyword) => self.has_keyword(id, keyword)?,
+                None => true,
+            };
+            if applies {
                 bonus.0 += power;
                 bonus.1 += toughness;
             }
@@ -555,13 +632,29 @@ impl DuelState {
     pub(crate) fn power(&self, id: ObjectId) -> Result<i32, InternalError> {
         Ok(self.def(id)?.power.unwrap_or(0)
             + self.object(id)?.power_bonus
-            + self.anthem_bonus(id)?.0)
+            + self.static_bonus(id)?.0)
     }
 
     pub(crate) fn toughness(&self, id: ObjectId) -> Result<i32, InternalError> {
         Ok(self.def(id)?.toughness.unwrap_or(0)
             + self.object(id)?.toughness_bonus
-            + self.anthem_bonus(id)?.1)
+            + self.static_bonus(id)?.1)
+    }
+
+    /// The keywords a creature on the battlefield has been given: until end
+    /// of turn, or by an emblem or another permanent.
+    fn given_keywords(&self, id: ObjectId) -> Result<Vec<Keyword>, InternalError> {
+        let mut keywords = Vec::new();
+        self.statics_on(id, |ability| {
+            if let StaticAbility::GrantKeyword { keyword, .. } = ability {
+                keywords.push(*keyword);
+            }
+        })?;
+        let object = self.object(id)?;
+        if object.zone == Zone::Battlefield && self.def(id)?.is_creature() {
+            keywords.extend(&object.granted_keywords);
+        }
+        Ok(keywords)
     }
 
     /// Whether the object has the keyword, printed or granted.
@@ -570,42 +663,15 @@ impl DuelState {
         id: ObjectId,
         keyword: Keyword,
     ) -> Result<bool, InternalError> {
-        let def = self.def(id)?;
-        if def.has_keyword(keyword) {
-            return Ok(true);
-        }
-        if !def.is_creature() || self.object(id)?.zone != Zone::Battlefield {
-            return Ok(false);
-        }
-        if self.object(id)?.granted_keywords.contains(&keyword) {
-            return Ok(true);
-        }
-        Ok(self.emblem_statics(self.object(id)?.owner).any(|ability| {
-            matches!(ability, StaticAbility::GrantKeyword {
-                    affects: Affects::CreaturesYouControl,
-                    keyword: granted,
-                } if *granted == keyword)
-        }))
+        Ok(self.def(id)?.has_keyword(keyword) || self.given_keywords(id)?.contains(&keyword))
     }
 
     /// The keywords a permanent has, printed first and then granted.
     pub(crate) fn keywords(&self, id: ObjectId) -> Result<Vec<Keyword>, InternalError> {
         let mut keywords = self.def(id)?.keywords.clone();
-        if self.def(id)?.is_creature() {
-            for ability in self.emblem_statics(self.object(id)?.owner) {
-                if let StaticAbility::GrantKeyword {
-                    affects: Affects::CreaturesYouControl,
-                    keyword,
-                } = ability
-                    && !keywords.contains(keyword)
-                {
-                    keywords.push(*keyword);
-                }
-            }
-            for keyword in &self.object(id)?.granted_keywords {
-                if !keywords.contains(keyword) {
-                    keywords.push(*keyword);
-                }
+        for keyword in self.given_keywords(id)? {
+            if !keywords.contains(&keyword) {
+                keywords.push(keyword);
             }
         }
         Ok(keywords)
@@ -685,6 +751,19 @@ impl DuelState {
 
     fn add_to_zone(&mut self, object: GameObject) {
         let (id, owner, zone) = (object.id, object.owner, object.zone);
+        let has_statics = card_def(&object.def).is_ok_and(|def| {
+            def.abilities.iter().any(|ability| {
+                matches!(
+                    ability,
+                    AbilityDef::Static(
+                        StaticAbility::Anthem { .. } | StaticAbility::GrantKeyword { .. }
+                    )
+                )
+            })
+        });
+        if zone == Zone::Battlefield && has_statics {
+            self.static_sources.push(id);
+        }
         self.objects.insert(id, object);
         match (zone, self.zone_mut(owner, zone)) {
             (Zone::Library, Some(list)) => list.insert(0, id),
@@ -739,6 +818,7 @@ impl DuelState {
             .objects
             .remove(&id)
             .ok_or_else(|| InternalError::new(format!("no object {id:?}")))?;
+        self.static_sources.retain(|source| *source != id);
 
         let new_id = self.next_object_id();
         self.add_to_zone(GameObject::new(new_id, old.card, old.def, old.owner, to));
@@ -796,6 +876,12 @@ impl DuelState {
             );
         }
         assert_eq!(listed.len(), self.objects.len());
+        for id in &self.static_sources {
+            assert!(
+                self.battlefield.contains(id),
+                "{id:?} is a stale static source"
+            );
+        }
         let mut cards = std::collections::BTreeSet::new();
         for (id, object) in &self.objects {
             assert_eq!(object.id, *id);

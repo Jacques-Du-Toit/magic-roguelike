@@ -8,13 +8,24 @@ export function stackItemDef(
   item: StackItemView,
   cards: ReadonlyMap<string, CardDef>,
 ): CardDef | undefined {
-  if (item.kind.type === 'emblem') return undefined
-  return cards.get(item.kind.type === 'spell' ? item.kind.card.def : item.kind.ability.def)
+  switch (item.kind.type) {
+    case 'emblem':
+      return undefined
+    case 'spell':
+      return cards.get(item.kind.card.def)
+    case 'ability':
+      return cards.get(item.kind.ability.def)
+    case 'keyword':
+      return cards.get(item.kind.def)
+  }
 }
 
 /** The name of a spell or ability on the stack. */
 export function stackItemName(item: StackItemView, cards: ReadonlyMap<string, CardDef>): string {
-  if (item.kind.type === 'emblem') return `'s ability`
+  if (item.kind.type === 'emblem') return `${item.kind.name}'s ability`
   const name = stackItemDef(item, cards)?.name ?? 'Unknown'
-  return item.kind.type === 'spell' ? name : `${name}'s ability`
+  if (item.kind.type === 'spell') return name
+  // "Monastery Swiftspear's prowess".
+  if (item.kind.type === 'keyword') return `${name}'s ${item.kind.keyword.replaceAll('_', ' ')}`
+  return `${name}'s ability`
 }

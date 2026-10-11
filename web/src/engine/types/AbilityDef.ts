@@ -4,4 +4,8 @@ import type { Effect } from "./Effect";
 import type { StaticAbility } from "./StaticAbility";
 import type { Trigger } from "./Trigger";
 
-export type AbilityDef = { "kind": "spell", effects: Array<Effect>, } | { "kind": "triggered", trigger: Trigger, effects: Array<Effect>, } | { "kind": "static" } & StaticAbility | { "kind": "mana", cost: AbilityCost, produces: string, };
+export type AbilityDef = { "kind": "spell", effects: Array<Effect>, } | { "kind": "triggered", trigger: Trigger, effects: Array<Effect>, 
+/**
+ * "The first time each turn": it triggers once a turn at most.
+ */
+once_each_turn: boolean, } | { "kind": "static" } & StaticAbility | { "kind": "mana", cost: AbilityCost, produces: string, };

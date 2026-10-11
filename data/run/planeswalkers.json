@@ -53,12 +53,19 @@
     "passive": {
       "id": "firebrand_passive",
       "name": "Firebrand's Fury",
-      "text": "Creatures you control have haste.",
+      "text": "The first creature to enter under your control each turn gains haste until end of turn.",
       "effects": [
         {
           "type": "abilities",
           "abilities": [
-            { "kind": "static", "type": "grant_keyword", "affects": "creatures_you_control", "keyword": "haste" }
+            {
+              "kind": "triggered",
+              "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+              "once_each_turn": true,
+              "effects": [
+                { "type": "grant_keyword_until_eot", "target": { "triggering": {} }, "keyword": "haste" }
+              ]
+            }
           ]
         }
       ]

@@ -86,13 +86,16 @@ test('holding priority stops in steps that are otherwise passed through', async 
   await expect(page.getByTestId('prompt')).not.toContainText('Beginning of combat')
 })
 
-for (const [ai, seed] of [
-  ['deck_a', 11],
-  ['deck_c', 12],
+// The last has the human on the drain deck, whose cards trigger on deaths,
+// attacks and life gained, against the tempo deck's bounce and discard.
+for (const [you, ai, seed] of [
+  ['deck_b', 'deck_a', 11],
+  ['deck_b', 'deck_c', 12],
+  ['deck_e', 'deck_d', 13],
 ] as const) {
-  test(`a whole game against ${ai} can be clicked through`, async ({ page }) => {
+  test(`a whole game as ${you} against ${ai} can be clicked through`, async ({ page }) => {
     const errors = watchForErrors(page)
-    await start(page, `seed=${seed}&you=deck_b&ai=${ai}&speed=instant`)
+    await start(page, `seed=${seed}&you=${you}&ai=${ai}&speed=instant`)
     await playToTheEnd(page)
     await expect(result(page)).toHaveText(/You win|You lose|Draw/)
     await expect(page.getByRole('alert')).toHaveCount(0)

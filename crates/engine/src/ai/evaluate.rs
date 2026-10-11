@@ -6,24 +6,33 @@ use crate::duel::{DuelState, GameResult, InternalError, ObjectId, PlayerId};
 
 /// What a card in hand is worth, in the same units as a creature's value.
 const CARD_IN_HAND: i32 = 3;
+/// What an enchantment that stays on the battlefield is worth for being
+/// there, beyond what it does to creatures: a little more than the card.
+const LASTING_PERMANENT: i32 = 4;
 const WIN: i32 = 1_000_000;
 
 /// How much a creature matters: roughly twice its power plus its toughness,
-/// plus a little for each useful ability. Printed stats are used, so a
-/// pump spell is judged by what it achieves, not by the bigger numbers.
+/// plus a little for each useful ability. Printed stats and lasting
+/// bonuses (anthems, Auras) are used, but not what wears off at end of
+/// turn, so a pump spell is judged by what it achieves, not by the bigger
+/// numbers.
 pub(super) fn creature_value(state: &DuelState, creature: ObjectId) -> Result<i32, InternalError> {
     let def = state.def(creature)?;
-    let mut value = 1 + 2 * def.power.unwrap_or(0) + def.toughness.unwrap_or(0);
+    let (power, toughness) = state.static_bonus(creature)?;
+    let power = (def.power.unwrap_or(0) + power).max(0);
+    let toughness = (def.toughness.unwrap_or(0) + toughness).max(0);
+    let mut value = 1 + 2 * power + toughness;
     for keyword in &def.keywords {
         value += match keyword {
             // It hits twice.
-            Keyword::DoubleStrike => 1 + 2 * def.power.unwrap_or(0),
+            Keyword::DoubleStrike => 1 + 2 * power,
             Keyword::Flying | Keyword::Deathtouch => 2,
             Keyword::Indestructible => 3,
             // It never attacks.
-            Keyword::Defender => -def.power.unwrap_or(0),
+            Keyword::Defender => -power,
             Keyword::Flash => 0,
             Keyword::FirstStrike
+            | Keyword::Prowess
             | Keyword::Hexproof
             | Keyword::Lifelink
             | Keyword::Menace
@@ -76,6 +85,12 @@ pub(super) fn position(state: &DuelState, player: PlayerId) -> Result<i32, Inter
         total += CARD_IN_HAND * i32::try_from(player_state.hand.len()).unwrap_or(i32::MAX);
         for creature in state.creatures_of(who)? {
             total += creature_value(state, creature)?;
+        }
+        for permanent in state.permanents_of(who) {
+            let def = state.def(permanent.id)?;
+            if !def.is_creature() && !def.is_land() && !def.is_aura() {
+                total += LASTING_PERMANENT;
+            }
         }
         Ok(total)
     };

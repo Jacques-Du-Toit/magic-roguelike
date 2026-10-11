@@ -1,0 +1,42 @@
+{
+  "id": "wee_dragonauts",
+  "name": "Wee Dragonauts",
+  "mana_cost": "{1}{U}{R}",
+  "colors": [
+    "U",
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Faerie",
+    "Wizard"
+  ],
+  "power": 1,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhenever you cast an instant or sorcery spell, this creature gets +2/+0 until end of turn.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "cast_spell",
+        "kind": "instant_or_sorcery"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "this": {}
+          },
+          "power": 2,
+          "toughness": 0
+        }
+      ]
+    }
+  ]
+}

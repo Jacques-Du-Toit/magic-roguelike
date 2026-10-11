@@ -1,0 +1,36 @@
+{
+  "id": "pitchburn_devils",
+  "name": "Pitchburn Devils",
+  "mana_cost": "{4}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Devil"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common",
+  "oracle_text": "When this creature dies, it deals 3 damage to any target.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 3,
+          "target": {
+            "any_target": {}
+          }
+        }
+      ]
+    }
+  ]
+}

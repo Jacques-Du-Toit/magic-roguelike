@@ -1,0 +1,22 @@
+{
+  "id": "glorious_anthem",
+  "name": "Glorious Anthem",
+  "mana_cost": "{1}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Creatures you control get +1/+1.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "creatures_you_control",
+      "power": 1,
+      "toughness": 1
+    }
+  ]
+}
