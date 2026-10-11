@@ -6,7 +6,9 @@
 use super::action::{Action, GameEvent};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
+use super::mana::empty_mana_pools;
 use super::setup::take_top_card;
+use super::stack::{has_sorcery_timing, legal_casts, resolve_top};
 use super::state::{Decision, DuelState, GameResult, Step, WinReason, Zone};
 
 /// A rule of Magic rather than a balance number.
@@ -47,18 +49,20 @@ fn run_from_step(
 ) -> Result<(), InternalError> {
     let mut step = step;
     loop {
+        empty_mana_pools(state);
         state.step = step;
         events.push(GameEvent::StepBegan { step });
         let active = state.active_player;
         match step {
             Step::Untap => {
-                let tapped: Vec<ObjectId> = state
+                let permanents: Vec<ObjectId> = state
                     .permanents_of(active)
-                    .filter(|permanent| permanent.tapped)
                     .map(|permanent| permanent.id)
                     .collect();
-                for id in tapped {
-                    state.object_mut(id)?.tapped = false;
+                for id in permanents {
+                    let permanent = state.object_mut(id)?;
+                    permanent.tapped = false;
+                    permanent.summoning_sick = false;
                 }
                 events.push(GameEvent::PermanentsUntapped { player: active });
             }
@@ -140,8 +144,7 @@ pub(crate) fn legal_priority_actions(
 ) -> Result<Vec<Action>, InternalError> {
     let mut actions = vec![Action::PassPriority];
     let player_state = state.player(player);
-    let can_play_land = player == state.active_player
-        && state.step.is_main()
+    let can_play_land = has_sorcery_timing(state, player)
         && player_state.lands_played_this_turn < LAND_DROPS_PER_TURN;
     if can_play_land {
         for &card in &player_state.hand {
@@ -150,6 +153,7 @@ pub(crate) fn legal_priority_actions(
             }
         }
     }
+    actions.extend(legal_casts(state, player)?);
     Ok(actions)
 }
 
@@ -162,7 +166,8 @@ pub(crate) fn legal_discard_actions(state: &DuelState, player: PlayerId) -> Vec<
         .collect()
 }
 
-/// Both players passing in a row ends the step.
+/// When both players pass in a row, the top of the stack resolves, or the
+/// step ends if the stack is empty.
 pub(crate) fn pass_priority(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
@@ -176,6 +181,10 @@ pub(crate) fn pass_priority(
         return Ok(());
     }
     state.consecutive_passes = 0;
+    if !state.stack.is_empty() {
+        resolve_top(state, events)?;
+        return open_priority(state, events);
+    }
     match state.step.next() {
         Some(next) => run_from_step(state, events, next),
         None => Err(InternalError::new(

@@ -4,18 +4,21 @@ mod action;
 mod config;
 mod error;
 mod ids;
+mod mana;
 mod mulligan;
 mod rng;
 mod setup;
+mod stack;
 mod state;
 #[cfg(test)]
 mod test_support;
 mod turn;
 
-pub use action::{Action, CardFace, CardRef, GameEvent};
+pub use action::{Action, CardFace, CardRef, GameEvent, Target};
 pub use config::{CardInstance, CardUpgrade, DuelConfig, PlayerConfig, RulesConfig};
 pub use error::{ActionError, ConfigError, InternalError};
 pub use ids::{CardId, ObjectId, PlayerId};
+pub use mana::ManaPool;
 pub use rng::DuelRng;
 pub use setup::new_duel;
 pub use state::{Decision, DuelState, GameObject, GameResult, PlayerState, Step, WinReason, Zone};
@@ -85,6 +88,9 @@ fn perform(
         (Action::PlayLand { card }, _) => turn::play_land(state, &mut events, player, *card)?,
         (Action::Discard { card }, Some(Decision::Discard { remaining, .. })) => {
             turn::discard(state, &mut events, player, *card, remaining)?;
+        }
+        (Action::CastSpell { card, targets }, _) => {
+            stack::cast_spell(state, &mut events, player, *card, targets)?;
         }
         (Action::BottomCard { .. } | Action::Discard { .. }, _) => {
             return Err(InternalError::new(format!(

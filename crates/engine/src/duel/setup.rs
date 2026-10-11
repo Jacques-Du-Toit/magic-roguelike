@@ -42,7 +42,7 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
     let mut state = DuelState::new(config.rules, players, starting_player, rng);
     for (player, player_config) in PlayerId::ALL.into_iter().zip(config.players) {
         for instance in player_config.library {
-            state.create_card_in_library(player, instance.card_id);
+            state.create_card(player, instance.card_id, Zone::Library);
         }
     }
     for player in PlayerId::ALL {

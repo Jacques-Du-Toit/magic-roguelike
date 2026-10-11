@@ -30,6 +30,25 @@ pub enum Action {
     Discard {
         card: ObjectId,
     },
+    /// Cast a card from hand. The engine pays the mana cost by tapping
+    /// sources itself; the action is only legal if it can.
+    CastSpell {
+        card: ObjectId,
+        targets: Vec<Target>,
+    },
+}
+
+/// What a spell or ability is aimed at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Target {
+    Player {
+        player: PlayerId,
+    },
+    /// A permanent, or a spell on the stack.
+    Object {
+        object: ObjectId,
+    },
 }
 
 /// Something that happened, in order. The UI animates these rather than
@@ -87,6 +106,21 @@ pub enum GameEvent {
     },
     GameOver {
         result: GameResult,
+    },
+    /// A permanent tapped, e.g. for mana.
+    PermanentTapped {
+        permanent: ObjectId,
+    },
+    /// A card was cast and is now on the stack.
+    SpellCast {
+        player: PlayerId,
+        card: CardRef,
+        targets: Vec<Target>,
+    },
+    /// A permanent spell resolved, or a permanent arrived some other way.
+    PermanentEntered {
+        player: PlayerId,
+        card: CardRef,
     },
 }
 

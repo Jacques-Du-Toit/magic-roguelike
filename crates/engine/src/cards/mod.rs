@@ -311,7 +311,7 @@ pub enum CardError {
     ZeroAmount(&'static str),
     #[error("a mana ability must cost `tap`")]
     ManaCost,
-    #[error("a mana ability must produce one or more coloured mana and nothing else")]
+    #[error("a mana ability must produce exactly one coloured mana")]
     ManaProduces,
     #[error("a restriction needs at least one entry in `cant`")]
     EmptyRestriction,
@@ -405,7 +405,8 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             if !cost.tap {
                 return Err(CardError::ManaCost);
             }
-            if produces.is_empty() || produces.colored().count() != produces.symbols().len() {
+            // One mana per source keeps the auto-payer a simple greedy pick.
+            if produces.symbols().len() != 1 || produces.colored().count() != 1 {
                 return Err(CardError::ManaProduces);
             }
             Ok(())
@@ -778,7 +779,7 @@ mod tests {
             )),
             Err(CardError::ManaCost)
         );
-        for produces in ["", "{1}", "{1}{G}"] {
+        for produces in ["", "{1}", "{1}{G}", "{G}{G}"] {
             assert_eq!(
                 check(land(
                     json!({ "kind": "mana", "cost": { "tap": true }, "produces": produces })

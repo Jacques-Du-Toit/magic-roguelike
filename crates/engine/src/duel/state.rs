@@ -5,10 +5,11 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::action::{CardFace, CardRef};
+use super::action::{CardFace, CardRef, Target};
 use super::config::RulesConfig;
 use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
+use super::mana::ManaPool;
 use super::rng::DuelRng;
 use crate::cards::{CardDef, CardDefId};
 use crate::data;
@@ -24,6 +25,8 @@ pub struct DuelState {
     pub objects: BTreeMap<ObjectId, GameObject>,
     /// Permanents, in the order they entered.
     pub battlefield: Vec<ObjectId>,
+    /// The top of the stack is the end of the list.
+    pub stack: Vec<StackItem>,
     pub starting_player: PlayerId,
     /// 0 until the mulligans are over, then counts every turn of either
     /// player.
@@ -50,6 +53,7 @@ pub struct PlayerState {
     pub hand: Vec<ObjectId>,
     /// The most recent card is the end of the list.
     pub graveyard: Vec<ObjectId>,
+    pub mana_pool: ManaPool,
     pub mulligans_taken: u8,
     pub kept_hand: bool,
     pub lands_played_this_turn: u8,
@@ -67,6 +71,7 @@ impl PlayerState {
             library: Vec::new(),
             hand: Vec::new(),
             graveyard: Vec::new(),
+            mana_pool: ManaPool::default(),
             mulligans_taken: 0,
             kept_hand: false,
             lands_played_this_turn: 0,
@@ -85,6 +90,39 @@ pub struct GameObject {
     pub zone: Zone,
     /// Only meaningful on the battlefield.
     pub tapped: bool,
+    /// On the battlefield: its controller hasn't had it since the start of
+    /// their most recent turn.
+    pub summoning_sick: bool,
+}
+
+impl GameObject {
+    fn new(id: ObjectId, card: CardId, def: CardDefId, owner: PlayerId, zone: Zone) -> GameObject {
+        GameObject {
+            id,
+            card,
+            def,
+            owner,
+            zone,
+            tapped: false,
+            summoning_sick: zone == Zone::Battlefield,
+        }
+    }
+}
+
+/// A spell or ability on the stack.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StackItem {
+    /// For a spell, the id of its card object (in `Zone::Stack`).
+    pub id: ObjectId,
+    pub controller: PlayerId,
+    pub kind: StackItemKind,
+    pub targets: Vec<Target>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum StackItemKind {
+    Spell,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -94,6 +132,7 @@ pub enum Zone {
     Hand,
     Battlefield,
     Graveyard,
+    Stack,
 }
 
 /// The steps of a turn, in order. The two main phases count as steps here.
@@ -189,6 +228,7 @@ impl DuelState {
             players,
             objects: BTreeMap::new(),
             battlefield: Vec::new(),
+            stack: Vec::new(),
             starting_player,
             turn: 0,
             active_player: starting_player,
@@ -252,45 +292,49 @@ impl DuelState {
             .filter(move |object| object.owner == player)
     }
 
-    fn zone_mut(&mut self, owner: PlayerId, zone: Zone) -> &mut Vec<ObjectId> {
+    /// The list of object ids for a zone. The stack has no such list: its
+    /// cards are tracked by their `StackItem`s.
+    fn zone_mut(&mut self, owner: PlayerId, zone: Zone) -> Option<&mut Vec<ObjectId>> {
         match zone {
-            Zone::Library => &mut self.player_mut(owner).library,
-            Zone::Hand => &mut self.player_mut(owner).hand,
-            Zone::Graveyard => &mut self.player_mut(owner).graveyard,
-            Zone::Battlefield => &mut self.battlefield,
+            Zone::Library => Some(&mut self.player_mut(owner).library),
+            Zone::Hand => Some(&mut self.player_mut(owner).hand),
+            Zone::Graveyard => Some(&mut self.player_mut(owner).graveyard),
+            Zone::Battlefield => Some(&mut self.battlefield),
+            Zone::Stack => None,
         }
     }
 
-    fn next_object_id(&mut self) -> ObjectId {
+    pub(crate) fn next_object_id(&mut self) -> ObjectId {
         let id = ObjectId(self.next_object_id);
         self.next_object_id += 1;
         id
     }
 
-    /// Adds a brand-new card to the bottom of its owner's library.
-    pub(crate) fn create_card_in_library(&mut self, owner: PlayerId, def: CardDefId) -> ObjectId {
+    fn add_to_zone(&mut self, object: GameObject) {
+        let (id, owner, zone) = (object.id, object.owner, object.zone);
+        self.objects.insert(id, object);
+        match (zone, self.zone_mut(owner, zone)) {
+            (Zone::Library, Some(list)) => list.insert(0, id),
+            (_, Some(list)) => list.push(id),
+            // The caller pushes the stack item.
+            (_, None) => {}
+        }
+    }
+
+    /// Adds a brand-new card to a zone (the bottom, for the library). A
+    /// card created on the stack still needs its `StackItem`.
+    pub(crate) fn create_card(&mut self, owner: PlayerId, def: CardDefId, zone: Zone) -> ObjectId {
         let id = self.next_object_id();
         let card = CardId(self.next_card_id);
         self.next_card_id += 1;
-        let zone = Zone::Library;
-        self.objects.insert(
-            id,
-            GameObject {
-                id,
-                card,
-                def,
-                owner,
-                zone,
-                tapped: false,
-            },
-        );
-        self.zone_mut(owner, zone).insert(0, id);
+        self.add_to_zone(GameObject::new(id, card, def, owner, zone));
         id
     }
 
     /// Moves a card to another zone. The card becomes a new object with none
     /// of the old one's status, and the new id is returned. A card moved to
-    /// the library goes to the bottom.
+    /// the library goes to the bottom; one moved to the stack still needs
+    /// its `StackItem`.
     pub(crate) fn move_object(
         &mut self,
         id: ObjectId,
@@ -300,34 +344,31 @@ impl DuelState {
             let object = self.object(id)?;
             (object.owner, object.zone)
         };
-        let list = self.zone_mut(owner, from);
-        let position = list
-            .iter()
-            .position(|listed| *listed == id)
-            .ok_or_else(|| InternalError::new(format!("{id:?} is not in its zone {from:?}")))?;
-        list.remove(position);
+        let not_in_zone = || InternalError::new(format!("{id:?} is not in its zone {from:?}"));
+        match self.zone_mut(owner, from) {
+            Some(list) => {
+                let position = list
+                    .iter()
+                    .position(|listed| *listed == id)
+                    .ok_or_else(not_in_zone)?;
+                list.remove(position);
+            }
+            None => {
+                let position = self
+                    .stack
+                    .iter()
+                    .position(|item| item.id == id)
+                    .ok_or_else(not_in_zone)?;
+                self.stack.remove(position);
+            }
+        }
         let old = self
             .objects
             .remove(&id)
             .ok_or_else(|| InternalError::new(format!("no object {id:?}")))?;
 
         let new_id = self.next_object_id();
-        self.objects.insert(
-            new_id,
-            GameObject {
-                id: new_id,
-                card: old.card,
-                def: old.def,
-                owner: old.owner,
-                zone: to,
-                tapped: false,
-            },
-        );
-        let list = self.zone_mut(owner, to);
-        match to {
-            Zone::Library => list.insert(0, new_id),
-            Zone::Hand | Zone::Battlefield | Zone::Graveyard => list.push(new_id),
-        }
+        self.add_to_zone(GameObject::new(new_id, old.card, old.def, old.owner, to));
         Ok(new_id)
     }
 }
@@ -361,6 +402,15 @@ impl DuelState {
                     );
                 }
             }
+        }
+        for item in &self.stack {
+            let StackItemKind::Spell = item.kind;
+            let owner = self.objects[&item.id].owner;
+            assert!(
+                listed.insert(item.id, (owner, Zone::Stack)).is_none(),
+                "{:?} is listed twice",
+                item.id
+            );
         }
         for id in &self.battlefield {
             let owner = self.objects[id].owner;

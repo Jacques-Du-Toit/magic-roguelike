@@ -3,8 +3,9 @@
 use super::action::{Action, GameEvent};
 use super::config::DuelConfig;
 use super::ids::{CardId, ObjectId, PlayerId};
-use super::state::{Decision, DuelState, Step};
+use super::state::{Decision, DuelState, Step, Zone};
 use super::{apply_action, new_duel};
+use crate::cards::CardDefId;
 use crate::data;
 use crate::decks::DeckId;
 
@@ -24,6 +25,47 @@ pub(crate) fn started(p1_deck: &str, p2_deck: &str, seed: u64) -> (DuelState, Pl
     apply_action(&mut state, first, Action::Keep).unwrap();
     apply_action(&mut state, second, Action::Keep).unwrap();
     (state, first, second)
+}
+
+/// A started duel at the first main phase of turn 1, with the active player
+/// and their opponent.
+pub(crate) fn in_main_phase(
+    p1_deck: &str,
+    p2_deck: &str,
+    seed: u64,
+) -> (DuelState, PlayerId, PlayerId) {
+    let (mut state, first, second) = started(p1_deck, p2_deck, seed);
+    pass_until(&mut state, 1, Step::PrecombatMain);
+    (state, first, second)
+}
+
+/// Adds a new copy of a card to the player's hand.
+pub(crate) fn put_in_hand(state: &mut DuelState, player: PlayerId, card: &str) -> ObjectId {
+    state.create_card(player, CardDefId(card.to_string()), Zone::Hand)
+}
+
+/// Adds a new copy of a card to the battlefield, as if it had been there
+/// since before the turn began (so it isn't summoning sick).
+pub(crate) fn put_on_battlefield(state: &mut DuelState, player: PlayerId, card: &str) -> ObjectId {
+    let id = state.create_card(player, CardDefId(card.to_string()), Zone::Battlefield);
+    state.objects.get_mut(&id).unwrap().summoning_sick = false;
+    id
+}
+
+/// Puts the player's whole hand on the bottom of their library, so a test
+/// controls exactly what they hold.
+pub(crate) fn empty_hand(state: &mut DuelState, player: PlayerId) {
+    for card in state.player(player).hand.clone() {
+        state.move_object(card, Zone::Library).unwrap();
+    }
+}
+
+/// The action that casts a spell with no targets.
+pub(crate) fn cast(card: ObjectId) -> Action {
+    Action::CastSpell {
+        card,
+        targets: Vec::new(),
+    }
 }
 
 /// How many lands are in the player's hand.
