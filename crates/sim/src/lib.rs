@@ -390,11 +390,15 @@ mod tests {
             Ok(Some(options.clone()))
         );
         let stats = run(&options).unwrap();
-        assert_eq!(stats.len(), 2 * 10);
+        // Each planeswalker against each enemy, in file order.
+        let run_data = &data::embedded().unwrap().run;
+        let enemies = run_data.enemies.len();
+        assert_eq!(stats.len(), run_data.planeswalkers.len() * enemies);
         assert_eq!(stats[0].first_deck, "warden");
-        assert_eq!(stats[0].second_deck, "goblin_raid");
-        assert_eq!(stats[19].first_deck, "firebrand");
-        assert_eq!(stats[19].second_deck, "pyre_tyrant");
+        assert_eq!(stats[0].second_deck, run_data.enemies[0].id.as_str());
+        let last = stats.last().unwrap();
+        assert_eq!(last.first_deck, "firebrand");
+        assert_eq!(last.second_deck, "pyre_tyrant");
         for pairing in &stats {
             assert_eq!(
                 pairing.games, 2,

@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M4** (part M4a: rules and the first cube)
+**Active milestone: M4** (part M4a is built and waiting on the owner playing it; M4b, the better AI, is next)
 
 ---
 
@@ -145,8 +145,31 @@ Built in four parts, each ending in something to play:
 
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
-- [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes.
-- [ ] Scryfall import tool.
+**M4a status (2026-10-12):** built; waiting on the owner playing it.
+
+- Rules added, each with its cards and tests: flash, defender, hexproof, double strike, indestructible, prowess; targets with conditions; triggered abilities with targets; effects that stop for a choice (discard, scry, surveil); bounce, tap, keywords until end of turn; triggers on dying, attacking, damaging an opponent, life gained, a spell cast, a sacrifice and an upkeep; anthems and Auras that change power and toughness; creature tokens; +1/+1 counters; activated abilities with mana, tap and sacrifice costs; targets in a graveyard, mill, and "you may" abilities.
+- 129 cards (114 spells, 5 basic lands, 10 Guildgates) and 7 tokens. Every card matches Scryfall (`node tools/scryfall.mjs check`).
+- Five more practice decks (D to H), one per group of new rules, for trying them in a practice duel.
+- 17 enemy decks (5 easy, 7 normal, 4 elite, the boss) rebuilt on the pool, so that every spell is met in a run. Their tiers follow what the sim measured.
+- The Firebrand's passive is now haste for the first creature each turn (`DECISIONS.md` #38).
+- Checks: 487 Rust tests, 67 web tests and 21 end-to-end tests pass. The end-to-end tests click through games with each new deck and check that the new screens appear: aiming an ability, scrying, choosing a sacrifice, picking a card from a graveyard, declining a "you may".
+
+Numbers from the sim, with the current AI on both sides (`--games 400`):
+
+- `sim --runs`: the Warden wins the act in 38% of runs and the Firebrand in 38.5% (M3: 37% and 44%). They reach the boss in 91% and 80% of runs and beat it 42% and 48% of the time. Elites are won 29% of the time.
+- `sim --enemies`, starting decks only: 66–95% against the easy decks, 35–90% against the normal ones, 15–47% against the elites, 16% and 25% against the boss.
+
+Known limits, left for later parts:
+
+- The act is below the 50–60% the owner agreed as the target for the AI's win rate; the boss is the gate. Balance is M4d, after the AI changes in M4b move every number.
+- The AI still plays reactive cards badly: it almost never counters a spell, so Storm Scholars and Tide Weavers measure as easy. It never casts Raise Dead (a card for a card looks like no gain to it). M4b.
+- Decks that mill themselves (Rot Farmers, practice deck H) often lose to fatigue in 25-card decks. Self-mill needs a payoff or bigger decks before it is an archetype; a question for M4d.
+- The elites range widely (15–47%) and the normal decks more so; the tiers are a first sorting, not a balance pass.
+- Blue cards and the gold cards of other colour pairs are only met in enemy decks until there are characters of those colours (M4c).
+- An emblem's `create_token` is not checked against the token files when the data loads (no relic uses one yet).
+
+- [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
+- [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
 - [ ] Draft node, Event node, Treasure node, card upgrades.
 - [ ] 3 acts, 3 bosses, ~20 relics, 4+ planeswalkers.
 - [ ] Better AI (search/rollouts), able to play control decks properly.

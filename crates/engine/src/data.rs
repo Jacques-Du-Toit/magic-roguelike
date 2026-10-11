@@ -886,11 +886,11 @@ mod tests {
 
     /// A card nobody can ever meet is dead weight: every card is in a test
     /// deck, a starting deck or an enemy deck. Non-basic lands are the
-    /// exception; they come from rewards and shops.
+    /// exception (they come from rewards and shops), and so are tokens.
     #[test]
     fn every_card_is_in_some_deck() {
         let run = &data().run;
-        for card in data().cards.iter() {
+        for card in data().cards.iter().filter(|card| !card.token) {
             let id = card.id.as_str();
             let in_entries = |entries: &[crate::decks::DeckEntry]| {
                 entries.iter().any(|entry| entry.card.as_str() == id)
@@ -898,52 +898,38 @@ mod tests {
             let used = data().decks.values().any(|deck| deck.count_of(id) > 0)
                 || run.planeswalkers.iter().any(|def| in_entries(&def.spells))
                 || run.enemies.iter().any(|def| in_entries(&def.cards));
-            if card.token {
-                continue;
-            }
             let reward_land = card.is_land() && card.supertypes.is_empty();
-            let waiting = NOT_YET_MET.contains(&id);
-            assert!(used || reward_land || waiting, "{id} is in no deck");
+            assert!(used || reward_land, "{id} is in no deck");
+        }
+    }
+
+    /// The run itself shows every spell: each is in an enemy deck or a
+    /// starting deck, not only in a test deck.
+    #[test]
+    fn every_spell_is_met_in_a_run() {
+        let run = &data().run;
+        for card in data()
+            .cards
+            .iter()
+            .filter(|card| !card.token && !card.is_land())
+        {
+            let id = card.id.as_str();
+            let in_entries = |entries: &[crate::decks::DeckEntry]| {
+                entries.iter().any(|entry| entry.card.as_str() == id)
+            };
+            let met = run.planeswalkers.iter().any(|def| in_entries(&def.spells))
+                || run.enemies.iter().any(|def| in_entries(&def.cards));
+            assert!(met || RUN_STRANGERS.contains(&id), "{id} is in no run deck");
             assert!(
-                !(used && waiting),
-                "{id} is in a deck: take it off NOT_YET_MET"
+                !(met && RUN_STRANGERS.contains(&id)),
+                "{id} is in a run deck: take it off RUN_STRANGERS"
             );
         }
     }
 
-    /// Cards added in M4a that no deck uses yet. Those in a character's
-    /// colours already turn up as rewards; the rest wait for the enemy decks
-    /// to be rebuilt on the cube at the end of M4a.
-    const NOT_YET_MET: [&str; 28] = [
-        "ambush_viper",
-        "angelic_wall",
-        "druid_of_the_cowl",
-        "fencing_ace",
-        "gladecover_scout",
-        "kraken_hatchling",
-        "lava_axe",
-        "negate",
-        "plummet",
-        "skyknight_legionnaire",
-        "smite_the_monstrous",
-        "swiftblade_vindicator",
-        "titanic_growth",
-        "notion_rain",
-        "river_hoopoe",
-        "spectral_sailor",
-        "ajanis_pridemate",
-        "ironshell_beetle",
-        "pridemalkin",
-        "unruly_mob",
-        "empyrean_eagle",
-        "monastery_swiftspear",
-        "raging_regisaur",
-        "thieving_magpie",
-        "wee_dragonauts",
-        "briarpack_alpha",
-        "sheltering_light",
-        "sure_strike",
-    ];
+    /// Spells no enemy or starting deck uses yet. Those in a character's
+    /// colours still turn up as rewards.
+    const RUN_STRANGERS: [&str; 0] = [];
 
     #[test]
     fn the_run_content_is_what_the_roadmap_asks_for() {
@@ -953,8 +939,8 @@ mod tests {
         assert_eq!(run.relics.len(), 5);
         assert_eq!(data().balance.run.boons.len(), 4);
         let count = |tier| run.enemies_of(tier).count();
-        assert_eq!(count(EnemyTier::Easy) + count(EnemyTier::Normal), 7);
-        assert_eq!(count(EnemyTier::Elite), 2);
+        assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 7));
+        assert_eq!(count(EnemyTier::Elite), 4);
         assert_eq!(count(EnemyTier::Boss), 1);
         for planeswalker in &run.planeswalkers {
             let spells: u32 = planeswalker.spells.iter().map(|entry| entry.count).sum();

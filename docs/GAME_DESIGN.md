@@ -150,6 +150,8 @@ Examples:
 | RW | Aggro / equipment |
 | GU | +1/+1 counters / ramp |
 
+- **Colours are locked** (`DECISIONS.md` #35): a character is only ever offered cards in its colours. The variety is meant to come from inside the pool, as in Slay the Spire: each colour pair should hold three or four overlapping packages of 8–12 cards (for black-red, say: sacrifice, vampires, burn, discard), with cards that belong to two of them, so that the pick is rarely obvious. Starting decks stay generic.
+- Archetypes the owner wants in time, beyond the ten above: discard, vampires, counterspells, spellslinger, walls and defenders, Eldrazi. Released Commander decks are a source of ideas. Walls (damage from toughness) and Eldrazi (colourless mana and their keywords) each need a rule that is not in scope yet.
 - Every card must fit inside `RULES_SCOPE.md`.
 - Rarity distribution and reward weighting tuned in playtesting.
 - Card text/data sourced from Scryfall bulk data.
@@ -161,6 +163,12 @@ Examples:
 - Ascension-style difficulty levels.
 - Run history / stats.
 Keep it light; avoid permanent power creep.
+
+From the owner's M3 playtest (2026-10-11), the direction to explore once saving exists (M5):
+
+- **Commanders.** The character could be a commander: a legendary creature the player can cast from the command zone, with decks tied to it. An enemy's commander would also hint at what its deck does. To be prototyped after M4a and decided before M4c (`DECISIONS.md` #37).
+- **Unlocks by achievement.** New commanders unlocked by completing achievements; their alternative decks and skills by completing goals of their own.
+- **A small skill tree per commander**, outside the run, that changes its abilities slightly: a little roguelite, not a power ladder.
 
 ## 11. Visual and UX direction
 
@@ -188,5 +196,7 @@ Keep it light; avoid permanent power creep.
 - Run length vs map size: 45–75 minutes doesn't fit three acts of ~15 rows. Settle by playtesting.
 - How does mill win, now that an empty library means fatigue rather than a loss?
 - Several examples in §5, §7 and §8 need rules outside the current scope (see the last table in `RULES_SCOPE.md`).
+
+- Self-mill in a 25-card deck runs into fatigue (seen in the M4a sim). What makes a graveyard deck worth it here?
 
 Settled for the one-act prototype (see `DECISIONS.md` #22 to #31): rest sites restore a heart or remove a card; elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.

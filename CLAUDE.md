@@ -23,7 +23,7 @@ Priorities: reach a playable version quickly, without closing off a maintainable
 
 ## Architecture in one paragraph
 
-A **pure Rust rules engine** (`crates/engine`) holds all game logic and knows nothing about rendering. It is compiled to **WebAssembly** via a thin bindings crate (`crates/engine-wasm`). A **TypeScript + React** front end (`web/`) renders state and sends player actions. A headless **simulation CLI** (`crates/sim`) runs AI-vs-AI games for testing and balance. The engine has two layers of the same shape: the **duel** (`crates/engine/src/duel`) and the **run** around it (`crates/engine/src/run`), which owns the duel in progress. Cards are **data** (`data/cards/`), not code, and so is the run's content (`data/run/`).
+A **pure Rust rules engine** (`crates/engine`) holds all game logic and knows nothing about rendering. It is compiled to **WebAssembly** via a thin bindings crate (`crates/engine-wasm`). A **TypeScript + React** front end (`web/`) renders state and sends player actions. A headless **simulation CLI** (`crates/sim`) runs AI-vs-AI games for testing and balance. The engine has two layers of the same shape: the **duel** (`crates/engine/src/duel`) and the **run** around it (`crates/engine/src/run`), which owns the duel in progress. Cards are **data** (`data/cards/`, with tokens in `data/tokens/`), not code, and so is the run's content (`data/run/`).
 
 ## Commands
 
