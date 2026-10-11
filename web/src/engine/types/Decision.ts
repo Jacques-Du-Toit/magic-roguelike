@@ -5,4 +5,4 @@ import type { PlayerId } from "./PlayerId";
  * A choice the game is waiting on. `legal_actions` lists the ways to answer
  * it.
  */
-export type Decision = { "type": "mulligan", player: PlayerId, } | { "type": "bottom_cards", player: PlayerId, remaining: number, };
+export type Decision = { "type": "mulligan", player: PlayerId, } | { "type": "bottom_cards", player: PlayerId, remaining: number, } | { "type": "priority", player: PlayerId, } | { "type": "discard", player: PlayerId, remaining: number, };

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::ids::{CardId, ObjectId, PlayerId};
+use super::state::{GameResult, Step};
 use crate::cards::CardDefId;
 
 /// Something a player does. Every action returned by `legal_actions` is
@@ -18,7 +19,17 @@ pub enum Action {
     Mulligan,
     /// Put a card from hand on the bottom of the library, once per mulligan
     /// taken, after keeping.
-    BottomCard { card: ObjectId },
+    BottomCard {
+        card: ObjectId,
+    },
+    PassPriority,
+    PlayLand {
+        card: ObjectId,
+    },
+    /// Discard a card at cleanup, down to the maximum hand size.
+    Discard {
+        card: ObjectId,
+    },
 }
 
 /// Something that happened, in order. The UI animates these rather than
@@ -38,18 +49,51 @@ pub enum GameEvent {
     },
     CardDrawn {
         player: PlayerId,
-        card: EventCard,
+        card: CardRef,
     },
     CardPutOnBottom {
         player: PlayerId,
-        card: EventCard,
+        card: CardRef,
+    },
+    TurnBegan {
+        turn: u32,
+        player: PlayerId,
+    },
+    StepBegan {
+        step: Step,
+    },
+    /// The player's permanents untapped during their untap step.
+    PermanentsUntapped {
+        player: PlayerId,
+    },
+    LandPlayed {
+        player: PlayerId,
+        card: CardRef,
+    },
+    CardDiscarded {
+        player: PlayerId,
+        card: CardRef,
+    },
+    /// The player drew from an empty library.
+    Fatigue {
+        player: PlayerId,
+        life_lost: i32,
+    },
+    /// `life` is the new total.
+    LifeChanged {
+        player: PlayerId,
+        change: i32,
+        life: i32,
+    },
+    GameOver {
+        result: GameResult,
     },
 }
 
-/// A card as it appears in an event. `face` is `None` once the event has
-/// been redacted for a viewer who can't see the card.
+/// A card as an event or a view shows it. `face` is `None` when the viewer
+/// can't see which card it is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-pub struct EventCard {
+pub struct CardRef {
     pub object: ObjectId,
     pub face: Option<CardFace>,
 }

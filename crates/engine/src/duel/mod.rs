@@ -10,27 +10,36 @@ mod setup;
 mod state;
 #[cfg(test)]
 mod test_support;
+mod turn;
 
-pub use action::{Action, CardFace, EventCard, GameEvent};
+pub use action::{Action, CardFace, CardRef, GameEvent};
 pub use config::{CardInstance, CardUpgrade, DuelConfig, PlayerConfig, RulesConfig};
 pub use error::{ActionError, ConfigError, InternalError};
 pub use ids::{CardId, ObjectId, PlayerId};
 pub use rng::DuelRng;
 pub use setup::new_duel;
-pub use state::{Decision, DuelState, GameObject, PlayerState, Zone};
+pub use state::{Decision, DuelState, GameObject, GameResult, PlayerState, Step, WinReason, Zone};
 
 /// Every action `player` may take right now. Empty unless the game is
 /// waiting on that player.
 pub fn legal_actions(state: &DuelState, player: PlayerId) -> Vec<Action> {
-    match state.decision {
-        Some(Decision::Mulligan { player: decider }) if decider == player => {
-            mulligan::legal_mulligan_actions(state, player)
-        }
-        Some(Decision::BottomCards {
-            player: decider, ..
-        }) if decider == player => mulligan::legal_bottom_actions(state, player),
-        _ => Vec::new(),
+    // An internal error here means the state is corrupt; no action is legal.
+    try_legal_actions(state, player).unwrap_or_default()
+}
+
+fn try_legal_actions(state: &DuelState, player: PlayerId) -> Result<Vec<Action>, InternalError> {
+    let Some(decision) = state.decision else {
+        return Ok(Vec::new());
+    };
+    if decision.player() != player {
+        return Ok(Vec::new());
     }
+    Ok(match decision {
+        Decision::Mulligan { .. } => mulligan::legal_mulligan_actions(state, player),
+        Decision::BottomCards { .. } => mulligan::legal_bottom_actions(state, player),
+        Decision::Priority { .. } => turn::legal_priority_actions(state, player)?,
+        Decision::Discard { .. } => turn::legal_discard_actions(state, player),
+    })
 }
 
 /// Applies one of `player`'s legal actions and returns what happened,
@@ -43,7 +52,7 @@ pub fn apply_action(
     if state.waiting_on() != Some(player) {
         return Err(ActionError::NotWaitingOn(player));
     }
-    if !legal_actions(state, player).contains(&action) {
+    if !try_legal_actions(state, player)?.contains(&action) {
         return Err(ActionError::IllegalAction { player, action });
     }
     // Work on a copy, so an engine bug part-way through can't leave the
@@ -54,20 +63,38 @@ pub fn apply_action(
     Ok(events)
 }
 
+/// The outcome of the duel, once it has ended.
+pub fn result(state: &DuelState) -> Option<GameResult> {
+    state.result
+}
+
 /// Carries out an action already known to be legal.
 fn perform(
     state: &mut DuelState,
     player: PlayerId,
     action: &Action,
 ) -> Result<Vec<GameEvent>, InternalError> {
-    match (*action).clone() {
-        Action::Keep => mulligan::keep_hand(state, player),
-        Action::Mulligan => mulligan::take_mulligan(state, player),
-        Action::BottomCard { card } => match state.decision {
-            Some(Decision::BottomCards { remaining, .. }) => {
-                mulligan::bottom_card(state, player, card, remaining)
-            }
-            _ => Err(InternalError::new("bottoming a card with none owed")),
-        },
+    let mut events = Vec::new();
+    match (action, state.decision) {
+        (Action::Keep, _) => events.extend(mulligan::keep_hand(state, player)?),
+        (Action::Mulligan, _) => events.extend(mulligan::take_mulligan(state, player)?),
+        (Action::BottomCard { card }, Some(Decision::BottomCards { remaining, .. })) => {
+            events.extend(mulligan::bottom_card(state, player, *card, remaining)?);
+        }
+        (Action::PassPriority, _) => turn::pass_priority(state, &mut events, player)?,
+        (Action::PlayLand { card }, _) => turn::play_land(state, &mut events, player, *card)?,
+        (Action::Discard { card }, Some(Decision::Discard { remaining, .. })) => {
+            turn::discard(state, &mut events, player, *card, remaining)?;
+        }
+        (Action::BottomCard { .. } | Action::Discard { .. }, _) => {
+            return Err(InternalError::new(format!(
+                "{action:?} does not answer {:?}",
+                state.decision
+            )));
+        }
     }
+    if mulligan::mulligans_are_over(state) && state.turn == 0 {
+        turn::begin_game(state, &mut events)?;
+    }
+    Ok(events)
 }

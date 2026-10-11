@@ -75,7 +75,7 @@ pub(crate) fn bottom_card(
     let bottomed = state.move_object(card, Zone::Library)?;
     let event = GameEvent::CardPutOnBottom {
         player,
-        card: state.event_card(bottomed)?,
+        card: state.card_ref(bottomed)?,
     };
     state.decision = match remaining.saturating_sub(1) {
         0 => after_keeping(state, player),
@@ -95,16 +95,22 @@ fn next_mulligan_decision(state: &DuelState, player: PlayerId) -> Decision {
     }
 }
 
-/// What the game waits on once `player` has kept and finished bottoming.
+/// What the game waits on once `player` has kept and finished bottoming:
+/// the opponent's mulligan decision, or nothing if both have kept (see
+/// `mulligans_are_over`).
 fn after_keeping(state: &DuelState, player: PlayerId) -> Option<Decision> {
     let opponent = player.opponent();
     if state.player(opponent).kept_hand {
-        // Both players have kept. The first turn starts here once turns
-        // exist (M1 slice 3).
         None
     } else {
         Some(Decision::Mulligan { player: opponent })
     }
+}
+
+/// True once both players have kept and finished bottoming, which is when
+/// the first turn starts.
+pub(crate) fn mulligans_are_over(state: &DuelState) -> bool {
+    state.decision.is_none() && state.players.iter().all(|player| player.kept_hand)
 }
 
 #[cfg(test)]
@@ -138,7 +144,7 @@ mod tests {
         assert_eq!(state.decision, Some(Decision::Mulligan { player: second }));
 
         apply_action(&mut state, second, Action::Keep).unwrap();
-        assert_eq!(state.decision, None);
+        assert_eq!(state.turn, 1);
         assert_eq!(state.player(first).hand.len(), 7);
         assert_eq!(state.player(second).hand.len(), 7);
         state.assert_consistent();
@@ -214,12 +220,12 @@ mod tests {
         assert_eq!(state.objects[&bottom].card, chosen_card);
         assert!(matches!(
             &events[..],
-            [GameEvent::CardPutOnBottom { player, card }]
+            [GameEvent::CardPutOnBottom { player, card }, ..]
                 if *player == first && card.object == bottom
         ));
         assert_eq!(state.player(first).hand.len(), 6);
         assert_eq!(state.player(first).library.len(), 19);
-        assert_eq!(state.decision, None);
+        assert_eq!(state.turn, 1);
         state.assert_consistent();
     }
 
@@ -250,7 +256,7 @@ mod tests {
             let card = state.player(first).hand[0];
             apply_action(&mut state, first, Action::BottomCard { card }).unwrap();
         }
-        assert_eq!(state.decision, None);
+        assert_eq!(state.turn, 1);
         assert_eq!(state.player(first).hand.len(), 5);
         assert_eq!(state.player(second).hand.len(), 6);
         state.assert_consistent();
@@ -272,7 +278,7 @@ mod tests {
         let card = state.player(first).hand[0];
         apply_action(&mut state, first, Action::BottomCard { card }).unwrap();
         assert!(state.player(first).hand.is_empty());
-        assert_eq!(state.decision, None);
+        assert_eq!(state.turn, 1);
     }
 
     #[test]
@@ -339,17 +345,22 @@ mod tests {
     }
 
     #[test]
-    fn nobody_can_act_once_the_mulligans_are_over() {
+    fn mulligan_actions_end_when_the_first_turn_starts() {
         let (mut state, first, second) = duel(6);
         apply_action(&mut state, first, Action::Keep).unwrap();
         apply_action(&mut state, second, Action::Keep).unwrap();
-        for player in PlayerId::ALL {
-            assert_eq!(legal_actions(&state, player), []);
-            assert_eq!(
-                apply_action(&mut state, player, Action::Keep),
-                Err(ActionError::NotWaitingOn(player))
-            );
-        }
+        assert_eq!(state.decision, Some(Decision::Priority { player: first }));
+        assert_eq!(
+            apply_action(&mut state, first, Action::Keep),
+            Err(ActionError::IllegalAction {
+                player: first,
+                action: Action::Keep
+            })
+        );
+        assert_eq!(
+            apply_action(&mut state, second, Action::Mulligan),
+            Err(ActionError::NotWaitingOn(second))
+        );
     }
 
     /// Plays a fixed script of mulligan decisions and returns the event log.

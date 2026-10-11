@@ -3,7 +3,7 @@ import type { CardFace } from "./CardFace";
 import type { ObjectId } from "./ObjectId";
 
 /**
- * A card as it appears in an event. `face` is `None` once the event has
- * been redacted for a viewer who can't see the card.
+ * A card as an event or a view shows it. `face` is `None` when the viewer
+ * can't see which card it is.
  */
-export type EventCard = { object: ObjectId, face: CardFace | null, };
+export type CardRef = { object: ObjectId, face: CardFace | null, };

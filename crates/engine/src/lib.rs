@@ -11,7 +11,7 @@ pub mod data;
 pub mod decks;
 pub mod duel;
 
-pub use duel::{apply_action, legal_actions, new_duel};
+pub use duel::{apply_action, legal_actions, new_duel, result};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

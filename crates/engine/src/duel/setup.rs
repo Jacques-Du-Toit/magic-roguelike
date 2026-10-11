@@ -35,14 +35,10 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
         0 => PlayerId::P1,
         _ => PlayerId::P2,
     };
-    let players = config.players.each_ref().map(|player| PlayerState {
-        life: player.starting_life,
-        opening_hand_size: player.opening_hand_size,
-        library: Vec::new(),
-        hand: Vec::new(),
-        mulligans_taken: 0,
-        kept_hand: false,
-    });
+    let players = config
+        .players
+        .each_ref()
+        .map(|player| PlayerState::new(player.starting_life, player.opening_hand_size));
     let mut state = DuelState::new(config.rules, players, starting_player, rng);
     for (player, player_config) in PlayerId::ALL.into_iter().zip(config.players) {
         for instance in player_config.library {
@@ -86,7 +82,7 @@ pub(crate) fn deal_opening_hand(
 
     let mut events = Vec::new();
     for _ in 0..hand_size {
-        events.extend(draw_card(state, player)?);
+        events.extend(take_top_card(state, player)?);
     }
 
     let mut rest = std::mem::take(&mut state.player_mut(player).library);
@@ -124,8 +120,8 @@ fn count_lands(state: &DuelState, objects: &[ObjectId]) -> Result<usize, Interna
 }
 
 /// Moves the top card of the player's library to their hand. Does nothing
-/// if the library is empty.
-pub(crate) fn draw_card(
+/// if the library is empty; fatigue is the caller's business.
+pub(crate) fn take_top_card(
     state: &mut DuelState,
     player: PlayerId,
 ) -> Result<Option<GameEvent>, InternalError> {
@@ -135,7 +131,7 @@ pub(crate) fn draw_card(
     let drawn = state.move_object(top, Zone::Hand)?;
     Ok(Some(GameEvent::CardDrawn {
         player,
-        card: state.event_card(drawn)?,
+        card: state.card_ref(drawn)?,
     }))
 }
 

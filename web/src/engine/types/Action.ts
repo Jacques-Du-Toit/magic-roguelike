@@ -5,4 +5,4 @@ import type { ObjectId } from "./ObjectId";
  * Something a player does. Every action returned by `legal_actions` is
  * concrete and can be passed straight to `apply_action`.
  */
-export type Action = { "type": "keep" } | { "type": "mulligan" } | { "type": "bottom_card", card: ObjectId, };
+export type Action = { "type": "keep" } | { "type": "mulligan" } | { "type": "bottom_card", card: ObjectId, } | { "type": "pass_priority" } | { "type": "play_land", card: ObjectId, } | { "type": "discard", card: ObjectId, };

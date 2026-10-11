@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::action::{CardFace, EventCard};
+use super::action::{CardFace, CardRef};
 use super::config::RulesConfig;
 use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
@@ -22,9 +22,20 @@ pub struct DuelState {
     pub players: [PlayerState; 2],
     /// Every card in the duel, whatever zone it is in.
     pub objects: BTreeMap<ObjectId, GameObject>,
+    /// Permanents, in the order they entered.
+    pub battlefield: Vec<ObjectId>,
     pub starting_player: PlayerId,
-    /// What the game is waiting for, and from whom.
+    /// 0 until the mulligans are over, then counts every turn of either
+    /// player.
+    pub turn: u32,
+    pub active_player: PlayerId,
+    pub step: Step,
+    /// How many players have passed priority in a row.
+    pub consecutive_passes: u8,
+    /// What the game is waiting for, and from whom. `None` once the game is
+    /// over.
     pub decision: Option<Decision>,
+    pub result: Option<GameResult>,
     pub rng: DuelRng,
     next_object_id: u32,
     next_card_id: u32,
@@ -37,8 +48,32 @@ pub struct PlayerState {
     /// The top of the library is the end of the list.
     pub library: Vec<ObjectId>,
     pub hand: Vec<ObjectId>,
+    /// The most recent card is the end of the list.
+    pub graveyard: Vec<ObjectId>,
     pub mulligans_taken: u8,
     pub kept_hand: bool,
+    pub lands_played_this_turn: u8,
+    /// How many times this player has drawn from an empty library.
+    pub fatigue_draws: u32,
+    /// Whether the life loss that took this player to 0 or less was fatigue.
+    pub lost_to_fatigue: bool,
+}
+
+impl PlayerState {
+    pub(crate) fn new(life: i32, opening_hand_size: u8) -> PlayerState {
+        PlayerState {
+            life,
+            opening_hand_size,
+            library: Vec::new(),
+            hand: Vec::new(),
+            graveyard: Vec::new(),
+            mulligans_taken: 0,
+            kept_hand: false,
+            lands_played_this_turn: 0,
+            fatigue_draws: 0,
+            lost_to_fatigue: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +83,8 @@ pub struct GameObject {
     pub def: CardDefId,
     pub owner: PlayerId,
     pub zone: Zone,
+    /// Only meaningful on the battlefield.
+    pub tapped: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -55,6 +92,40 @@ pub struct GameObject {
 pub enum Zone {
     Library,
     Hand,
+    Battlefield,
+    Graveyard,
+}
+
+/// The steps of a turn, in order. The two main phases count as steps here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum Step {
+    Untap,
+    Upkeep,
+    Draw,
+    PrecombatMain,
+    PostcombatMain,
+    End,
+    Cleanup,
+}
+
+impl Step {
+    /// The step after this one, or `None` at the end of the turn.
+    pub fn next(self) -> Option<Step> {
+        match self {
+            Step::Untap => Some(Step::Upkeep),
+            Step::Upkeep => Some(Step::Draw),
+            Step::Draw => Some(Step::PrecombatMain),
+            Step::PrecombatMain => Some(Step::PostcombatMain),
+            Step::PostcombatMain => Some(Step::End),
+            Step::End => Some(Step::Cleanup),
+            Step::Cleanup => None,
+        }
+    }
+
+    pub fn is_main(self) -> bool {
+        matches!(self, Step::PrecombatMain | Step::PostcombatMain)
+    }
 }
 
 /// A choice the game is waiting on. `legal_actions` lists the ways to answer
@@ -67,14 +138,43 @@ pub enum Decision {
     Mulligan { player: PlayerId },
     /// Put `remaining` more cards from hand on the bottom of the library.
     BottomCards { player: PlayerId, remaining: u8 },
+    /// The player has priority.
+    Priority { player: PlayerId },
+    /// Discard `remaining` more cards, down to the maximum hand size.
+    Discard { player: PlayerId, remaining: u8 },
 }
 
 impl Decision {
     pub fn player(&self) -> PlayerId {
         match *self {
-            Decision::Mulligan { player } | Decision::BottomCards { player, .. } => player,
+            Decision::Mulligan { player }
+            | Decision::BottomCards { player, .. }
+            | Decision::Priority { player }
+            | Decision::Discard { player, .. } => player,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum GameResult {
+    Win {
+        player: PlayerId,
+        reason: WinReason,
+    },
+    /// Both players lost at the same time.
+    Draw,
+}
+
+/// How the loser lost.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum WinReason {
+    /// The opponent's life reached 0.
+    LifeZero,
+    /// The opponent's life reached 0 by drawing from an empty library.
+    Fatigue,
 }
 
 impl DuelState {
@@ -88,8 +188,14 @@ impl DuelState {
             rules,
             players,
             objects: BTreeMap::new(),
+            battlefield: Vec::new(),
             starting_player,
+            turn: 0,
+            active_player: starting_player,
+            step: Step::Untap,
+            consecutive_passes: 0,
             decision: None,
+            result: None,
             rng,
             next_object_id: 0,
             next_card_id: 0,
@@ -115,14 +221,21 @@ impl DuelState {
             .ok_or_else(|| InternalError::new(format!("no object {id:?}")))
     }
 
+    pub(crate) fn object_mut(&mut self, id: ObjectId) -> Result<&mut GameObject, InternalError> {
+        self.objects
+            .get_mut(&id)
+            .ok_or_else(|| InternalError::new(format!("no object {id:?}")))
+    }
+
     /// The card definition behind an object.
     pub(crate) fn def(&self, id: ObjectId) -> Result<&'static CardDef, InternalError> {
         card_def(&self.object(id)?.def)
     }
 
-    pub(crate) fn event_card(&self, id: ObjectId) -> Result<EventCard, InternalError> {
+    /// The object as an event or view shows it, face up.
+    pub(crate) fn card_ref(&self, id: ObjectId) -> Result<CardRef, InternalError> {
         let object = self.object(id)?;
-        Ok(EventCard {
+        Ok(CardRef {
             object: id,
             face: Some(CardFace {
                 card: object.card,
@@ -131,11 +244,20 @@ impl DuelState {
         })
     }
 
+    /// The permanents a player controls, in the order they entered.
+    pub fn permanents_of(&self, player: PlayerId) -> impl Iterator<Item = &GameObject> {
+        self.battlefield
+            .iter()
+            .filter_map(|id| self.objects.get(id))
+            .filter(move |object| object.owner == player)
+    }
+
     fn zone_mut(&mut self, owner: PlayerId, zone: Zone) -> &mut Vec<ObjectId> {
-        let player = self.player_mut(owner);
         match zone {
-            Zone::Library => &mut player.library,
-            Zone::Hand => &mut player.hand,
+            Zone::Library => &mut self.player_mut(owner).library,
+            Zone::Hand => &mut self.player_mut(owner).hand,
+            Zone::Graveyard => &mut self.player_mut(owner).graveyard,
+            Zone::Battlefield => &mut self.battlefield,
         }
     }
 
@@ -159,14 +281,16 @@ impl DuelState {
                 def,
                 owner,
                 zone,
+                tapped: false,
             },
         );
         self.zone_mut(owner, zone).insert(0, id);
         id
     }
 
-    /// Moves a card to another zone. The card becomes a new object, and the
-    /// new id is returned. A card moved to the library goes to the bottom.
+    /// Moves a card to another zone. The card becomes a new object with none
+    /// of the old one's status, and the new id is returned. A card moved to
+    /// the library goes to the bottom.
     pub(crate) fn move_object(
         &mut self,
         id: ObjectId,
@@ -192,14 +316,17 @@ impl DuelState {
             new_id,
             GameObject {
                 id: new_id,
+                card: old.card,
+                def: old.def,
+                owner: old.owner,
                 zone: to,
-                ..old
+                tapped: false,
             },
         );
         let list = self.zone_mut(owner, to);
         match to {
             Zone::Library => list.insert(0, new_id),
-            Zone::Hand => list.push(new_id),
+            Zone::Hand | Zone::Battlefield | Zone::Graveyard => list.push(new_id),
         }
         Ok(new_id)
     }
@@ -222,7 +349,11 @@ impl DuelState {
         let mut listed = BTreeMap::new();
         for player in PlayerId::ALL {
             let state = self.player(player);
-            for (zone, list) in [(Zone::Library, &state.library), (Zone::Hand, &state.hand)] {
+            for (zone, list) in [
+                (Zone::Library, &state.library),
+                (Zone::Hand, &state.hand),
+                (Zone::Graveyard, &state.graveyard),
+            ] {
                 for id in list {
                     assert!(
                         listed.insert(*id, (player, zone)).is_none(),
@@ -230,6 +361,13 @@ impl DuelState {
                     );
                 }
             }
+        }
+        for id in &self.battlefield {
+            let owner = self.objects[id].owner;
+            assert!(
+                listed.insert(*id, (owner, Zone::Battlefield)).is_none(),
+                "{id:?} is listed twice"
+            );
         }
         assert_eq!(listed.len(), self.objects.len());
         let mut cards = std::collections::BTreeSet::new();
