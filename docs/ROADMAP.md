@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M2**
+**Active milestone: M3**
 
 ---
 
@@ -105,7 +105,7 @@ Goal: a human can play a full duel against the AI in the browser, and it's fun. 
 
 **Done when:** a full game can be played start to finish with no softlocks, and the owner has played 5+ games.
 
-**Status (2026-10-11):** the features are built. Automated tests play whole games through the wasm handle, the controller and the real screen in a headless browser without ever being left without a move. Still open: the owner's five games.
+**Status (2026-10-11):** the features are built. Automated tests play whole games through the wasm handle, the controller and the real screen in a headless browser without ever being left without a move. The owner playtested it, found it fairly good and moved on to M3 the same day.
 
 ---
 
