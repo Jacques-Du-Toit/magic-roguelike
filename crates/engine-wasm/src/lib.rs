@@ -2,7 +2,15 @@
 //! out; it contains no game logic. Data crosses the boundary as JSON strings
 //! (see `docs/ARCHITECTURE.md` §8).
 
+pub mod session;
+
 use wasm_bindgen::prelude::*;
+
+use session::Session;
+
+fn js_error(message: String) -> JsError {
+    JsError::new(&message)
+}
 
 /// Returns the engine's `EngineInfo` as a JSON string.
 #[wasm_bindgen]
@@ -12,6 +20,66 @@ pub fn engine_info() -> Result<String, JsError> {
 
 fn engine_info_json() -> Result<String, serde_json::Error> {
     serde_json::to_string(&engine::engine_info())
+}
+
+/// Every card definition, as a JSON array of `CardDef`.
+#[wasm_bindgen]
+pub fn card_defs() -> Result<String, JsError> {
+    session::card_defs_json().map_err(js_error)
+}
+
+/// Every decklist, as a JSON array of `DeckDef`.
+#[wasm_bindgen]
+pub fn decks() -> Result<String, JsError> {
+    session::decks_json().map_err(js_error)
+}
+
+/// A duel between the human (P1) and the AI (P2). The `DuelState` lives in
+/// wasm memory; JavaScript only holds this handle.
+#[wasm_bindgen]
+pub struct Duel {
+    session: Session,
+}
+
+#[wasm_bindgen]
+impl Duel {
+    /// `seed` is a `u64` as a decimal string: a JS number would lose
+    /// precision.
+    #[wasm_bindgen(constructor)]
+    pub fn new(human_deck: &str, ai_deck: &str, seed: &str) -> Result<Duel, JsError> {
+        Session::new(human_deck, ai_deck, seed)
+            .map(|session| Duel { session })
+            .map_err(js_error)
+    }
+
+    pub fn seed(&self) -> String {
+        self.session.seed()
+    }
+
+    /// The human's `PlayerView` as JSON.
+    pub fn view(&self) -> Result<String, JsError> {
+        self.session.view().map_err(js_error)
+    }
+
+    /// The human's legal actions, as a JSON array of `Action`.
+    pub fn legal_actions(&self) -> Result<String, JsError> {
+        self.session.legal_actions().map_err(js_error)
+    }
+
+    pub fn has_meaningful_action(&self) -> bool {
+        self.session.has_meaningful_action()
+    }
+
+    /// Applies one of the human's legal actions (`Action` JSON) and returns
+    /// a `DuelUpdate` as JSON.
+    pub fn apply(&mut self, action: &str) -> Result<String, JsError> {
+        self.session.apply(action).map_err(js_error)
+    }
+
+    /// Lets the AI take one action and returns a `DuelUpdate` as JSON.
+    pub fn ai_step(&mut self) -> Result<String, JsError> {
+        self.session.ai_step().map_err(js_error)
+    }
 }
 
 #[cfg(test)]

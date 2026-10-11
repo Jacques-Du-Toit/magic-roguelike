@@ -31,7 +31,9 @@ name = "engine-wasm"
 version = "0.1.0"
 dependencies = [
  "engine",
+ "serde",
  "serde_json",
+ "ts-rs",
  "wasm-bindgen",
 ]
 
