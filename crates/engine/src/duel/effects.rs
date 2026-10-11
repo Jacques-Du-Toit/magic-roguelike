@@ -47,6 +47,18 @@ pub(crate) fn apply_effect(
             change_life(state, events, player, amount, LifeCause::Other);
             Ok(())
         }
+        Effect::LoseLife { player, amount } => {
+            let player = resolve_player(player, controller);
+            let amount = i32::try_from(amount).unwrap_or(i32::MAX);
+            change_life(
+                state,
+                events,
+                player,
+                amount.saturating_neg(),
+                LifeCause::Other,
+            );
+            Ok(())
+        }
         Effect::ModifyPtUntilEot {
             power, toughness, ..
         } => {
@@ -67,6 +79,7 @@ pub(crate) fn apply_effect(
 fn resolve_player(player: PlayerRef, controller: PlayerId) -> PlayerId {
     match player {
         PlayerRef::Controller => controller,
+        PlayerRef::Opponent => controller.opponent(),
     }
 }
 

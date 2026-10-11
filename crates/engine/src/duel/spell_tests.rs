@@ -4,8 +4,8 @@
 use super::action::{Action, GameEvent, Target};
 use super::ids::{ObjectId, PlayerId};
 use super::state::{
-    AbilityRef, Decision, DuelState, GameResult, PendingTrigger, StackItemKind, Step, WinReason,
-    Zone,
+    AbilityRef, Decision, DuelState, GameResult, PendingTrigger, StackItemKind, Step,
+    TriggeredAbility, WinReason, Zone,
 };
 use super::test_support::{
     attack, block, cast, cast_at, empty_board, finish_combat, pass_both, pass_until,
@@ -682,10 +682,12 @@ fn a_countered_creature_never_triggers() {
 fn simultaneous_triggers_go_on_the_stack_active_player_first_then_by_source() {
     let (mut state, me, opponent) = empty_board(1);
     let trigger = |controller: PlayerId, source: u32| PendingTrigger {
-        ability: AbilityRef {
-            source: ObjectId(source),
-            def: CardDefId("elvish_visionary".to_string()),
-            index: 0,
+        ability: TriggeredAbility::Card {
+            ability: AbilityRef {
+                source: ObjectId(source),
+                def: CardDefId("elvish_visionary".to_string()),
+                index: 0,
+            },
         },
         controller,
     };
@@ -697,7 +699,7 @@ fn simultaneous_triggers_go_on_the_stack_active_player_first_then_by_source() {
         .stack
         .iter()
         .map(|item| match &item.kind {
-            StackItemKind::Trigger { ability } => (item.controller, ability.source.0),
+            StackItemKind::Trigger { ability } => (item.controller, ability.source().0),
             StackItemKind::Spell => panic!("unexpected spell"),
         })
         .collect();

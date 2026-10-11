@@ -5,6 +5,7 @@
 //! keywords, effects and targets fail to deserialise, so a typo in a card
 //! file is an error rather than a silently ignored ability.
 
+mod emblem;
 mod mana;
 
 use std::collections::BTreeSet;
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
+pub use emblem::{EmblemDef, EmblemError, validate_emblem};
 pub use mana::{Color, ManaCost, ManaCostError, ManaSymbol};
 
 /// Identifies a card definition, e.g. `lightning_strike`. Game state refers
@@ -158,7 +160,11 @@ pub struct AbilityCost {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Trigger {
-    EntersBattlefield { subject: TriggerSubject },
+    EntersBattlefield {
+        subject: TriggerSubject,
+    },
+    /// At the beginning of its controller's upkeep. Emblems only, so far.
+    BeginningOfUpkeep {},
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -167,6 +173,9 @@ pub enum TriggerSubject {
     /// The permanent the ability is on.
     #[serde(rename = "self")]
     This,
+    /// Any creature entering under the controller's control. Emblems only,
+    /// so far.
+    CreatureYouControl,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -176,6 +185,16 @@ pub enum StaticAbility {
         affects: Affects,
         cant: Vec<Restricted>,
     },
+    /// The affected creatures get +power/+toughness.
+    Anthem {
+        affects: Affects,
+        power: i32,
+        toughness: i32,
+    },
+    GrantKeyword {
+        affects: Affects,
+        keyword: Keyword,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -183,6 +202,8 @@ pub enum StaticAbility {
 pub enum Affects {
     /// The permanent this Aura is attached to.
     Enchanted,
+    /// Every creature the controller controls. Emblems only, so far.
+    CreaturesYouControl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -214,6 +235,10 @@ pub enum Effect {
         player: PlayerRef,
         amount: u32,
     },
+    LoseLife {
+        player: PlayerRef,
+        amount: u32,
+    },
     ModifyPtUntilEot {
         target: TargetSpec,
         power: i32,
@@ -230,6 +255,7 @@ impl Effect {
             Effect::Destroy { .. } => "destroy",
             Effect::DrawCards { .. } => "draw_cards",
             Effect::GainLife { .. } => "gain_life",
+            Effect::LoseLife { .. } => "lose_life",
             Effect::ModifyPtUntilEot { .. } => "modify_pt_until_eot",
         }
     }
@@ -241,7 +267,7 @@ impl Effect {
             | Effect::DealDamage { target, .. }
             | Effect::Destroy { target }
             | Effect::ModifyPtUntilEot { target, .. } => Some(target),
-            Effect::DrawCards { .. } | Effect::GainLife { .. } => None,
+            Effect::DrawCards { .. } | Effect::GainLife { .. } | Effect::LoseLife { .. } => None,
         }
     }
 }
@@ -251,6 +277,8 @@ impl Effect {
 pub enum PlayerRef {
     /// The controller of the spell or ability.
     Controller,
+    /// The controller's opponent.
+    Opponent,
 }
 
 /// What a target must be. Written as `{ "creature": {} }`; the braces are
@@ -319,6 +347,8 @@ pub enum CardError {
     EmptyRestriction,
     #[error("`affects: enchanted` is only valid on an Aura")]
     EnchantedOnNonAura,
+    #[error("`{0}` is only supported on emblems so far")]
+    EmblemOnly(&'static str),
 }
 
 /// Checks everything about a card that its JSON shape alone doesn't
@@ -387,6 +417,17 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
 
 fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardError> {
     match ability {
+        AbilityDef::Triggered {
+            trigger: Trigger::BeginningOfUpkeep {},
+            ..
+        } => Err(CardError::EmblemOnly("beginning_of_upkeep")),
+        AbilityDef::Triggered {
+            trigger:
+                Trigger::EntersBattlefield {
+                    subject: TriggerSubject::CreatureYouControl,
+                },
+            ..
+        } => Err(CardError::EmblemOnly("creature_you_control")),
         AbilityDef::Spell { effects } | AbilityDef::Triggered { effects, .. } => {
             if effects.is_empty() {
                 return Err(CardError::NoEffects);
@@ -405,7 +446,12 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             match affects {
                 Affects::Enchanted if card.is_aura() => Ok(()),
                 Affects::Enchanted => Err(CardError::EnchantedOnNonAura),
+                Affects::CreaturesYouControl => Err(CardError::EmblemOnly("creatures_you_control")),
             }
+        }
+        AbilityDef::Static(StaticAbility::Anthem { .. }) => Err(CardError::EmblemOnly("anthem")),
+        AbilityDef::Static(StaticAbility::GrantKeyword { .. }) => {
+            Err(CardError::EmblemOnly("grant_keyword"))
         }
         AbilityDef::Mana { cost, produces } => {
             if !cost.tap {
@@ -420,7 +466,7 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
     }
 }
 
-fn validate_effect(effect: &Effect) -> Result<(), CardError> {
+pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     let target_ok = match effect {
         Effect::CounterSpell { target } => matches!(target, TargetSpec::Spell {}),
         Effect::DealDamage { target, .. } => {
@@ -429,7 +475,7 @@ fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         Effect::Destroy { target } | Effect::ModifyPtUntilEot { target, .. } => {
             matches!(target, TargetSpec::Creature {})
         }
-        Effect::DrawCards { .. } | Effect::GainLife { .. } => true,
+        Effect::DrawCards { .. } | Effect::GainLife { .. } | Effect::LoseLife { .. } => true,
     };
     if let (false, Some(target)) = (target_ok, effect.target()) {
         return Err(CardError::BadTarget {
@@ -440,7 +486,8 @@ fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     match effect {
         Effect::DealDamage { amount: 0, .. }
         | Effect::DrawCards { amount: 0, .. }
-        | Effect::GainLife { amount: 0, .. } => Err(CardError::ZeroAmount(effect.name())),
+        | Effect::GainLife { amount: 0, .. }
+        | Effect::LoseLife { amount: 0, .. } => Err(CardError::ZeroAmount(effect.name())),
         _ => Ok(()),
     }
 }

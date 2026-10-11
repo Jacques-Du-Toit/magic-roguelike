@@ -93,7 +93,10 @@ fn sources(state: &DuelState, player: PlayerId) -> Result<Vec<Source>, InternalE
         }
         let def = state.def(permanent.id)?;
         // Tapping a creature needs it to be past summoning sickness.
-        if def.is_creature() && permanent.summoning_sick && !def.has_keyword(Keyword::Haste) {
+        if def.is_creature()
+            && permanent.summoning_sick
+            && !state.has_keyword(permanent.id, Keyword::Haste)?
+        {
             continue;
         }
         let color = def.abilities.iter().find_map(|ability| match ability {

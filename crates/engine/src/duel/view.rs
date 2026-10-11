@@ -9,8 +9,10 @@ use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::legal_actions;
 use super::mana::ManaPool;
-use super::state::{AbilityRef, Combat, Decision, DuelState, GameResult, StackItemKind, Step};
-use crate::cards::CardDefId;
+use super::state::{
+    AbilityRef, Combat, Decision, DuelState, GameResult, StackItemKind, Step, TriggeredAbility,
+};
+use crate::cards::{CardDefId, Keyword};
 
 /// The duel as one player sees it. The opponent's hand is face down and
 /// neither library's contents or order appear at all.
@@ -46,6 +48,15 @@ pub struct PlayerSummary {
     pub mana_pool: ManaPool,
     pub lands_played_this_turn: u8,
     pub mulligans_taken: u8,
+    /// The player's emblems: relics, boons, passives and the like.
+    pub emblems: Vec<EmblemView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct EmblemView {
+    pub id: ObjectId,
+    pub name: String,
+    pub text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -59,6 +70,8 @@ pub struct PermanentView {
     /// Current power and toughness, for creatures.
     pub power: Option<i32>,
     pub toughness: Option<i32>,
+    /// The keywords it has now, printed first and then granted.
+    pub keywords: Vec<Keyword>,
     pub damage: i32,
     /// For an Aura, the permanent it enchants.
     pub attached_to: Option<ObjectId>,
@@ -81,6 +94,11 @@ pub enum StackItemViewKind {
     /// A triggered ability of the card `ability.def`.
     Ability {
         ability: AbilityRef,
+    },
+    /// A triggered ability of an emblem.
+    Emblem {
+        emblem: ObjectId,
+        name: String,
     },
 }
 
@@ -112,6 +130,16 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
             mana_pool: player_state.mana_pool.clone(),
             lands_played_this_turn: player_state.lands_played_this_turn,
             mulligans_taken: player_state.mulligans_taken,
+            emblems: state
+                .emblems
+                .iter()
+                .filter(|emblem| emblem.controller == player)
+                .map(|emblem| EmblemView {
+                    id: emblem.id,
+                    name: emblem.def.name.clone(),
+                    text: emblem.def.text.clone(),
+                })
+                .collect(),
         })
     };
 
@@ -136,6 +164,7 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
             } else {
                 None
             },
+            keywords: state.keywords(id)?,
             damage: permanent.damage,
             attached_to: permanent.attached_to,
         });
@@ -153,8 +182,21 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
                     },
                 }
             }
-            StackItemKind::Trigger { ability } => StackItemViewKind::Ability {
+            StackItemKind::Trigger {
+                ability: TriggeredAbility::Card { ability },
+            } => StackItemViewKind::Ability {
                 ability: ability.clone(),
+            },
+            StackItemKind::Trigger {
+                ability: TriggeredAbility::Emblem { emblem, .. },
+            } => StackItemViewKind::Emblem {
+                emblem: *emblem,
+                name: state
+                    .emblems
+                    .iter()
+                    .find(|candidate| candidate.id == *emblem)
+                    .map(|candidate| candidate.def.name.clone())
+                    .unwrap_or_default(),
             },
         };
         stack.push(StackItemView {

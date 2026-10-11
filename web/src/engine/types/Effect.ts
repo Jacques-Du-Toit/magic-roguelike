@@ -5,4 +5,4 @@ import type { TargetSpec } from "./TargetSpec";
 /**
  * An effect primitive.
  */
-export type Effect = { "type": "counter_spell", target: TargetSpec, } | { "type": "deal_damage", amount: number, target: TargetSpec, } | { "type": "destroy", target: TargetSpec, } | { "type": "draw_cards", player: PlayerRef, amount: number, } | { "type": "gain_life", player: PlayerRef, amount: number, } | { "type": "modify_pt_until_eot", target: TargetSpec, power: number, toughness: number, };
+export type Effect = { "type": "counter_spell", target: TargetSpec, } | { "type": "deal_damage", amount: number, target: TargetSpec, } | { "type": "destroy", target: TargetSpec, } | { "type": "draw_cards", player: PlayerRef, amount: number, } | { "type": "gain_life", player: PlayerRef, amount: number, } | { "type": "lose_life", player: PlayerRef, amount: number, } | { "type": "modify_pt_until_eot", target: TargetSpec, power: number, toughness: number, };

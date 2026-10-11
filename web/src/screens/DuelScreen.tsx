@@ -119,6 +119,15 @@ function PlayerPanel({
         <button type="button" className="link" onClick={onGraveyard}>
           Graveyard {summary.graveyard.length}
         </button>
+        {summary.emblems.length > 0 && (
+          <ul className="emblems" aria-label={`: emblems`}>
+            {summary.emblems.map((emblem) => (
+              <li key={emblem.id} className="emblem" data-testid="emblem">
+                <strong>{emblem.name}</strong> {emblem.text}
+              </li>
+            ))}
+          </ul>
+        )}
         {children}
       </div>
     </div>

@@ -7,7 +7,8 @@ use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::{pay_cost, plan_payment};
 use super::state::{
-    AbilityRef, DuelState, PendingTrigger, StackItem, StackItemKind, Zone, card_def,
+    AbilityRef, DuelState, PendingTrigger, StackItem, StackItemKind, TriggeredAbility, Zone,
+    card_def,
 };
 use crate::cards::{AbilityDef, CardDef, CardType, Effect, TargetSpec, Trigger, TriggerSubject};
 
@@ -174,8 +175,15 @@ pub(crate) fn resolve_top(
         StackItemKind::Spell => resolve_spell(state, events, &item),
         StackItemKind::Trigger { ability } => {
             state.stack.pop();
-            for effect in ability_effects(ability)? {
-                apply_effect(state, events, effect, item.controller, ability.source, None)?;
+            for effect in ability_effects(state, ability)? {
+                apply_effect(
+                    state,
+                    events,
+                    &effect,
+                    item.controller,
+                    ability.source(),
+                    None,
+                )?;
             }
             events.push(GameEvent::AbilityResolved { ability: item.id });
             Ok(())
@@ -258,14 +266,26 @@ pub(crate) fn permanent_entered(
             Trigger::EntersBattlefield {
                 subject: TriggerSubject::This,
             } => state.pending_triggers.push(PendingTrigger {
-                ability: AbilityRef {
-                    source: permanent,
-                    def: def_id.clone(),
-                    index,
+                ability: TriggeredAbility::Card {
+                    ability: AbilityRef {
+                        source: permanent,
+                        def: def_id.clone(),
+                        index,
+                    },
                 },
                 controller,
             }),
+            Trigger::EntersBattlefield {
+                subject: TriggerSubject::CreatureYouControl,
+            }
+            | Trigger::BeginningOfUpkeep {} => {}
         }
+    }
+    if state.def(permanent)?.is_creature() {
+        let entered = Trigger::EntersBattlefield {
+            subject: TriggerSubject::CreatureYouControl,
+        };
+        emblems_trigger(state, controller, &entered);
     }
     Ok(())
 }
@@ -275,12 +295,12 @@ pub(crate) fn permanent_entered(
 pub(crate) fn put_triggers_on_stack(state: &mut DuelState, events: &mut Vec<GameEvent>) {
     let mut pending = std::mem::take(&mut state.pending_triggers);
     let active = state.active_player;
-    pending.sort_by_key(|trigger| (trigger.controller != active, trigger.ability.source));
+    pending.sort_by_key(|trigger| (trigger.controller != active, trigger.ability.source()));
     for trigger in pending {
         let id = state.next_object_id();
         events.push(GameEvent::AbilityTriggered {
             player: trigger.controller,
-            source: trigger.ability.source,
+            source: trigger.ability.source(),
             ability: id,
         });
         state.stack.push(StackItem {
@@ -294,17 +314,58 @@ pub(crate) fn put_triggers_on_stack(state: &mut DuelState, events: &mut Vec<Game
     }
 }
 
+/// Notes every ability of `controller`'s emblems that triggers on
+/// `trigger`. They go on the stack the next time a player would get
+/// priority.
+pub(crate) fn emblems_trigger(state: &mut DuelState, controller: PlayerId, trigger: &Trigger) {
+    let mut triggered = Vec::new();
+    for emblem in &state.emblems {
+        if emblem.controller != controller {
+            continue;
+        }
+        for (index, ability) in emblem.def.abilities.iter().enumerate() {
+            if matches!(ability, AbilityDef::Triggered { trigger: on, .. } if on == trigger) {
+                triggered.push(PendingTrigger {
+                    ability: TriggeredAbility::Emblem {
+                        emblem: emblem.id,
+                        index,
+                    },
+                    controller,
+                });
+            }
+        }
+    }
+    state.pending_triggers.extend(triggered);
+}
+
 /// The effects of a triggered ability.
-fn ability_effects(ability: &AbilityRef) -> Result<&'static [Effect], InternalError> {
-    match card_def(&ability.def)?.abilities.get(ability.index) {
-        Some(AbilityDef::Triggered { effects, .. }) => Ok(effects),
+fn ability_effects(
+    state: &DuelState,
+    ability: &TriggeredAbility,
+) -> Result<Vec<Effect>, InternalError> {
+    let abilities = match ability {
+        TriggeredAbility::Card { ability } => &card_def(&ability.def)?.abilities,
+        TriggeredAbility::Emblem { emblem, .. } => {
+            &state
+                .emblems
+                .iter()
+                .find(|candidate| candidate.id == *emblem)
+                .ok_or_else(|| InternalError::new(format!("no emblem {emblem:?}")))?
+                .def
+                .abilities
+        }
+    };
+    let index = match ability {
+        TriggeredAbility::Card { ability } => ability.index,
+        TriggeredAbility::Emblem { index, .. } => *index,
+    };
+    match abilities.get(index) {
+        Some(AbilityDef::Triggered { effects, .. }) => Ok(effects.clone()),
         _ => Err(InternalError::new(format!(
-            "`{}` has no triggered ability {}",
-            ability.def, ability.index
+            "{ability:?} is not a triggered ability"
         ))),
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

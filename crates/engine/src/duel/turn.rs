@@ -11,9 +11,11 @@ use super::ids::{ObjectId, PlayerId};
 use super::mana::empty_mana_pools;
 use super::setup::take_top_card;
 use super::stack::{
-    has_sorcery_timing, legal_casts, permanent_entered, put_triggers_on_stack, resolve_top,
+    emblems_trigger, has_sorcery_timing, legal_casts, permanent_entered, put_triggers_on_stack,
+    resolve_top,
 };
 use super::state::{Combat, Decision, DuelState, Step, Zone};
+use crate::cards::Trigger;
 
 /// A rule of Magic rather than a balance number.
 const LAND_DROPS_PER_TURN: u8 = 1;
@@ -140,7 +142,11 @@ fn run_from_step(
                 state.combat = None;
                 return open_priority(state, events);
             }
-            Step::Upkeep | Step::PrecombatMain | Step::EndCombat | Step::End => {
+            Step::Upkeep => {
+                emblems_trigger(state, active, &Trigger::BeginningOfUpkeep {});
+                return open_priority(state, events);
+            }
+            Step::PrecombatMain | Step::EndCombat | Step::End => {
                 return open_priority(state, events);
             }
             Step::Cleanup => {

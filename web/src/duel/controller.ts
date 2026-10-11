@@ -67,6 +67,8 @@ export class DuelController {
   readonly #listeners = new Set<() => void>()
   /** Card definition ids of every object seen so far, for naming things. */
   readonly #objectDefs = new Map<number, string>()
+  /** Names of the emblems, which are not cards. */
+  readonly #emblemNames = new Map<number, string>()
   #snapshot: DuelSnapshot
   #disposed = false
 
@@ -200,6 +202,8 @@ export class DuelController {
       viewer: HUMAN,
       cards: this.#cards,
       objectName: (object) => {
+        const emblem = this.#emblemNames.get(object)
+        if (emblem !== undefined) return emblem
         const def = this.#objectDefs.get(object)
         return def === undefined ? undefined : (this.#cards.get(def)?.name ?? def)
       },
@@ -229,6 +233,7 @@ export class DuelController {
       if (item.kind.type === 'spell') this.#objectDefs.set(item.id, item.kind.card.def)
     }
     for (const player of view.players) {
+      for (const emblem of player.emblems) this.#emblemNames.set(emblem.id, emblem.name)
       for (const card of [...player.hand, ...player.graveyard]) {
         if (card.face) this.#objectDefs.set(card.object, card.face.def)
       }

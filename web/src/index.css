@@ -809,3 +809,27 @@ input[type='text'] {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* ---- Emblems ---- */
+
+.emblems {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-width: 190px;
+}
+
+.emblem {
+  padding: 2px 6px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.badge-granted {
+  background: #2f5d8a;
+  text-transform: capitalize;
+}

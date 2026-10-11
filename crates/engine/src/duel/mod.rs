@@ -9,6 +9,8 @@ mod combat_tests;
 mod config;
 mod damage;
 mod effects;
+#[cfg(test)]
+mod emblem_tests;
 mod error;
 mod ids;
 mod mana;
@@ -34,11 +36,11 @@ pub use mana::ManaPool;
 pub use rng::DuelRng;
 pub use setup::new_duel;
 pub use state::{
-    AbilityRef, Attacker, Combat, Decision, DuelState, GameObject, GameResult, PendingTrigger,
-    PlayerState, StackItem, StackItemKind, Step, WinReason, Zone,
+    AbilityRef, Attacker, Combat, Decision, DuelState, Emblem, GameObject, GameResult,
+    PendingTrigger, PlayerState, StackItem, StackItemKind, Step, TriggeredAbility, WinReason, Zone,
 };
 pub use view::{
-    PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
+    EmblemView, PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
     has_meaningful_action, player_view, redact_events, should_auto_pass,
 };
 

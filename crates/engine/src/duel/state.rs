@@ -11,7 +11,9 @@ use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::mana::ManaPool;
 use super::rng::DuelRng;
-use crate::cards::{AbilityDef, Affects, CardDef, CardDefId, Keyword, Restricted, StaticAbility};
+use crate::cards::{
+    AbilityDef, Affects, CardDef, CardDefId, EmblemDef, Keyword, Restricted, StaticAbility,
+};
 use crate::data;
 
 /// Everything about a duel in progress. It is plain data: it serialises, it
@@ -25,6 +27,8 @@ pub struct DuelState {
     pub objects: BTreeMap<ObjectId, GameObject>,
     /// Permanents, in the order they entered.
     pub battlefield: Vec<ObjectId>,
+    /// The command zone: emblems last the whole duel.
+    pub emblems: Vec<Emblem>,
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItem>,
     pub pending_triggers: Vec<PendingTrigger>,
@@ -111,8 +115,41 @@ pub struct GameObject {
 /// stack, which happens the next time a player would get priority.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingTrigger {
-    pub ability: AbilityRef,
+    pub ability: TriggeredAbility,
     pub controller: PlayerId,
+}
+
+/// An emblem in the command zone. It has an object id so that its abilities
+/// have a source, but it is not a card and no `GameObject` has its id.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Emblem {
+    pub id: ObjectId,
+    pub controller: PlayerId,
+    pub def: EmblemDef,
+}
+
+/// A triggered ability of a card or of an emblem.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TriggeredAbility {
+    Card {
+        ability: AbilityRef,
+    },
+    /// `abilities[index]` of the emblem with this id.
+    Emblem {
+        emblem: ObjectId,
+        index: usize,
+    },
+}
+
+impl TriggeredAbility {
+    /// The object or emblem the ability comes from.
+    pub fn source(&self) -> ObjectId {
+        match self {
+            TriggeredAbility::Card { ability } => ability.source,
+            TriggeredAbility::Emblem { emblem, .. } => *emblem,
+        }
+    }
 }
 
 /// Points at one ability of a card: `abilities[index]` of the definition.
@@ -191,7 +228,7 @@ pub enum StackItemKind {
     Spell,
     /// A triggered ability. It is not a card, so no object has its id.
     Trigger {
-        ability: AbilityRef,
+        ability: TriggeredAbility,
     },
 }
 
@@ -298,6 +335,7 @@ impl DuelState {
             players,
             objects: BTreeMap::new(),
             battlefield: Vec::new(),
+            emblems: Vec::new(),
             stack: Vec::new(),
             pending_triggers: Vec::new(),
             combat: None,
@@ -367,22 +405,99 @@ impl DuelState {
         Ok(self.is_on_battlefield(id) && self.def(id)?.is_creature())
     }
 
+    /// The static abilities of the emblems `player` controls.
+    fn emblem_statics(&self, player: PlayerId) -> impl Iterator<Item = &StaticAbility> {
+        self.emblems
+            .iter()
+            .filter(move |emblem| emblem.controller == player)
+            .flat_map(|emblem| &emblem.def.abilities)
+            .filter_map(|ability| match ability {
+                AbilityDef::Static(ability) => Some(ability),
+                _ => None,
+            })
+    }
+
+    /// What anthems add to a creature's power and toughness.
+    fn anthem_bonus(&self, id: ObjectId) -> Result<(i32, i32), InternalError> {
+        let mut bonus = (0, 0);
+        if !self.def(id)?.is_creature() {
+            return Ok(bonus);
+        }
+        for ability in self.emblem_statics(self.object(id)?.owner) {
+            if let StaticAbility::Anthem {
+                affects: Affects::CreaturesYouControl,
+                power,
+                toughness,
+            } = ability
+            {
+                bonus.0 += power;
+                bonus.1 += toughness;
+            }
+        }
+        Ok(bonus)
+    }
+
     pub(crate) fn power(&self, id: ObjectId) -> Result<i32, InternalError> {
-        Ok(self.def(id)?.power.unwrap_or(0) + self.object(id)?.power_bonus)
+        Ok(self.def(id)?.power.unwrap_or(0)
+            + self.object(id)?.power_bonus
+            + self.anthem_bonus(id)?.0)
     }
 
     pub(crate) fn toughness(&self, id: ObjectId) -> Result<i32, InternalError> {
-        Ok(self.def(id)?.toughness.unwrap_or(0) + self.object(id)?.toughness_bonus)
+        Ok(self.def(id)?.toughness.unwrap_or(0)
+            + self.object(id)?.toughness_bonus
+            + self.anthem_bonus(id)?.1)
     }
 
+    /// Whether the object has the keyword, printed or granted.
     pub(crate) fn has_keyword(
         &self,
         id: ObjectId,
         keyword: Keyword,
     ) -> Result<bool, InternalError> {
-        Ok(self.def(id)?.has_keyword(keyword))
+        let def = self.def(id)?;
+        if def.has_keyword(keyword) {
+            return Ok(true);
+        }
+        if !def.is_creature() || self.object(id)?.zone != Zone::Battlefield {
+            return Ok(false);
+        }
+        Ok(self.emblem_statics(self.object(id)?.owner).any(|ability| {
+            matches!(ability, StaticAbility::GrantKeyword {
+                    affects: Affects::CreaturesYouControl,
+                    keyword: granted,
+                } if *granted == keyword)
+        }))
     }
 
+    /// The keywords a permanent has, printed first and then granted.
+    pub(crate) fn keywords(&self, id: ObjectId) -> Result<Vec<Keyword>, InternalError> {
+        let mut keywords = self.def(id)?.keywords.clone();
+        if self.def(id)?.is_creature() {
+            for ability in self.emblem_statics(self.object(id)?.owner) {
+                if let StaticAbility::GrantKeyword {
+                    affects: Affects::CreaturesYouControl,
+                    keyword,
+                } = ability
+                    && !keywords.contains(keyword)
+                {
+                    keywords.push(*keyword);
+                }
+            }
+        }
+        Ok(keywords)
+    }
+
+    /// Adds an emblem to the command zone.
+    pub(crate) fn add_emblem(&mut self, controller: PlayerId, def: EmblemDef) -> ObjectId {
+        let id = self.next_object_id();
+        self.emblems.push(Emblem {
+            id,
+            controller,
+            def,
+        });
+        id
+    }
     /// Whether an effect stops this creature from attacking or blocking.
     /// So far only an Aura's "enchanted creature can't..." does.
     pub(crate) fn is_restricted(

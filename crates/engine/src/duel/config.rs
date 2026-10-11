@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::balance::{DuelBalance, FatigueBalance};
-use crate::cards::CardDefId;
+use crate::cards::{CardDefId, EmblemDef};
 use crate::decks::DeckDef;
 
 /// Per-player from the start, because boons, relics, bosses and planeswalker
@@ -21,6 +21,12 @@ pub struct PlayerConfig {
     pub library: Vec<CardInstance>,
     pub starting_life: i32,
     pub opening_hand_size: u8,
+    /// Cards that begin the duel on the battlefield, e.g. a boon's land.
+    #[serde(default)]
+    pub starting_permanents: Vec<CardInstance>,
+    /// Relics, boons, passives and boss emblems, in the command zone.
+    #[serde(default)]
+    pub emblems: Vec<EmblemDef>,
 }
 
 /// Duel-wide numbers.
@@ -64,6 +70,8 @@ impl PlayerConfig {
             library,
             starting_life: balance.starting_life,
             opening_hand_size: balance.opening_hand_size,
+            starting_permanents: Vec::new(),
+            emblems: Vec::new(),
         }
     }
 }

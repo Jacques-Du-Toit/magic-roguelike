@@ -77,6 +77,8 @@ function Permanent({
     highlight ? `lit-${highlight}` : '',
   ]
   const auras = shared.auras.get(permanent.object) ?? []
+  // Keywords it has from something other than its own text.
+  const granted = permanent.keywords.filter((keyword) => !def.keywords.includes(keyword))
   return (
     <div className="permanent-slot" data-object={permanent.object} data-card={def.id}>
       <button
@@ -93,6 +95,11 @@ function Permanent({
               {shared.targeted(permanent.object) && (
                 <span className="badge badge-targeted">Targeted</span>
               )}
+              {granted.map((keyword) => (
+                <span key={keyword} className="badge badge-granted">
+                  {keyword.replace('_', ' ')}
+                </span>
+              ))}
               {permanent.tapped && <span className="badge">Tapped</span>}
               {permanent.summoning_sick && <span className="badge">Just arrived</span>}
               {permanent.damage > 0 && (

@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use super::action::Action;
 use super::ids::PlayerId;
-use crate::cards::CardDefId;
+use crate::cards::{CardDefId, EmblemError};
 use crate::data::DataError;
 
 /// The engine found its own state inconsistent. Always a bug in the engine,
@@ -25,6 +25,12 @@ pub enum ConfigError {
     Data(#[from] DataError),
     #[error("{player:?}'s library contains the unknown card `{card}`")]
     UnknownCard { player: PlayerId, card: CardDefId },
+    #[error("{player:?}'s emblem `{name}`: {source}")]
+    Emblem {
+        player: PlayerId,
+        name: String,
+        source: EmblemError,
+    },
     #[error("{0:?}'s starting life must be above zero")]
     StartingLife(PlayerId),
     #[error("smoothing_candidates must be at least 1")]
