@@ -130,13 +130,13 @@ fn run_from_step(
                 combat::confirm_blockers(state, events)?;
                 return open_priority(state, events);
             }
-            Step::FirstStrikeDamage => {
-                combat::deal_combat_damage(state, events, true)?;
-                return open_priority(state, events);
-            }
-            Step::CombatDamage => {
-                combat::deal_combat_damage(state, events, false)?;
-                return open_priority(state, events);
+            Step::FirstStrikeDamage | Step::CombatDamage => {
+                // An attacker with several blockers has its damage divided
+                // by its controller before any is dealt.
+                if combat::prepare_assignments(state, step == Step::FirstStrikeDamage)? {
+                    return ask_for_assignment(state, events);
+                }
+                return deal_step_damage(state, events);
             }
             Step::PostcombatMain => {
                 state.combat = None;
@@ -168,6 +168,42 @@ fn run_from_step(
             None => return end_turn(state, events),
         }
     }
+}
+
+/// Asks the attacking player to divide the next attacker's damage, or deals
+/// the step's damage once every division is confirmed.
+fn ask_for_assignment(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    match combat::pending_assignment(state) {
+        Some(attacker) => {
+            state.decision = Some(Decision::AssignCombatDamage {
+                player: state.active_player,
+                attacker,
+            });
+            Ok(())
+        }
+        None => deal_step_damage(state, events),
+    }
+}
+
+/// Deals the combat damage of the damage step under way.
+fn deal_step_damage(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    combat::deal_combat_damage(state, events, state.step == Step::FirstStrikeDamage)?;
+    open_priority(state, events)
+}
+
+/// The attacking player confirms how one attacker's damage is divided.
+pub(crate) fn confirm_damage(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    combat::confirm_assignment(state)?;
+    ask_for_assignment(state, events)
 }
 
 /// Finishes the cleanup step, once any discarding is done, and starts the

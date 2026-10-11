@@ -56,6 +56,7 @@ describe('promptText', () => {
       { type: 'discard', player: 'P1', remaining: 1 },
       { type: 'declare_attackers', player: 'P1' },
       { type: 'declare_blockers', player: 'P1' },
+      { type: 'assign_combat_damage', player: 'P1', attacker: 4 },
     ]
     const texts = decisions.map((decision) => prompt({ decision }))
     expect(new Set(texts).size).toBe(decisions.length)
@@ -114,6 +115,7 @@ describe('button labels', () => {
     const combat = (blockers: number[]) => ({
       attackers: [{ attacker: 1, blockers, blocked: false }],
       dealt_first_strike_damage: [],
+      assignments: [],
     })
     expect(confirmAttackersLabel(viewWith({}))).toBe('No attack')
     expect(confirmAttackersLabel(viewWith({ combat: combat([]) }))).toBe('Attack with 1')

@@ -4,7 +4,7 @@ use super::action::{Action, BlockDeclared, GameEvent, Target};
 use super::damage::deal_damage;
 use super::error::InternalError;
 use super::ids::ObjectId;
-use super::state::{Attacker, Combat, DuelState};
+use super::state::{Attacker, Combat, DamageAssignment, DamageShare, DuelState};
 use crate::cards::{Keyword, Restricted};
 
 fn combat(state: &DuelState) -> Result<&Combat, InternalError> {
@@ -284,25 +284,11 @@ pub(crate) fn any_first_strike(state: &DuelState) -> Result<bool, InternalError>
     Ok(false)
 }
 
-/// Deals one step's combat damage, all at once.
-///
-/// In the first-strike step only creatures with first strike deal damage; in
-/// the regular step, the creatures that didn't deal it then.
-///
-/// Damage is assigned automatically. An unblocked attacker hits the
-/// defending player. A blocked attacker assigns lethal damage to each
-/// blocker in the order they were declared, and what is left over goes to
-/// the last blocker, or to the player if the attacker has trample.
-pub(crate) fn deal_combat_damage(
-    state: &mut DuelState,
-    events: &mut Vec<GameEvent>,
-    first_strike_step: bool,
-) -> Result<(), InternalError> {
-    let combat = combat(state)?.clone();
-    let defender = Target::Player {
-        player: state.active_player.opponent(),
-    };
-
+/// The creatures that deal damage in this damage step: in the first-strike
+/// step those with first strike, in the regular step those that didn't deal
+/// it then.
+fn dealers(state: &DuelState, first_strike_step: bool) -> Result<Vec<ObjectId>, InternalError> {
+    let combat = combat(state)?;
     let mut dealers = Vec::new();
     for creature in creatures_in_combat(state)? {
         let deals = if first_strike_step {
@@ -314,6 +300,184 @@ pub(crate) fn deal_combat_damage(
             dealers.push(creature);
         }
     }
+    Ok(dealers)
+}
+
+/// The blockers of an attacker that are still on the battlefield.
+fn live_blockers(state: &DuelState, attacker: &Attacker) -> Result<Vec<ObjectId>, InternalError> {
+    let mut blockers = Vec::new();
+    for &blocker in &attacker.blockers {
+        if state.is_creature(blocker)? {
+            blockers.push(blocker);
+        }
+    }
+    Ok(blockers)
+}
+
+/// How a blocked attacker's damage is divided when nobody says otherwise:
+/// lethal damage to each blocker in the order they were declared, and what
+/// is left over to the last blocker, or to the player if the attacker has
+/// trample.
+fn automatic_assignment(
+    state: &DuelState,
+    attacker: &Attacker,
+) -> Result<DamageAssignment, InternalError> {
+    let id = attacker.attacker;
+    let power = state.power(id)?.max(0);
+    let deathtouch = state.has_keyword(id, Keyword::Deathtouch)?;
+    let trample = state.has_keyword(id, Keyword::Trample)?;
+    let blockers = live_blockers(state, attacker)?;
+    let mut left = power;
+    let mut shares = Vec::new();
+    for (index, &blocker) in blockers.iter().enumerate() {
+        let lethal = lethal_damage(state, blocker, deathtouch)?;
+        let is_last = index + 1 == blockers.len();
+        let amount = if is_last && !trample {
+            left
+        } else {
+            left.min(lethal)
+        };
+        shares.push(DamageShare {
+            target: Target::Object { object: blocker },
+            amount,
+            lethal,
+        });
+        left -= amount;
+    }
+    if trample {
+        shares.push(DamageShare {
+            target: Target::Player {
+                player: state.active_player.opponent(),
+            },
+            amount: left,
+            lethal: 0,
+        });
+    }
+    Ok(DamageAssignment {
+        attacker: id,
+        power,
+        shares,
+        confirmed: false,
+    })
+}
+
+/// Sets up the damage divisions the attacking player gets to choose in this
+/// damage step: one for each attacker that deals damage now and has two or
+/// more blockers. With fewer blockers there is nothing worth choosing.
+/// Returns whether there are any.
+pub(crate) fn prepare_assignments(
+    state: &mut DuelState,
+    first_strike_step: bool,
+) -> Result<bool, InternalError> {
+    let dealers = dealers(state, first_strike_step)?;
+    let mut assignments = Vec::new();
+    for attacker in &combat(state)?.attackers {
+        if !dealers.contains(&attacker.attacker) || !state.is_creature(attacker.attacker)? {
+            continue;
+        }
+        if live_blockers(state, attacker)?.len() < 2 {
+            continue;
+        }
+        let assignment = automatic_assignment(state, attacker)?;
+        if assignment.power > 0 {
+            assignments.push(assignment);
+        }
+    }
+    let any = !assignments.is_empty();
+    combat_mut(state)?.assignments = assignments;
+    Ok(any)
+}
+
+/// The attacker whose damage is being divided, if any is left to confirm.
+pub(crate) fn pending_assignment(state: &DuelState) -> Option<ObjectId> {
+    state
+        .combat
+        .as_ref()?
+        .assignments
+        .iter()
+        .find(|assignment| !assignment.confirmed)
+        .map(|assignment| assignment.attacker)
+}
+
+fn current_assignment(state: &DuelState) -> Result<&DamageAssignment, InternalError> {
+    combat(state)?
+        .assignments
+        .iter()
+        .find(|assignment| !assignment.confirmed)
+        .ok_or_else(|| InternalError::new("no damage is being divided"))
+}
+
+fn current_assignment_mut(state: &mut DuelState) -> Result<&mut DamageAssignment, InternalError> {
+    combat_mut(state)?
+        .assignments
+        .iter_mut()
+        .find(|assignment| !assignment.confirmed)
+        .ok_or_else(|| InternalError::new("no damage is being divided"))
+}
+
+pub(crate) fn legal_assignment_actions(state: &DuelState) -> Result<Vec<Action>, InternalError> {
+    let assignment = current_assignment(state)?;
+    let unassigned = assignment.unassigned();
+    let mut actions = Vec::new();
+    for share in &assignment.shares {
+        // Damage may go to the player only once every blocker has lethal.
+        let allowed =
+            matches!(share.target, Target::Object { .. }) || assignment.blockers_have_lethal();
+        if unassigned > 0 && allowed {
+            actions.push(Action::AssignDamage {
+                target: share.target,
+            });
+        }
+    }
+    for share in &assignment.shares {
+        if share.amount > 0 {
+            actions.push(Action::UnassignDamage {
+                target: share.target,
+            });
+        }
+    }
+    if assignment.is_legal() {
+        actions.push(Action::ConfirmDamage);
+    }
+    Ok(actions)
+}
+
+/// Moves one damage to (`change` 1) or from (`change` -1) a recipient of
+/// the division being made.
+pub(crate) fn change_assignment(
+    state: &mut DuelState,
+    target: Target,
+    change: i32,
+) -> Result<(), InternalError> {
+    let share = current_assignment_mut(state)?
+        .shares
+        .iter_mut()
+        .find(|share| share.target == target)
+        .ok_or_else(|| InternalError::new(format!("{target:?} takes none of this damage")))?;
+    share.amount += change;
+    Ok(())
+}
+
+pub(crate) fn confirm_assignment(state: &mut DuelState) -> Result<(), InternalError> {
+    current_assignment_mut(state)?.confirmed = true;
+    Ok(())
+}
+
+/// Deals one step's combat damage, all at once.
+///
+/// An unblocked attacker hits the defending player. A blocked attacker's
+/// damage is divided as its controller chose, if they were asked (see
+/// `prepare_assignments`), and automatically otherwise.
+pub(crate) fn deal_combat_damage(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    first_strike_step: bool,
+) -> Result<(), InternalError> {
+    let combat = combat(state)?.clone();
+    let defender = Target::Player {
+        player: state.active_player.opponent(),
+    };
+    let dealers = dealers(state, first_strike_step)?;
 
     // (source, target, amount), worked out before any of it is dealt.
     let mut assignments: Vec<(ObjectId, Target, i32)> = Vec::new();
@@ -322,36 +486,24 @@ pub(crate) fn deal_combat_damage(
         if !state.is_creature(id)? {
             continue;
         }
-        let mut blockers = Vec::new();
-        for &blocker in &attacker.blockers {
-            if state.is_creature(blocker)? {
-                blockers.push(blocker);
-            }
-        }
-
         if dealers.contains(&id) {
-            let mut left = state.power(id)?.max(0);
             if !attacker.blocked {
-                assignments.push((id, defender, left));
+                assignments.push((id, defender, state.power(id)?.max(0)));
             } else {
-                let deathtouch = state.has_keyword(id, Keyword::Deathtouch)?;
-                let trample = state.has_keyword(id, Keyword::Trample)?;
-                for (index, &blocker) in blockers.iter().enumerate() {
-                    let is_last = index + 1 == blockers.len();
-                    let amount = if is_last && !trample {
-                        left
-                    } else {
-                        left.min(lethal_damage(state, blocker, deathtouch)?)
-                    };
-                    assignments.push((id, Target::Object { object: blocker }, amount));
-                    left -= amount;
-                }
-                if trample {
-                    assignments.push((id, defender, left));
+                let chosen = combat
+                    .assignments
+                    .iter()
+                    .find(|assignment| assignment.attacker == id && assignment.confirmed);
+                let division = match chosen {
+                    Some(chosen) => chosen.clone(),
+                    None => automatic_assignment(state, attacker)?,
+                };
+                for share in division.shares {
+                    assignments.push((id, share.target, share.amount));
                 }
             }
         }
-        for blocker in blockers {
+        for blocker in live_blockers(state, attacker)? {
             if dealers.contains(&blocker) {
                 let power = state.power(blocker)?;
                 assignments.push((blocker, Target::Object { object: id }, power));
@@ -362,12 +514,13 @@ pub(crate) fn deal_combat_damage(
     for (source, target, amount) in assignments {
         deal_damage(state, events, source, target, amount)?;
     }
+    let combat = combat_mut(state)?;
+    combat.assignments.clear();
     if first_strike_step {
-        combat_mut(state)?.dealt_first_strike_damage = dealers;
+        combat.dealt_first_strike_damage = dealers;
     }
     Ok(())
 }
-
 /// How much more damage a creature needs to be destroyed.
 fn lethal_damage(
     state: &DuelState,

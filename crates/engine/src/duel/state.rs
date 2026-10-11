@@ -170,6 +170,62 @@ pub struct Combat {
     /// Creatures that dealt damage in the first-strike step, and so don't
     /// deal it again in the regular one.
     pub dealt_first_strike_damage: Vec<ObjectId>,
+    /// How the attackers with several blockers divide their damage in the
+    /// damage step under way. Empty outside one.
+    #[serde(default)]
+    pub assignments: Vec<DamageAssignment>,
+}
+
+/// How one attacker's combat damage is divided among its blockers (and the
+/// defending player, for a trampler). It starts as the automatic division,
+/// and the attacking player may change it before confirming.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct DamageAssignment {
+    pub attacker: ObjectId,
+    /// The damage to divide.
+    pub power: i32,
+    /// The blockers in the order they were declared, then the player if
+    /// the attacker has trample.
+    pub shares: Vec<DamageShare>,
+    pub confirmed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct DamageShare {
+    pub target: Target,
+    pub amount: i32,
+    /// What it takes to destroy a blocker; 0 for the player.
+    pub lethal: i32,
+}
+
+impl DamageAssignment {
+    /// Damage not yet given to anyone.
+    pub fn unassigned(&self) -> i32 {
+        self.power - self.shares.iter().map(|share| share.amount).sum::<i32>()
+    }
+
+    /// Whether every blocker has been assigned lethal damage.
+    pub fn blockers_have_lethal(&self) -> bool {
+        self.shares
+            .iter()
+            .filter(|share| matches!(share.target, Target::Object { .. }))
+            .all(|share| share.amount >= share.lethal)
+    }
+
+    /// Damage assigned to the defending player.
+    pub fn to_player(&self) -> i32 {
+        self.shares
+            .iter()
+            .filter(|share| matches!(share.target, Target::Player { .. }))
+            .map(|share| share.amount)
+            .sum()
+    }
+
+    /// Whether the division obeys the rules: all of it assigned, and none
+    /// to the player while a blocker has less than lethal.
+    pub fn is_legal(&self) -> bool {
+        self.unassigned() == 0 && (self.to_player() == 0 || self.blockers_have_lethal())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -286,6 +342,12 @@ pub enum Decision {
     DeclareAttackers { player: PlayerId },
     /// Choose blocks one at a time, then confirm.
     DeclareBlockers { player: PlayerId },
+    /// Divide the combat damage of `attacker`, which has several
+    /// blockers, then confirm.
+    AssignCombatDamage {
+        player: PlayerId,
+        attacker: ObjectId,
+    },
 }
 
 impl Decision {
@@ -296,7 +358,8 @@ impl Decision {
             | Decision::Priority { player }
             | Decision::Discard { player, .. }
             | Decision::DeclareAttackers { player }
-            | Decision::DeclareBlockers { player } => player,
+            | Decision::DeclareBlockers { player }
+            | Decision::AssignCombatDamage { player, .. } => player,
         }
     }
 }

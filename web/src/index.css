@@ -1131,3 +1131,45 @@ button:disabled {
   position: relative;
   z-index: 25;
 }
+
+/* ---- Dividing combat damage ---- */
+
+.damage-panel {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.damage-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.damage-panel li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.damage-name {
+  min-width: 11rem;
+  font-weight: 600;
+}
+
+.damage-amount {
+  min-width: 1.5rem;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.damage-panel button {
+  min-width: 2rem;
+  padding: 0.15rem 0.5rem;
+  font-weight: 700;
+}

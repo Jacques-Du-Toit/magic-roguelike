@@ -839,3 +839,322 @@ fn vampire_nighthawk_flies_over_ground_blockers() {
     finish_combat(&mut state);
     assert_eq!((life(&state, me), life(&state, opponent)), (22, 18));
 }
+
+// ---- Dividing combat damage by hand ----
+
+/// Passes priority until the attacking player is asked to divide damage.
+fn to_division(state: &mut DuelState, attacker: ObjectId) -> PlayerId {
+    pass_until_other_decision(state);
+    let Some(Decision::AssignCombatDamage {
+        player,
+        attacker: asked,
+    }) = state.decision
+    else {
+        panic!("expected to divide damage, got {:?}", state.decision);
+    };
+    assert_eq!(asked, attacker);
+    player
+}
+
+/// The amounts of the division being made, in order.
+fn shares(state: &DuelState) -> Vec<(Target, i32)> {
+    let combat = state.combat.as_ref().unwrap();
+    let assignment = combat
+        .assignments
+        .iter()
+        .find(|assignment| !assignment.confirmed)
+        .unwrap();
+    assignment
+        .shares
+        .iter()
+        .map(|share| (share.target, share.amount))
+        .collect()
+}
+
+fn assign(target: Target) -> Action {
+    Action::AssignDamage { target }
+}
+
+fn unassign(target: Target) -> Action {
+    Action::UnassignDamage { target }
+}
+
+#[test]
+fn the_attacker_is_asked_to_divide_damage_among_several_blockers() {
+    let (mut state, me, opponent) = empty_board(1);
+    let courser = put_on_battlefield(&mut state, me, "centaur_courser");
+    let lions = put_on_battlefield(&mut state, opponent, "savannah_lions");
+    let elves = put_on_battlefield(&mut state, opponent, "llanowar_elves");
+    attack(&mut state, &[courser]);
+    block(&mut state, &[(lions, courser), (elves, courser)]);
+    assert_eq!(to_division(&mut state, courser), me);
+    assert_eq!(state.step, Step::CombatDamage);
+
+    // It starts as the automatic division, which may be confirmed as it is.
+    assert_eq!(shares(&state), [(at(lions), 1), (at(elves), 2)]);
+    assert_eq!(
+        legal_actions(&state, me),
+        [
+            unassign(at(lions)),
+            unassign(at(elves)),
+            Action::ConfirmDamage
+        ]
+    );
+    assert_eq!(legal_actions(&state, opponent), []);
+    // Nothing has been dealt yet.
+    assert_eq!(state.objects[&lions].damage, 0);
+
+    // Take one off the Elves: it has to go somewhere before confirming.
+    assert_eq!(
+        apply_action(&mut state, me, unassign(at(elves))).unwrap(),
+        []
+    );
+    assert_eq!(shares(&state), [(at(lions), 1), (at(elves), 1)]);
+    assert_eq!(
+        legal_actions(&state, me),
+        [
+            assign(at(lions)),
+            assign(at(elves)),
+            unassign(at(lions)),
+            unassign(at(elves)),
+        ]
+    );
+    assert!(matches!(
+        apply_action(&mut state, me, Action::ConfirmDamage),
+        Err(ActionError::IllegalAction { .. })
+    ));
+    apply_action(&mut state, me, assign(at(lions))).unwrap();
+    assert_eq!(shares(&state), [(at(lions), 2), (at(elves), 1)]);
+
+    let events = apply_action(&mut state, me, Action::ConfirmDamage).unwrap();
+    assert_eq!(
+        damage(&events),
+        [
+            (courser, at(lions), 2),
+            (courser, at(elves), 1),
+            (lions, at(courser), 2),
+            (elves, at(courser), 1),
+        ]
+    );
+    assert!(gone(&state, lions) && gone(&state, elves) && gone(&state, courser));
+    assert!(state.combat.as_ref().unwrap().assignments.is_empty());
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    state.assert_consistent();
+}
+
+#[test]
+fn all_the_damage_may_go_to_one_blocker() {
+    // Hill Giant (3/3) blocked by Grizzly Bears (2/2) and Giant Spider
+    // (2/4). Automatically the Bears die and the Spider takes 1; by hand,
+    // the Spider can take all 3 and the Bears none.
+    let (mut state, me, opponent) = empty_board(1);
+    let giant = put_on_battlefield(&mut state, me, "hill_giant");
+    let bears = put_on_battlefield(&mut state, opponent, "grizzly_bears");
+    let spider = put_on_battlefield(&mut state, opponent, "giant_spider");
+    attack(&mut state, &[giant]);
+    block(&mut state, &[(bears, giant), (spider, giant)]);
+    to_division(&mut state, giant);
+    assert_eq!(shares(&state), [(at(bears), 2), (at(spider), 1)]);
+    for _ in 0..2 {
+        apply_action(&mut state, me, unassign(at(bears))).unwrap();
+        apply_action(&mut state, me, assign(at(spider))).unwrap();
+    }
+    assert_eq!(shares(&state), [(at(bears), 0), (at(spider), 3)]);
+    // Nothing is left to take off the Bears.
+    assert!(!legal_actions(&state, me).contains(&unassign(at(bears))));
+    let events = apply_action(&mut state, me, Action::ConfirmDamage).unwrap();
+    assert_eq!(damage(&events)[0], (giant, at(spider), 3));
+    assert!(!gone(&state, bears) && !gone(&state, spider));
+    assert_eq!(state.objects[&spider].damage, 3);
+    assert_eq!(state.objects[&bears].damage, 0);
+}
+
+#[test]
+fn a_trampler_must_give_every_blocker_lethal_before_the_player() {
+    let (mut state, me, opponent) = empty_board(1);
+    let dreadmaw = put_on_battlefield(&mut state, me, "colossal_dreadmaw");
+    let lions = put_on_battlefield(&mut state, opponent, "savannah_lions");
+    let spider = put_on_battlefield(&mut state, opponent, "giant_spider");
+    attack(&mut state, &[dreadmaw]);
+    block(&mut state, &[(lions, dreadmaw), (spider, dreadmaw)]);
+    to_division(&mut state, dreadmaw);
+    let player = face(opponent);
+    assert_eq!(
+        shares(&state),
+        [(at(lions), 1), (at(spider), 4), (player, 1)]
+    );
+    let lethal: Vec<i32> = state.combat.as_ref().unwrap().assignments[0]
+        .shares
+        .iter()
+        .map(|share| share.lethal)
+        .collect();
+    assert_eq!(lethal, [1, 4, 0]);
+
+    // With the Spider short of lethal, nothing may trample over.
+    apply_action(&mut state, me, unassign(at(spider))).unwrap();
+    let actions = legal_actions(&state, me);
+    assert!(!actions.contains(&assign(player)));
+    assert!(actions.contains(&assign(at(spider))) && actions.contains(&assign(at(lions))));
+    apply_action(&mut state, me, assign(at(lions))).unwrap();
+    // All 6 are assigned, but 1 is on the player and the Spider has only 3.
+    assert_eq!(
+        shares(&state),
+        [(at(lions), 2), (at(spider), 3), (player, 1)]
+    );
+    assert!(!legal_actions(&state, me).contains(&Action::ConfirmDamage));
+
+    // Overkill on the blockers and nothing on the player is fine.
+    apply_action(&mut state, me, unassign(player)).unwrap();
+    apply_action(&mut state, me, assign(at(spider))).unwrap();
+    let events = apply_action(&mut state, me, Action::ConfirmDamage).unwrap();
+    assert_eq!(
+        damage(&events)[..2],
+        [(dreadmaw, at(lions), 2), (dreadmaw, at(spider), 4)]
+    );
+    assert_eq!(life(&state, opponent), 20);
+    assert!(gone(&state, lions) && gone(&state, spider));
+}
+
+#[test]
+fn a_trampler_may_send_everything_past_lethal_to_the_player() {
+    let (mut state, me, opponent) = empty_board(1);
+    let dreadmaw = put_on_battlefield(&mut state, me, "colossal_dreadmaw");
+    let lions = put_on_battlefield(&mut state, opponent, "savannah_lions");
+    let elves = put_on_battlefield(&mut state, opponent, "llanowar_elves");
+    attack(&mut state, &[dreadmaw]);
+    block(&mut state, &[(lions, dreadmaw), (elves, dreadmaw)]);
+    to_division(&mut state, dreadmaw);
+    assert_eq!(
+        shares(&state),
+        [(at(lions), 1), (at(elves), 1), (face(opponent), 4)]
+    );
+    apply_action(&mut state, me, Action::ConfirmDamage).unwrap();
+    assert_eq!(life(&state, opponent), 16);
+}
+
+#[test]
+fn a_single_blocker_needs_no_division() {
+    let (mut state, me, opponent) = empty_board(1);
+    let dreadmaw = put_on_battlefield(&mut state, me, "colossal_dreadmaw");
+    let lions = put_on_battlefield(&mut state, opponent, "savannah_lions");
+    attack(&mut state, &[dreadmaw]);
+    block(&mut state, &[(lions, dreadmaw)]);
+    // Straight through combat with no decision in between.
+    pass_until_other_decision(&mut state);
+    assert!(!matches!(
+        state.decision,
+        Some(Decision::AssignCombatDamage { .. })
+    ));
+    assert_eq!(life(&state, opponent), 15);
+}
+
+#[test]
+fn each_attacker_with_several_blockers_is_divided_in_turn() {
+    let (mut state, me, opponent) = empty_board(1);
+    let courser = put_on_battlefield(&mut state, me, "centaur_courser");
+    let giant = put_on_battlefield(&mut state, me, "hill_giant");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let blockers: Vec<ObjectId> = (0..5)
+        .map(|_| put_on_battlefield(&mut state, opponent, "llanowar_elves"))
+        .collect();
+    attack(&mut state, &[courser, giant, bears]);
+    block(
+        &mut state,
+        &[
+            (blockers[0], courser),
+            (blockers[1], courser),
+            (blockers[2], giant),
+            (blockers[3], giant),
+            (blockers[4], bears),
+        ],
+    );
+    to_division(&mut state, courser);
+    assert_eq!(state.combat.as_ref().unwrap().assignments.len(), 2);
+    assert_eq!(
+        apply_action(&mut state, me, Action::ConfirmDamage).unwrap(),
+        []
+    );
+    // Still nothing dealt: the Giant's damage is divided next.
+    assert_eq!(
+        state.decision,
+        Some(Decision::AssignCombatDamage {
+            player: me,
+            attacker: giant
+        })
+    );
+    assert_eq!(shares(&state), [(at(blockers[2]), 1), (at(blockers[3]), 2)]);
+    let events = apply_action(&mut state, me, Action::ConfirmDamage).unwrap();
+    // Everyone's damage is dealt together.
+    assert_eq!(damage(&events).len(), 5 + 5);
+    assert!(blockers.iter().all(|blocker| gone(&state, *blocker)));
+}
+
+#[test]
+fn a_first_striker_divides_its_damage_in_the_first_strike_step() {
+    let (mut state, me, opponent) = empty_board(1);
+    let knight = put_on_battlefield(&mut state, me, "youthful_knight");
+    let elves = [
+        put_on_battlefield(&mut state, opponent, "llanowar_elves"),
+        put_on_battlefield(&mut state, opponent, "llanowar_elves"),
+    ];
+    attack(&mut state, &[knight]);
+    block(&mut state, &[(elves[0], knight), (elves[1], knight)]);
+    to_division(&mut state, knight);
+    assert_eq!(state.step, Step::FirstStrikeDamage);
+    assert_eq!(shares(&state), [(at(elves[0]), 1), (at(elves[1]), 1)]);
+    apply_action(&mut state, me, Action::ConfirmDamage).unwrap();
+    // Both Elves die before they deal damage, and the Knight isn't asked
+    // again in the regular step.
+    finish_combat(&mut state);
+    assert!(gone(&state, elves[0]) && gone(&state, elves[1]));
+    assert!(!gone(&state, knight));
+}
+
+#[test]
+fn a_deathtouch_attacker_needs_one_damage_per_blocker() {
+    let (mut state, me, opponent) = empty_board(1);
+    let nighthawk = put_on_battlefield(&mut state, me, "vampire_nighthawk");
+    let spider = put_on_battlefield(&mut state, opponent, "giant_spider");
+    let angel = put_on_battlefield(&mut state, opponent, "serra_angel");
+    attack(&mut state, &[nighthawk]);
+    block(&mut state, &[(spider, nighthawk), (angel, nighthawk)]);
+    to_division(&mut state, nighthawk);
+    assert_eq!(shares(&state), [(at(spider), 1), (at(angel), 1)]);
+    let lethal: Vec<i32> = state.combat.as_ref().unwrap().assignments[0]
+        .shares
+        .iter()
+        .map(|share| share.lethal)
+        .collect();
+    assert_eq!(lethal, [1, 1]);
+}
+
+#[test]
+fn the_ai_and_the_view_handle_a_damage_division() {
+    use crate::ai_choose_action;
+    use crate::duel::{has_meaningful_action, player_view, should_auto_pass};
+    let (mut state, me, opponent) = empty_board(1);
+    let courser = put_on_battlefield(&mut state, me, "centaur_courser");
+    let lions = put_on_battlefield(&mut state, opponent, "savannah_lions");
+    let elves = put_on_battlefield(&mut state, opponent, "llanowar_elves");
+    attack(&mut state, &[courser]);
+    block(&mut state, &[(lions, courser), (elves, courser)]);
+    to_division(&mut state, courser);
+
+    assert_eq!(ai_choose_action(&state, me), Ok(Action::ConfirmDamage));
+    assert!(has_meaningful_action(&state, me));
+    assert!(!should_auto_pass(&state, me, false));
+    // Both players can see the division being made.
+    for viewer in [me, opponent] {
+        let view = player_view(&state, viewer).unwrap();
+        let combat = view.combat.unwrap();
+        assert_eq!(combat.assignments.len(), 1);
+        assert_eq!(combat.assignments[0].attacker, courser);
+        assert_eq!(combat.assignments[0].power, 3);
+        assert_eq!(combat.assignments[0].unassigned(), 0);
+    }
+
+    // The state survives a save in the middle of it.
+    apply_action(&mut state, me, unassign(at(lions))).unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    assert_eq!(serde_json::from_str::<DuelState>(&json).unwrap(), state);
+}

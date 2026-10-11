@@ -46,6 +46,9 @@ pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, A
         Decision::Priority { .. } => priority(state, player, &actions)?,
         Decision::DeclareAttackers { .. } => combat::declare_attackers(state, player, &actions)?,
         Decision::DeclareBlockers { .. } => combat::declare_blockers(state, player, &actions)?,
+        // The division on offer is the automatic one, which kills as many
+        // blockers as the damage allows.
+        Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,
     };
     if actions.contains(&choice) {
         Ok(choice)

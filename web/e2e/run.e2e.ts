@@ -26,6 +26,10 @@ async function playDuel(page: Page, well: boolean): Promise<void> {
       return
     }
     await expect(page.getByTestId('prompt').last()).not.toBeEmpty()
+    if (await page.getByTestId('damage-panel').isVisible()) {
+      await shot(page, 'duel-damage-division')
+      console.log('damage division seen')
+    }
     if (well) await followHint(page)
     else await clickSomething(page, step)
   }

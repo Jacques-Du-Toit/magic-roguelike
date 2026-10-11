@@ -93,6 +93,8 @@ export function promptText({ view, busy, mode, topOfStack, canConfirmBlocks }: P
       return canConfirmBlocks
         ? 'Declare blockers: click your creatures to block with them, then confirm.'
         : 'These blocks are not legal yet: add another blocker or take one back.'
+    case 'assign_combat_damage':
+      return 'Your attacker has more than one blocker: divide its damage among them, then deal it.'
     case 'priority': {
       const top = view.stack.at(-1)
       if (top) {

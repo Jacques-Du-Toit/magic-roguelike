@@ -60,6 +60,19 @@ pub enum Action {
     /// Block as chosen so far. Not legal while the blocks break a rule,
     /// e.g. a creature with menace has exactly one blocker.
     ConfirmBlockers,
+    /// While dividing an attacker's combat damage: one more damage to this
+    /// blocker, or to the defending player for a trampler.
+    AssignDamage {
+        target: Target,
+    },
+    /// One damage less to this recipient.
+    UnassignDamage {
+        target: Target,
+    },
+    /// Deal the attacker's damage as divided. Not legal until all of it is
+    /// assigned, and none may go to the player while a blocker has less
+    /// than lethal damage.
+    ConfirmDamage,
 }
 
 /// What a spell or ability is aimed at.

@@ -146,7 +146,10 @@ fn write_replay(
             | Action::Block { .. }
             | Action::RemoveAttacker { .. }
             | Action::RemoveBlocker { .. }
-            | Action::ResetDeclaration => None,
+            | Action::ResetDeclaration
+            | Action::AssignDamage { .. }
+            | Action::UnassignDamage { .. }
+            | Action::ConfirmDamage => None,
         };
         if let Some(line) = line {
             text.push_str(&format!("  {player:?} {line}\n"));

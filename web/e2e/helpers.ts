@@ -138,6 +138,7 @@ export async function followHint(page: Page): Promise<void> {
     case 'pass_priority':
     case 'confirm_attackers':
     case 'confirm_blockers':
+    case 'confirm_damage':
       await primary(page).click()
       break
     default:

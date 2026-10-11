@@ -4,6 +4,7 @@
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
 import { Battlefield, type Highlight } from '../components/Battlefield.tsx'
 import { CardBack } from '../components/Card.tsx'
+import { DamagePanel } from '../components/DamagePanel.tsx'
 import { Hand } from '../components/Hand.tsx'
 import { GameOverOverlay, GraveyardOverlay, MulliganOverlay } from '../components/Overlays.tsx'
 import { LogPanel, StackPanel } from '../components/SidePanel.tsx'
@@ -248,11 +249,21 @@ export function DuelScreen({
   const confirmAttackers = simpleAction(actions, 'confirm_attackers')
   const confirmBlockers = simpleAction(actions, 'confirm_blockers')
   const reset = simpleAction(actions, 'reset_declaration')
+  const confirmDamage = simpleAction(actions, 'confirm_damage')
+  // The division of combat damage the human is being asked for, if any.
+  const dividing =
+    !busy && view.decision?.type === 'assign_combat_damage' && view.decision.player === HUMAN
+      ? view.decision.attacker
+      : null
+  const assignment =
+    dividing === null
+      ? undefined
+      : view.combat?.assignments.find((entry) => entry.attacker === dividing && !entry.confirmed)
   const keep = simpleAction(actions, 'keep')
   const mulligan = simpleAction(actions, 'mulligan')
   const canAttack = actions.some((action) => action.type === 'attack')
   const castNow = mode.kind === 'casting' ? completedCast(actions, mode.casting) : undefined
-  const primary = pass ?? confirmAttackers ?? confirmBlockers
+  const primary = pass ?? confirmAttackers ?? confirmBlockers ?? confirmDamage
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -415,6 +426,15 @@ export function DuelScreen({
           <p className="prompt-text" data-testid="prompt">
             {prompt}
           </p>
+          {assignment && (
+            <DamagePanel
+              assignment={assignment}
+              actions={actions}
+              attackerName={permanentName(assignment.attacker)}
+              targetName={targetName}
+              onAction={send}
+            />
+          )}
           <div className="button-row">
             <label className="hold">
               <input
@@ -457,6 +477,16 @@ export function DuelScreen({
             {confirmBlockers && (
               <button type="button" className="primary" onClick={() => send(confirmBlockers)}>
                 {confirmBlockersLabel(view)}
+              </button>
+            )}
+            {assignment && (
+              <button
+                type="button"
+                className="primary"
+                disabled={!confirmDamage}
+                onClick={() => confirmDamage && send(confirmDamage)}
+              >
+                Deal the damage
               </button>
             )}
             {pass && (

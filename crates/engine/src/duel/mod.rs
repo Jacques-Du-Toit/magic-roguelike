@@ -36,8 +36,9 @@ pub use mana::ManaPool;
 pub use rng::DuelRng;
 pub use setup::new_duel;
 pub use state::{
-    AbilityRef, Attacker, Combat, Decision, DuelState, Emblem, GameObject, GameResult,
-    PendingTrigger, PlayerState, StackItem, StackItemKind, Step, TriggeredAbility, WinReason, Zone,
+    AbilityRef, Attacker, Combat, DamageAssignment, DamageShare, Decision, DuelState, Emblem,
+    GameObject, GameResult, PendingTrigger, PlayerState, StackItem, StackItemKind, Step,
+    TriggeredAbility, WinReason, Zone,
 };
 pub use view::{
     EmblemView, PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
@@ -65,6 +66,7 @@ fn try_legal_actions(state: &DuelState, player: PlayerId) -> Result<Vec<Action>,
         Decision::Discard { .. } => turn::legal_discard_actions(state, player),
         Decision::DeclareAttackers { .. } => combat::legal_attack_actions(state)?,
         Decision::DeclareBlockers { .. } => combat::legal_block_actions(state)?,
+        Decision::AssignCombatDamage { .. } => combat::legal_assignment_actions(state)?,
     })
 }
 
@@ -129,6 +131,9 @@ fn perform(
         }
         (Action::ConfirmAttackers, _) => turn::confirm_attackers(state, &mut events)?,
         (Action::ConfirmBlockers, _) => turn::confirm_blockers(state, &mut events)?,
+        (Action::AssignDamage { target }, _) => combat::change_assignment(state, *target, 1)?,
+        (Action::UnassignDamage { target }, _) => combat::change_assignment(state, *target, -1)?,
+        (Action::ConfirmDamage, _) => turn::confirm_damage(state, &mut events)?,
         (Action::BottomCard { .. } | Action::Discard { .. } | Action::ResetDeclaration, _) => {
             return Err(InternalError::new(format!(
                 "{action:?} does not answer {:?}",

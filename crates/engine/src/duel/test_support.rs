@@ -138,6 +138,10 @@ pub(crate) fn pass_until(state: &mut DuelState, turn: u32, step: Step) -> Vec<Ga
             Some(Decision::Priority { player }) => {
                 events.extend(apply_action(state, player, Action::PassPriority).unwrap());
             }
+            // Combat damage is divided the automatic way.
+            Some(Decision::AssignCombatDamage { player, .. }) => {
+                events.extend(apply_action(state, player, Action::ConfirmDamage).unwrap());
+            }
             other => panic!(
                 "can't pass at turn {} {:?}: waiting on {other:?}",
                 state.turn, state.step
