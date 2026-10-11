@@ -4,12 +4,14 @@
 //! player (or ends), recording what happened as events.
 
 use super::action::{Action, GameEvent};
+use super::combat;
+use super::damage::{LifeCause, change_life, check_state_based_actions, remove_damage};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::empty_mana_pools;
 use super::setup::take_top_card;
 use super::stack::{has_sorcery_timing, legal_casts, resolve_top};
-use super::state::{Decision, DuelState, GameResult, Step, WinReason, Zone};
+use super::state::{Combat, Decision, DuelState, Step, Zone};
 
 /// A rule of Magic rather than a balance number.
 const LAND_DROPS_PER_TURN: u8 = 1;
@@ -38,6 +40,35 @@ fn begin_turn(
         player,
     });
     run_from_step(state, events, Step::Untap)
+}
+
+/// The step that follows the current one, or `None` at the end of the turn.
+/// Combat steps that have nothing to do are skipped.
+fn next_step(state: &DuelState) -> Result<Option<Step>, InternalError> {
+    Ok(Some(match state.step {
+        Step::Untap => Step::Upkeep,
+        Step::Upkeep => Step::Draw,
+        Step::Draw => Step::PrecombatMain,
+        Step::PrecombatMain => Step::BeginCombat,
+        Step::BeginCombat => Step::DeclareAttackers,
+        Step::DeclareAttackers if combat::has_attackers(state) => Step::DeclareBlockers,
+        Step::DeclareAttackers => Step::EndCombat,
+        Step::DeclareBlockers if combat::any_first_strike(state)? => Step::FirstStrikeDamage,
+        Step::DeclareBlockers | Step::FirstStrikeDamage => Step::CombatDamage,
+        Step::CombatDamage => Step::EndCombat,
+        Step::EndCombat => Step::PostcombatMain,
+        Step::PostcombatMain => Step::End,
+        Step::End => Step::Cleanup,
+        Step::Cleanup => return Ok(None),
+    }))
+}
+
+/// Ends the current step and runs on from the next one.
+fn end_step(state: &mut DuelState, events: &mut Vec<GameEvent>) -> Result<(), InternalError> {
+    match next_step(state)? {
+        Some(next) => run_from_step(state, events, next),
+        None => Err(InternalError::new("the cleanup step ended like another")),
+    }
 }
 
 /// Begins `step`, and keeps going through later steps and turns until a
@@ -73,7 +104,41 @@ fn run_from_step(
                 }
                 return open_priority(state, events);
             }
-            Step::Upkeep | Step::PrecombatMain | Step::PostcombatMain | Step::End => {
+            Step::BeginCombat => {
+                state.combat = Some(Combat::default());
+                return open_priority(state, events);
+            }
+            Step::DeclareAttackers => {
+                // With nothing able to attack, the declaration is skipped
+                // and so is the rest of combat up to its end step.
+                if !combat::possible_attackers(state)?.is_empty() {
+                    state.decision = Some(Decision::DeclareAttackers { player: active });
+                    return Ok(());
+                }
+            }
+            Step::DeclareBlockers => {
+                if combat::any_block_is_possible(state)? {
+                    state.decision = Some(Decision::DeclareBlockers {
+                        player: active.opponent(),
+                    });
+                    return Ok(());
+                }
+                combat::confirm_blockers(state, events)?;
+                return open_priority(state, events);
+            }
+            Step::FirstStrikeDamage => {
+                combat::deal_combat_damage(state, events, true)?;
+                return open_priority(state, events);
+            }
+            Step::CombatDamage => {
+                combat::deal_combat_damage(state, events, false)?;
+                return open_priority(state, events);
+            }
+            Step::PostcombatMain => {
+                state.combat = None;
+                return open_priority(state, events);
+            }
+            Step::Upkeep | Step::PrecombatMain | Step::EndCombat | Step::End => {
                 return open_priority(state, events);
             }
             Step::Cleanup => {
@@ -86,20 +151,32 @@ fn run_from_step(
                     });
                     return Ok(());
                 }
+                return end_turn(state, events);
             }
         }
-        // No player gets priority in the untap and cleanup steps.
-        match step.next() {
+        // No player gets priority in this step.
+        match next_step(state)? {
             Some(next) => step = next,
-            None => return begin_turn(state, events, active.opponent()),
+            None => return end_turn(state, events),
         }
     }
 }
 
+/// Finishes the cleanup step, once any discarding is done, and starts the
+/// other player's turn.
+fn end_turn(state: &mut DuelState, events: &mut Vec<GameEvent>) -> Result<(), InternalError> {
+    remove_damage(state);
+    let next_player = state.active_player.opponent();
+    begin_turn(state, events, next_player)
+}
+
 /// Checks state-based actions, then gives the active player priority unless
 /// the game has ended.
-fn open_priority(state: &mut DuelState, events: &mut Vec<GameEvent>) -> Result<(), InternalError> {
-    check_state_based_actions(state, events);
+pub(crate) fn open_priority(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    check_state_based_actions(state, events)?;
     state.consecutive_passes = 0;
     state.decision = match state.result {
         Some(_) => None,
@@ -108,34 +185,6 @@ fn open_priority(state: &mut DuelState, events: &mut Vec<GameEvent>) -> Result<(
         }),
     };
     Ok(())
-}
-
-/// A player at 0 life or less loses; if both are, the game is a draw.
-fn check_state_based_actions(state: &mut DuelState, events: &mut Vec<GameEvent>) {
-    if state.result.is_some() {
-        return;
-    }
-    let lost = |player: PlayerId| state.player(player).life <= 0;
-    let result = match (lost(PlayerId::P1), lost(PlayerId::P2)) {
-        (false, false) => return,
-        (true, true) => GameResult::Draw,
-        (true, false) => win(state, PlayerId::P2),
-        (false, true) => win(state, PlayerId::P1),
-    };
-    state.result = Some(result);
-    events.push(GameEvent::GameOver { result });
-}
-
-fn win(state: &DuelState, winner: PlayerId) -> GameResult {
-    let reason = if state.player(winner.opponent()).lost_to_fatigue {
-        WinReason::Fatigue
-    } else {
-        WinReason::LifeZero
-    };
-    GameResult::Win {
-        player: winner,
-        reason,
-    }
 }
 
 pub(crate) fn legal_priority_actions(
@@ -185,12 +234,7 @@ pub(crate) fn pass_priority(
         resolve_top(state, events)?;
         return open_priority(state, events);
     }
-    match state.step.next() {
-        Some(next) => run_from_step(state, events, next),
-        None => Err(InternalError::new(
-            "priority was passed in the cleanup step",
-        )),
-    }
+    end_step(state, events)
 }
 
 pub(crate) fn play_land(
@@ -222,14 +266,35 @@ pub(crate) fn discard(
         player,
         card: state.card_ref(discarded)?,
     });
-    let next_player = state.active_player.opponent();
     match remaining.saturating_sub(1) {
-        0 => begin_turn(state, events, next_player),
+        0 => end_turn(state, events),
         remaining => {
             state.decision = Some(Decision::Discard { player, remaining });
             Ok(())
         }
     }
+}
+
+/// The attacking player confirms their attackers. With none, combat skips
+/// to its end step.
+pub(crate) fn confirm_attackers(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    combat::confirm_attackers(state, events)?;
+    if combat::has_attackers(state) {
+        open_priority(state, events)
+    } else {
+        end_step(state, events)
+    }
+}
+
+pub(crate) fn confirm_blockers(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+) -> Result<(), InternalError> {
+    combat::confirm_blockers(state, events)?;
+    open_priority(state, events)
 }
 
 /// The player draws a card, or takes fatigue if their library is empty: 1
@@ -260,42 +325,11 @@ pub(crate) fn draw_card(
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum LifeCause {
-    Fatigue,
-    #[cfg_attr(not(test), expect(dead_code, reason = "damage arrives with combat"))]
-    Other,
-}
-
-pub(crate) fn change_life(
-    state: &mut DuelState,
-    events: &mut Vec<GameEvent>,
-    player: PlayerId,
-    change: i32,
-    cause: LifeCause,
-) {
-    if change == 0 {
-        return;
-    }
-    let player_state = state.player_mut(player);
-    let was_alive = player_state.life > 0;
-    player_state.life = player_state.life.saturating_add(change);
-    if player_state.life > 0 {
-        player_state.lost_to_fatigue = false;
-    } else if was_alive {
-        player_state.lost_to_fatigue = cause == LifeCause::Fatigue;
-    }
-    events.push(GameEvent::LifeChanged {
-        player,
-        change,
-        life: player_state.life,
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::duel::error::ActionError;
+    use crate::duel::state::{GameResult, WinReason};
     use crate::duel::test_support::{
         config, hand_land, pass_both, pass_until, play_out_passively, started,
     };
@@ -370,6 +404,10 @@ mod tests {
             [
                 Step::Draw,
                 Step::PrecombatMain,
+                // Nothing can attack, so combat goes straight to its end.
+                Step::BeginCombat,
+                Step::DeclareAttackers,
+                Step::EndCombat,
                 Step::PostcombatMain,
                 Step::End,
                 Step::Cleanup,

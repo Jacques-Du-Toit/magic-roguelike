@@ -3,4 +3,4 @@
 /**
  * The steps of a turn, in order. The two main phases count as steps here.
  */
-export type Step = "untap" | "upkeep" | "draw" | "precombat_main" | "postcombat_main" | "end" | "cleanup";
+export type Step = "untap" | "upkeep" | "draw" | "precombat_main" | "begin_combat" | "declare_attackers" | "declare_blockers" | "first_strike_damage" | "combat_damage" | "end_combat" | "postcombat_main" | "end" | "cleanup";

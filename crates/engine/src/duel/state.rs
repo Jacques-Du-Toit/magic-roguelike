@@ -11,7 +11,7 @@ use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::mana::ManaPool;
 use super::rng::DuelRng;
-use crate::cards::{CardDef, CardDefId};
+use crate::cards::{CardDef, CardDefId, Keyword};
 use crate::data;
 
 /// Everything about a duel in progress. It is plain data: it serialises, it
@@ -27,6 +27,7 @@ pub struct DuelState {
     pub battlefield: Vec<ObjectId>,
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItem>,
+    pub combat: Option<Combat>,
     pub starting_player: PlayerId,
     /// 0 until the mulligans are over, then counts every turn of either
     /// player.
@@ -93,6 +94,43 @@ pub struct GameObject {
     /// On the battlefield: its controller hasn't had it since the start of
     /// their most recent turn.
     pub summoning_sick: bool,
+    /// Damage marked on a creature this turn.
+    pub damage: i32,
+    /// A source with deathtouch has dealt damage to this creature since
+    /// state-based actions were last checked.
+    pub deathtouch_damage: bool,
+}
+
+/// The combat of the current turn, from the beginning of combat to its end.
+/// During the declaration decisions it holds the choices made so far.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+pub struct Combat {
+    /// In the order they were declared.
+    pub attackers: Vec<Attacker>,
+    /// Creatures that dealt damage in the first-strike step, and so don't
+    /// deal it again in the regular one.
+    pub dealt_first_strike_damage: Vec<ObjectId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct Attacker {
+    pub attacker: ObjectId,
+    /// In the order they were declared.
+    pub blockers: Vec<ObjectId>,
+    /// Stays true if every blocker later leaves combat.
+    pub blocked: bool,
+}
+
+impl Combat {
+    pub fn is_attacking(&self, creature: ObjectId) -> bool {
+        self.attackers.iter().any(|a| a.attacker == creature)
+    }
+
+    pub fn is_blocking(&self, creature: ObjectId) -> bool {
+        self.attackers
+            .iter()
+            .any(|a| a.blockers.contains(&creature))
+    }
 }
 
 impl GameObject {
@@ -105,6 +143,8 @@ impl GameObject {
             zone,
             tapped: false,
             summoning_sick: zone == Zone::Battlefield,
+            damage: 0,
+            deathtouch_damage: false,
         }
     }
 }
@@ -143,25 +183,19 @@ pub enum Step {
     Upkeep,
     Draw,
     PrecombatMain,
+    BeginCombat,
+    DeclareAttackers,
+    DeclareBlockers,
+    /// Only happens when a creature in combat has first strike.
+    FirstStrikeDamage,
+    CombatDamage,
+    EndCombat,
     PostcombatMain,
     End,
     Cleanup,
 }
 
 impl Step {
-    /// The step after this one, or `None` at the end of the turn.
-    pub fn next(self) -> Option<Step> {
-        match self {
-            Step::Untap => Some(Step::Upkeep),
-            Step::Upkeep => Some(Step::Draw),
-            Step::Draw => Some(Step::PrecombatMain),
-            Step::PrecombatMain => Some(Step::PostcombatMain),
-            Step::PostcombatMain => Some(Step::End),
-            Step::End => Some(Step::Cleanup),
-            Step::Cleanup => None,
-        }
-    }
-
     pub fn is_main(self) -> bool {
         matches!(self, Step::PrecombatMain | Step::PostcombatMain)
     }
@@ -181,6 +215,10 @@ pub enum Decision {
     Priority { player: PlayerId },
     /// Discard `remaining` more cards, down to the maximum hand size.
     Discard { player: PlayerId, remaining: u8 },
+    /// Choose attackers one at a time, then confirm.
+    DeclareAttackers { player: PlayerId },
+    /// Choose blocks one at a time, then confirm.
+    DeclareBlockers { player: PlayerId },
 }
 
 impl Decision {
@@ -189,7 +227,9 @@ impl Decision {
             Decision::Mulligan { player }
             | Decision::BottomCards { player, .. }
             | Decision::Priority { player }
-            | Decision::Discard { player, .. } => player,
+            | Decision::Discard { player, .. }
+            | Decision::DeclareAttackers { player }
+            | Decision::DeclareBlockers { player } => player,
         }
     }
 }
@@ -229,6 +269,7 @@ impl DuelState {
             objects: BTreeMap::new(),
             battlefield: Vec::new(),
             stack: Vec::new(),
+            combat: None,
             starting_player,
             turn: 0,
             active_player: starting_player,
@@ -282,6 +323,44 @@ impl DuelState {
                 def: object.def.clone(),
             }),
         })
+    }
+
+    pub fn is_on_battlefield(&self, id: ObjectId) -> bool {
+        self.objects
+            .get(&id)
+            .is_some_and(|object| object.zone == Zone::Battlefield)
+    }
+
+    /// Whether `id` is a creature on the battlefield.
+    pub(crate) fn is_creature(&self, id: ObjectId) -> Result<bool, InternalError> {
+        Ok(self.is_on_battlefield(id) && self.def(id)?.is_creature())
+    }
+
+    pub(crate) fn power(&self, id: ObjectId) -> Result<i32, InternalError> {
+        Ok(self.def(id)?.power.unwrap_or(0))
+    }
+
+    pub(crate) fn toughness(&self, id: ObjectId) -> Result<i32, InternalError> {
+        Ok(self.def(id)?.toughness.unwrap_or(0))
+    }
+
+    pub(crate) fn has_keyword(
+        &self,
+        id: ObjectId,
+        keyword: Keyword,
+    ) -> Result<bool, InternalError> {
+        Ok(self.def(id)?.has_keyword(keyword))
+    }
+
+    /// The creatures a player controls, in the order they entered.
+    pub(crate) fn creatures_of(&self, player: PlayerId) -> Result<Vec<ObjectId>, InternalError> {
+        let mut creatures = Vec::new();
+        for permanent in self.permanents_of(player) {
+            if self.def(permanent.id)?.is_creature() {
+                creatures.push(permanent.id);
+            }
+        }
+        Ok(creatures)
     }
 
     /// The permanents a player controls, in the order they entered.

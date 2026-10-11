@@ -1,7 +1,11 @@
 //! The duel: state, actions and rules. See `docs/ARCHITECTURE.md` §2 and §5.
 
 mod action;
+mod combat;
+#[cfg(test)]
+mod combat_tests;
 mod config;
+mod damage;
 mod error;
 mod ids;
 mod mana;
@@ -42,6 +46,8 @@ fn try_legal_actions(state: &DuelState, player: PlayerId) -> Result<Vec<Action>,
         Decision::BottomCards { .. } => mulligan::legal_bottom_actions(state, player),
         Decision::Priority { .. } => turn::legal_priority_actions(state, player)?,
         Decision::Discard { .. } => turn::legal_discard_actions(state, player),
+        Decision::DeclareAttackers { .. } => combat::legal_attack_actions(state)?,
+        Decision::DeclareBlockers { .. } => combat::legal_block_actions(state)?,
     })
 }
 
@@ -92,7 +98,19 @@ fn perform(
         (Action::CastSpell { card, targets }, _) => {
             stack::cast_spell(state, &mut events, player, *card, targets)?;
         }
-        (Action::BottomCard { .. } | Action::Discard { .. }, _) => {
+        (Action::Attack { creature }, _) => combat::declare_attacker(state, *creature)?,
+        (Action::Block { blocker, attacker }, _) => {
+            combat::declare_blocker(state, *blocker, *attacker)?;
+        }
+        (Action::ResetDeclaration, Some(Decision::DeclareAttackers { .. })) => {
+            combat::reset_attackers(state)?;
+        }
+        (Action::ResetDeclaration, Some(Decision::DeclareBlockers { .. })) => {
+            combat::reset_blockers(state)?;
+        }
+        (Action::ConfirmAttackers, _) => turn::confirm_attackers(state, &mut events)?,
+        (Action::ConfirmBlockers, _) => turn::confirm_blockers(state, &mut events)?,
+        (Action::BottomCard { .. } | Action::Discard { .. } | Action::ResetDeclaration, _) => {
             return Err(InternalError::new(format!(
                 "{action:?} does not answer {:?}",
                 state.decision

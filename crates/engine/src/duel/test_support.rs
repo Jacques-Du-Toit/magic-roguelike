@@ -131,6 +131,61 @@ pub(crate) fn pass_until(state: &mut DuelState, turn: u32, step: Step) -> Vec<Ga
     panic!("never reached turn {turn} {step:?}");
 }
 
+/// Passes priority until the game waits on some other kind of decision, or
+/// ends.
+pub(crate) fn pass_until_other_decision(state: &mut DuelState) -> Vec<GameEvent> {
+    let mut events = Vec::new();
+    for _ in 0..10_000 {
+        let Some(Decision::Priority { player }) = state.decision else {
+            return events;
+        };
+        events.extend(apply_action(state, player, Action::PassPriority).unwrap());
+    }
+    panic!("the game only ever asked for priority");
+}
+
+/// A duel at the first main phase of turn 1 with both hands empty, ready
+/// for a test to put the cards it needs in place.
+pub(crate) fn empty_board(seed: u64) -> (DuelState, PlayerId, PlayerId) {
+    let (mut state, me, opponent) = in_main_phase("deck_a", "deck_c", seed);
+    empty_hand(&mut state, me);
+    empty_hand(&mut state, opponent);
+    (state, me, opponent)
+}
+
+/// Passes to the declare-attackers decision and attacks with `attackers`.
+pub(crate) fn attack(state: &mut DuelState, attackers: &[ObjectId]) -> Vec<GameEvent> {
+    let mut events = pass_until_other_decision(state);
+    let Some(Decision::DeclareAttackers { player }) = state.decision else {
+        panic!("expected to declare attackers, got {:?}", state.decision);
+    };
+    for &creature in attackers {
+        events.extend(apply_action(state, player, Action::Attack { creature }).unwrap());
+    }
+    events.extend(apply_action(state, player, Action::ConfirmAttackers).unwrap());
+    events
+}
+
+/// Passes to the declare-blockers decision and makes the `(blocker,
+/// attacker)` blocks.
+pub(crate) fn block(state: &mut DuelState, blocks: &[(ObjectId, ObjectId)]) -> Vec<GameEvent> {
+    let mut events = pass_until_other_decision(state);
+    let Some(Decision::DeclareBlockers { player }) = state.decision else {
+        panic!("expected to declare blockers, got {:?}", state.decision);
+    };
+    for &(blocker, attacker) in blocks {
+        events.extend(apply_action(state, player, Action::Block { blocker, attacker }).unwrap());
+    }
+    events.extend(apply_action(state, player, Action::ConfirmBlockers).unwrap());
+    events
+}
+
+/// Passes priority until the second main phase of the current turn.
+pub(crate) fn finish_combat(state: &mut DuelState) -> Vec<GameEvent> {
+    let turn = state.turn;
+    pass_until(state, turn, Step::PostcombatMain)
+}
+
 /// Plays the game to its end with both players doing nothing: they pass
 /// priority and discard their first card when they must. Returns the events
 /// and the number of actions taken.

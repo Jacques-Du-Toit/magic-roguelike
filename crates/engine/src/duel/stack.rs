@@ -448,7 +448,7 @@ mod tests {
         let (mut state, me, _) = in_main_phase("deck_a", "deck_c", 1);
         state.player_mut(me).mana_pool.add(Color::G);
         pass_both(&mut state);
-        assert_eq!(state.step, Step::PostcombatMain);
+        assert_eq!(state.step, Step::BeginCombat);
         assert!(state.player(me).mana_pool.is_empty());
     }
 }

@@ -36,6 +36,22 @@ pub enum Action {
         card: ObjectId,
         targets: Vec<Target>,
     },
+    /// Add a creature to the attack being declared.
+    Attack {
+        creature: ObjectId,
+    },
+    /// Add a block to the blocks being declared.
+    Block {
+        blocker: ObjectId,
+        attacker: ObjectId,
+    },
+    /// Start the attack or block declaration again.
+    ResetDeclaration,
+    /// Attack with the creatures chosen so far, which may be none.
+    ConfirmAttackers,
+    /// Block as chosen so far. Not legal while the blocks break a rule,
+    /// e.g. a creature with menace has exactly one blocker.
+    ConfirmBlockers,
 }
 
 /// What a spell or ability is aimed at.
@@ -122,6 +138,33 @@ pub enum GameEvent {
         player: PlayerId,
         card: CardRef,
     },
+    AttackersDeclared {
+        player: PlayerId,
+        attackers: Vec<ObjectId>,
+    },
+    /// One entry per blocked attacker.
+    BlockersDeclared {
+        player: PlayerId,
+        blocks: Vec<BlockDeclared>,
+    },
+    DamageDealt {
+        source: ObjectId,
+        target: Target,
+        amount: i32,
+    },
+    /// A creature went from the battlefield to its owner's graveyard.
+    /// `permanent` is what it was; `card` is the card in the graveyard.
+    CreatureDied {
+        player: PlayerId,
+        permanent: ObjectId,
+        card: CardRef,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct BlockDeclared {
+    pub attacker: ObjectId,
+    pub blockers: Vec<ObjectId>,
 }
 
 /// A card as an event or a view shows it. `face` is `None` when the viewer
