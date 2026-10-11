@@ -31,6 +31,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Combat: beginning, declare attackers, declare blockers, combat damage, end | In | First-strike damage step when relevant. |
 | Combat damage among multiple blockers | Simplified | Current rules (no damage assignment order): attacker divides freely, lethal to every blocker before trampling over. Engine assigns automatically; manual division later. |
 | End step, cleanup | In | "Until end of turn" effects end at cleanup. |
+| Priority in every step | Simplified | Nobody gets priority in the untap or cleanup steps, or in the declare-attackers step when no creature attacks. (Real Magic gives priority in cleanup when something triggers there; no card needs that yet.) |
 | Extra turns / extra combats | Later | |
 
 ## Priority and the stack

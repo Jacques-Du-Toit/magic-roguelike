@@ -11,7 +11,8 @@
 | Card embedding | `include_dir` | Bundles `data/` into the engine at compile time for native and wasm. |
 | Front end | **TypeScript** (strict) + **React** + **Vite** | Huge AI training data; great for card-game UI; fast dev server. |
 | Animation | CSS transitions / Framer Motion to start; PixiJS later if needed | Keep it simple until it isn't enough. |
-| RNG | `rand` + `rand_chacha` (seeded `ChaCha8Rng`) | Deterministic, reproducible games from a seed. |
+| RNG | `rand_chacha` (seeded `ChaCha8Rng`), with the engine's own shuffle on top | Deterministic, reproducible games from a seed. The shuffle is ours so a dependency upgrade can't change what a seed produces. |
+| Errors | `thiserror` | Engine functions return typed errors; nothing panics. |
 | Rust tests | `cargo test`, optionally `proptest` for property tests | Rules correctness. |
 | Web tests | **Vitest**; **Playwright** later for end-to-end | UI logic and smoke tests. |
 | Card data source | **Scryfall** bulk data (JSON) | Accurate card text, costs, types. |
@@ -102,8 +103,10 @@ npm run wasm
 # 3. Run the game (from web/)
 npm run dev                # open the printed localhost URL
 
-# 4. Simulate games headlessly (from M1; until then sim only prints the engine version)
+# 4. Simulate games headlessly: N games for every pairing of the decks, then a report
 cargo run -p sim -- --games 100 --seed 42
+# ...or replay one game move by move (P1's deck, P2's deck, the seed)
+cargo run -p sim -- --replay deck_a deck_c --seed 42
 ```
 
 **Generated TypeScript types.** `cargo test` runs the `ts-rs` export and rewrites `web/src/engine/types/` (the folder is set by `TS_RS_EXPORT_DIR` in `.cargo/config.toml`). `npm run types` from `web/` runs just that export. The generated files are committed, so a fresh clone can build the web app straight away; commit them along with the Rust change that produced them.

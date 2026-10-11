@@ -33,8 +33,9 @@ cargo test                      # all engine tests (run before saying a task is 
                                 # also regenerates the ts-rs types in web/src/engine/types/
 cargo clippy --all-targets -- -D warnings
 cargo fmt
-cargo run -p sim -- --games 100 # headless AI-vs-AI simulation (placeholder until M1:
-                                # prints the engine version and ignores its arguments)
+cargo run -p sim -- --games 100 # headless AI-vs-AI simulation: 100 games for every pairing
+                                # of the decks in data/decks, then a report (--seed S to vary)
+cargo run -p sim -- --replay deck_a deck_c --seed 7   # one game, move by move
 
 # WASM build (from repo root)
 wasm-pack build crates/engine-wasm --target web --out-dir ../../web/src/wasm

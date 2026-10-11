@@ -1,9 +1,14 @@
 //! Pure rules engine. All game logic lives here; it knows nothing about
 //! rendering, wasm or IO.
 //!
-//! So far it loads and validates the game data (cards, decklists, balance
-//! numbers) and can start a duel and run its mulligans. [`engine_info`] is
-//! what the web app calls to prove the wasm pipeline.
+//! - [`data`] loads and validates the cards, decklists and balance numbers
+//!   embedded from `data/`.
+//! - [`duel`] is a whole duel: [`new_duel`], then [`legal_actions`] and
+//!   [`apply_action`] until [`result`] says it is over. [`player_view`] and
+//!   [`redact_events`] give one player's side of it.
+//! - [`ai`] picks actions for an opponent.
+//!
+//! [`engine_info`] is what the web app calls to prove the wasm pipeline.
 
 pub mod ai;
 pub mod balance;

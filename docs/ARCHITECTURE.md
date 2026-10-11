@@ -32,10 +32,11 @@ pub fn legal_actions(state: &DuelState, player: PlayerId) -> Vec<Action>;
 pub fn has_meaningful_action(state: &DuelState, player: PlayerId) -> bool;
 pub fn apply_action(state: &mut DuelState, player: PlayerId, action: Action)
     -> Result<Vec<GameEvent>, ActionError>;
-pub fn player_view(state: &DuelState, player: PlayerId) -> PlayerView; // hides opponent's hand/library
+pub fn player_view(state: &DuelState, player: PlayerId)
+    -> Result<PlayerView, InternalError>; // hides opponent's hand/library
 pub fn redact_events(events: &[GameEvent], viewer: PlayerId) -> Vec<GameEvent>;
 pub fn result(state: &DuelState) -> Option<GameResult>; // Win { player, reason } | Draw
-pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Action;
+pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, ActionError>;
 
 // Run level (later milestone)
 pub fn new_run(config: RunConfig, seed: u64) -> RunState;
@@ -44,11 +45,13 @@ pub fn apply_run_action(state: &mut RunState, action: RunAction)
     -> Result<Vec<RunEvent>, ActionError>;
 ```
 
+The duel functions above exist as of M1, in `crates/engine/src/duel/` (state, turn, stack, combat, mana, damage, effects, view) and `crates/engine/src/ai/`. `apply_action` works on a copy of the state and swaps it in on success, so an error always leaves the state untouched. An `InternalError` means the engine found its own state inconsistent: a bug, never something the caller did.
+
 ### Action model
 
 Every `Action` returned by `legal_actions` is concrete and can be passed straight to `apply_action`. The AI and the UI both work only from this list. Two rules keep the list small:
 
-- **Spells and abilities are fully specified.** `CastSpell { card, targets, mode }` and `ActivateAbility { source, ability, targets }` appear once per legal target combination. There is no separate "choose target" step. (X costs, when added, will be an exception: one action carrying the legal X range.)
+- **Spells and abilities are fully specified.** `CastSpell { card, targets, mode }` and `ActivateAbility { source, ability, targets }` appear once per legal target combination. There is no separate "choose target" step. (X costs, when added, will be an exception: one action carrying the legal X range.) As of M1 only `CastSpell { card, targets }` exists: no card has modes yet, and the only activated abilities are mana abilities, which the auto-payer uses.
 - **Anything combinatorial is a stepwise pending decision.** The state records "waiting on player P for decision D", and `legal_actions` returns only the next step:
 
 | Decision | Step actions |
@@ -68,7 +71,7 @@ Other actions: `PlayLand { card }`, `PassPriority`.
 Payment is engine logic, not UI logic, because the AI and `sim` need it too.
 
 - `CastSpell` / `ActivateAbility` is legal only if the engine's **auto-payer** can find a payment. Applying the action taps sources and pays in one go.
-- The auto-payer is deterministic: lands before creatures, and among lands it prefers to leave untapped the colours the rest of the hand needs.
+- The auto-payer is deterministic: lands before creatures, and among lands it prefers to leave untapped the colours the rest of the hand needs. It relies on every mana source producing exactly one mana of one colour, which card validation enforces for now; dual lands will need a proper matching step.
 - Manual tapping (activating mana abilities one by one into the mana pool) is a later addition. Model the mana pool properly now so that it slots in.
 
 ### Auto-pass
@@ -257,6 +260,8 @@ If a card truly can't be expressed, it may reference `{ "type": "custom", "id": 
 ### Validation
 On load, every card is validated (costs parse, targets exist, keywords known, Auras have `enchant`). A test loads all card files and fails on any error.
 
+The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and a triggered ability can't have targets.
+
 ### Decklists
 `data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database.
 
@@ -285,10 +290,12 @@ On load, every card is validated (costs parse, targets exist, keywords known, Au
 ## 7. AI
 
 - Lives in `engine/ai/`. Uses only `legal_actions` + state evaluation; never cheats with hidden info unless explicitly configured.
-- v1: heuristics (play lands, cast best castable spell, attack if favourable, block to avoid bad trades, remove biggest threat). Mulligan: keep any hand with 2–5 lands, and never go below 5 cards.
+- v1: heuristics (play lands, cast best castable spell, attack if favourable, block to avoid bad trades, remove biggest threat). Mulligan: keep any hand with 2–5 lands, and never go below 5 cards (numbers in `balance.json`).
+- How v1 picks a spell: it tries each castable spell on a copy of the game, lets the stack and any combat damage still to come play out with both players passing, scores the result (life, creatures, cards in hand), and casts the best one if it beats doing nothing. That one rule covers removal, burn to the face when it matters, combat tricks after blocks, and countering a spell when mana happens to be open. Passing needs no hidden information, so the AI still doesn't cheat.
+- How v1 fights: it attacks with each creature that no single blocker beats, or with everything when that is lethal; it blocks to kill an attacker, to stop damage safely or to trade evenly, and chump-blocks only to survive.
 - v1 is expected to pilot creature and burn decks acceptably and reactive decks badly (it won't hold mana for a counterspell). That's accepted for now; the human plays the control deck in M2.
 - Later: shallow search / Monte Carlo rollouts using engine cloning (determinism makes this easy). This is the planned route to competent control play, rather than piling up heuristics.
-- `crates/sim` runs AI vs AI to find crashes and measure deck win rates.
+- `crates/sim` runs AI vs AI to find crashes and measure deck win rates. It plays every pairing of the decks in `data/decks/`, mirrors included, swapping seats each game, and reports win rates, game length, mulligans, land screw and flood, and how games ended. Its turn cap and thresholds are in `balance.json`. `--replay` prints one game move by move.
 
 ## 8. The wasm boundary
 

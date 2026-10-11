@@ -15,5 +15,16 @@
       "max_lands": 5,
       "min_hand_size": 5
     }
+  },
+  "sim": {
+    "turn_cap": 100,
+    "land_screw": {
+      "turn": 4,
+      "max_lands": 2
+    },
+    "land_flood": {
+      "turn": 6,
+      "min_land_percent": 60
+    }
   }
 }

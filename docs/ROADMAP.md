@@ -27,18 +27,18 @@ Goal: an empty but working pipeline from Rust to browser.
 
 Goal: two AI players can play a full, correct game of Magic with ~25 simple cards, headlessly.
 
-- [ ] Card data loader + validation for `data/cards/*.json`; decklist loader for `data/decks/*.json`.
-- [ ] `data/balance.json` with the duel numbers (starting life, opening hand, max hand size, fatigue). Nothing hard-coded.
-- [ ] Zones, objects, `ObjectId` + `CardId`, seeded RNG, serialisable `DuelState`.
-- [ ] Full turn structure, priority, stack, state-based actions.
-- [ ] Lands in the library, opening-hand smoothing, London mulligan, one land drop per turn, fatigue.
-- [ ] Mana payment (coloured + generic) via the engine auto-payer.
-- [ ] Combat incl. first strike, trample, deathtouch, lifelink, flying/reach, menace, vigilance, haste; automatic damage assignment.
-- [ ] Spells, ETB triggers, simple activated mana abilities, auras (Pacifism), counterspells.
-- [ ] `legal_actions`, `has_meaningful_action`, `apply_action`, `player_view`, events + redaction, `result`.
-- [ ] Simple heuristic AI.
-- [ ] `sim` CLI: run N AI-vs-AI games with seeds across all deck pairings; report win rates and any errors.
-- [ ] Tests for every card and keyword; regression tests for bugs found.
+- [x] Card data loader + validation for `data/cards/*.json`; decklist loader for `data/decks/*.json`.
+- [x] `data/balance.json` with the duel numbers (starting life, opening hand, max hand size, fatigue). Nothing hard-coded.
+- [x] Zones, objects, `ObjectId` + `CardId`, seeded RNG, serialisable `DuelState`.
+- [x] Full turn structure, priority, stack, state-based actions.
+- [x] Lands in the library, opening-hand smoothing, London mulligan, one land drop per turn, fatigue.
+- [x] Mana payment (coloured + generic) via the engine auto-payer.
+- [x] Combat incl. first strike, trample, deathtouch, lifelink, flying/reach, menace, vigilance, haste; automatic damage assignment.
+- [x] Spells, ETB triggers, simple activated mana abilities, auras (Pacifism), counterspells.
+- [x] `legal_actions`, `has_meaningful_action`, `apply_action`, `player_view`, events + redaction, `result`.
+- [x] Simple heuristic AI.
+- [x] `sim` CLI: run N AI-vs-AI games with seeds across all deck pairings; report win rates and any errors.
+- [x] Tests for every card and keyword; regression tests for bugs found.
 
 Not in M1: manual mana tapping, manual damage division, and any rule in `RULES_SCOPE.md` that no starter card needs.
 
@@ -85,6 +85,8 @@ Verify each card's exact text against Scryfall when entering it.
 - Running the same seed twice produces an identical event log (tested).
 - The sim reports, per pairing: win rate, play/draw win rate, average game length, mulligan rate, how often a player is stuck on two or fewer lands by turn 4, and how many games ended by fatigue or the turn cap. As a guide, no pairing should be worse than about 75/25 and fatigue or turn-cap endings should be rare. Deck B is expected to underperform in AI hands (see `ARCHITECTURE.md` §7).
 - Every starter card has tests.
+
+**Result (2026-10-11):** 6,000 games (1,000 for each of the six pairings, mirrors included) ran with zero errors. Cross pairings: A beats B 64/36, A beats C 78/22, C beats B 62/38, with fatigue endings under 0.5%. A against C is a little outside the 75/25 guide. The mirrors are slower: Deck B's mirror ends by fatigue in 57% of games and Deck C's in 11%, because both sides remove nearly every creature. The decklists are untuned; whether to tune them is an open question for the owner.
 
 ---
 
