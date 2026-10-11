@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { loadWasmForTests } from './testSupport.ts'
-import { AI, Duel, HUMAN, cardDefs, deckDefs, engineInfo, randomSeed } from './index.ts'
+import {
+  AI,
+  Duel,
+  HUMAN,
+  Run,
+  cardDefs,
+  deckDefs,
+  engineInfo,
+  randomSeed,
+  runContent,
+} from './index.ts'
 
 loadWasmForTests()
 
@@ -15,7 +25,7 @@ describe('engineInfo', () => {
 describe('card and deck data', () => {
   it('brings every card definition across', () => {
     const cards = cardDefs()
-    expect(cards).toHaveLength(29)
+    expect(cards).toHaveLength(53)
     const nighthawk = cards.find((card) => card.id === 'vampire_nighthawk')
     expect(nighthawk).toMatchObject({
       name: 'Vampire Nighthawk',
@@ -101,5 +111,62 @@ describe('Duel', () => {
     expect(view.decision).toBeNull()
     expect(() => duel.aiStep()).toThrow()
     duel.free()
+  })
+})
+
+describe('Run', () => {
+  it('brings the run content across', () => {
+    const content = runContent()
+    expect(content.planeswalkers.map((planeswalker) => planeswalker.id)).toEqual([
+      'warden',
+      'firebrand',
+    ])
+    expect(content.boons).toHaveLength(4)
+    expect(content.enemies.some((enemy) => enemy.tier === 'boss')).toBe(true)
+  })
+
+  it('throws the engine message for bad input', () => {
+    expect(() => new Run('nobody', '1')).toThrow('there is no planeswalker `nobody`')
+    const run = new Run('warden', '1')
+    expect(() => run.apply({ type: 'leave' })).toThrow(/not a legal action/)
+    expect(() => run.duel.view()).toThrow('no duel is being played')
+    expect(run.inputs).toEqual([])
+    run.free()
+  })
+
+  it('plays a whole run: the last action on offer each time, passing through duels', () => {
+    const run = new Run('firebrand', '5')
+    let view = run.view()
+    expect(view.phase.type).toBe('map')
+    let steps = 0
+    let duels = 0
+    while (view.phase.type !== 'over') {
+      steps += 1
+      expect(steps).toBeLessThan(200_000)
+      expect(view.actions.length).toBeGreaterThan(0)
+      if (view.actions[0].type === 'concede') {
+        // A duel is on: play it by passing and confirming.
+        const duel = run.duel.view()
+        if (duel.decision?.player === AI) {
+          run.duel.aiStep()
+        } else {
+          const actions = run.duel.legalActions()
+          const easy = actions.find((action) =>
+            ['pass_priority', 'confirm_attackers', 'confirm_blockers', 'keep'].includes(action.type),
+          )
+          run.duel.apply(easy ?? actions[0])
+        }
+        view = run.view()
+        continue
+      }
+      const action = view.actions[view.actions.length - 1]
+      const update = run.apply(action)
+      duels += update.events.filter((event) => event.type === 'duel_started').length
+      view = update.view
+    }
+    expect(duels).toBeGreaterThan(1)
+    expect(view.actions).toEqual([])
+    expect(run.inputs.length).toBeGreaterThan(duels)
+    run.free()
   })
 })

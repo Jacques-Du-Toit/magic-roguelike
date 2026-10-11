@@ -6,7 +6,7 @@ pub mod session;
 
 use wasm_bindgen::prelude::*;
 
-use session::Session;
+use session::{RunSession, Session};
 
 fn js_error(message: String) -> JsError {
     JsError::new(&message)
@@ -88,6 +88,72 @@ impl Duel {
     }
 }
 
+/// Everything a run can contain, as `RunContent` JSON.
+#[wasm_bindgen]
+pub fn run_content() -> Result<String, JsError> {
+    session::run_content_json().map_err(js_error)
+}
+
+/// A run, with whatever duel it is in. The `RunState` lives in wasm memory;
+/// JavaScript only holds this handle.
+#[wasm_bindgen]
+pub struct Run {
+    session: RunSession,
+}
+
+#[wasm_bindgen]
+impl Run {
+    /// `seed` is a `u64` as a decimal string.
+    #[wasm_bindgen(constructor)]
+    pub fn new(planeswalker: &str, seed: &str) -> Result<Run, JsError> {
+        RunSession::new(planeswalker, seed)
+            .map(|session| Run { session })
+            .map_err(js_error)
+    }
+
+    /// The `RunView` as JSON.
+    pub fn view(&self) -> Result<String, JsError> {
+        self.session.view().map_err(js_error)
+    }
+
+    /// Applies one of the legal run actions (`RunAction` JSON) and returns
+    /// a `RunUpdate` as JSON.
+    pub fn apply(&mut self, action: &str) -> Result<String, JsError> {
+        self.session.apply(action).map_err(js_error)
+    }
+
+    /// The human's `PlayerView` of the duel in progress, as JSON.
+    pub fn duel_view(&self) -> Result<String, JsError> {
+        self.session.duel_view().map_err(js_error)
+    }
+
+    /// The human's legal actions in the duel, as a JSON array of `Action`.
+    pub fn duel_legal_actions(&self) -> Result<String, JsError> {
+        self.session.duel_legal_actions().map_err(js_error)
+    }
+
+    pub fn duel_should_auto_pass(&self, hold_priority: bool) -> bool {
+        self.session.duel_should_auto_pass(hold_priority)
+    }
+
+    /// Applies one of the human's legal duel actions and returns a
+    /// `DuelUpdate` as JSON.
+    pub fn duel_apply(&mut self, action: &str) -> Result<String, JsError> {
+        self.session.duel_apply(action).map_err(js_error)
+    }
+
+    /// The action the AI would take in the human's place, as `Action`
+    /// JSON.
+    pub fn duel_suggest(&self) -> Result<String, JsError> {
+        self.session.duel_suggest().map_err(js_error)
+    }
+
+    /// Lets the enemy take one action in the duel and returns a
+    /// `DuelUpdate` as JSON.
+    pub fn duel_ai_step(&mut self) -> Result<String, JsError> {
+        self.session.duel_ai_step().map_err(js_error)
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

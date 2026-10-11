@@ -833,3 +833,301 @@ input[type='text'] {
   background: #2f5d8a;
   text-transform: capitalize;
 }
+
+/* ---- Menu: starting a run ---- */
+
+.menu h3 {
+  margin: 0;
+}
+
+.planeswalkers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.planeswalkers legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.planeswalker {
+  padding: 0.6rem;
+  border: 2px solid var(--panel-edge);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.planeswalker-chosen {
+  border-color: var(--accent);
+}
+
+.planeswalker input {
+  justify-self: start;
+}
+
+/* ---- Run ---- */
+
+.run {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.run-topbar {
+  gap: 1.2rem;
+}
+
+.hearts {
+  font-weight: 600;
+}
+
+.heart {
+  color: var(--harm);
+  font-size: 1.2rem;
+}
+
+.heart-lost {
+  color: var(--muted);
+}
+
+.run-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  padding: 12px;
+  flex: 1;
+}
+
+.run-main {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  justify-items: center;
+  text-align: center;
+}
+
+.run-title {
+  font-size: 1.5rem;
+}
+
+.run-side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.run-side .panel {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+}
+
+.run-side h2 {
+  font-size: 1rem;
+}
+
+.modifiers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.modifier strong {
+  display: block;
+}
+
+.news {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #2b2613;
+}
+
+.run-map {
+  position: relative;
+  width: min(100%, 560px);
+  max-height: 68vh;
+}
+
+.run-map-paths {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.run-map-paths line {
+  stroke: #4a5361;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.run-map-paths line.path-walked {
+  stroke: var(--muted);
+  stroke-width: 4;
+}
+
+.run-map-paths line.path-open {
+  stroke: var(--action);
+  stroke-width: 3;
+  stroke-dasharray: 6 4;
+}
+
+.map-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  min-width: 68px;
+  padding: 3px 8px;
+  border-width: 2px;
+  background: var(--panel);
+  line-height: 1.15;
+}
+
+.map-node:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.map-node-symbol {
+  font-size: 1.15rem;
+}
+
+.map-node-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.map-node-mark {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.map-node-open {
+  border-color: var(--action);
+  box-shadow: 0 0 0 3px #4fc3f744;
+  opacity: 1;
+}
+
+.map-node-here {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.map-node-here .map-node-mark {
+  color: var(--accent);
+}
+
+.map-node-visited {
+  border-style: dashed;
+}
+
+.map-node-elite,
+.map-node-boss {
+  background: #3a2326;
+}
+
+.map-node-rest {
+  background: #20332a;
+}
+
+.map-node-shop {
+  background: #2c2a3d;
+}
+
+.map-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.choice-row {
+  justify-content: center;
+  gap: 14px;
+}
+
+.run-card {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  align-content: start;
+}
+
+.run-card-button {
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background: none;
+}
+
+.run-card-button:hover:not(:disabled) {
+  border-color: var(--action);
+  background: none;
+}
+
+.relic-card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  width: 116px;
+  height: 152px;
+  padding: 6px;
+  border: 3px solid var(--accent);
+  border-radius: 7px;
+  background: #2b2613;
+  text-align: left;
+  font-size: 11px;
+}
+
+.choice-list {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 520px);
+}
+
+.choice-list button {
+  text-align: left;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.boss-brief {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 520px);
+  padding: 10px;
+  border: 1px solid var(--harm);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.boss-brief h3 {
+  margin: 0;
+}
+
+/* The duel's top bar stays in reach over the mulligan and result overlays. */
+.duel > .topbar {
+  position: relative;
+  z-index: 25;
+}

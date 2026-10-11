@@ -10,6 +10,10 @@ use engine::duel::{
     Action, DuelConfig, DuelState, GameEvent, PlayerId, PlayerView, apply_action,
     has_meaningful_action, legal_actions, new_duel, player_view, redact_events, should_auto_pass,
 };
+use engine::run::{
+    ENEMY, PLAYER, PlaneswalkerId, RunAction, RunConfig, RunEvent, RunState, RunView,
+    apply_duel_action, apply_run_action, new_run, run_content, run_view,
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -52,13 +56,17 @@ pub fn decks_json() -> Result<String, String> {
     to_json(&decks)
 }
 
+/// Reads a seed: a `u64` in decimal.
+fn parse_seed(seed: &str) -> Result<u64, String> {
+    seed.trim()
+        .parse()
+        .map_err(|_| format!("the seed `{seed}` is not a whole number that fits in 64 bits"))
+}
+
 impl Session {
     /// Starts a duel with the default numbers. `seed` is a `u64` in decimal.
     pub fn new(human_deck: &str, ai_deck: &str, seed: &str) -> Result<Session, String> {
-        let seed: u64 = seed
-            .trim()
-            .parse()
-            .map_err(|_| format!("the seed `{seed}` is not a whole number that fits in 64 bits"))?;
+        let seed = parse_seed(seed)?;
         let data = data::embedded().map_err(|error| error.to_string())?;
         let deck = |id: &str| {
             data.decks
@@ -124,6 +132,116 @@ impl Session {
     }
 }
 
+/// What one run action did: the events, and the run as it now stands.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RunUpdate {
+    pub events: Vec<RunEvent>,
+    pub view: RunView,
+}
+
+/// Everything a run can contain, as `RunContent` JSON.
+pub fn run_content_json() -> Result<String, String> {
+    to_json(&run_content().map_err(|error| error.to_string())?)
+}
+
+/// A run in progress, with whatever duel it is in. The state stays on this
+/// side of the boundary. In a run's duels the human is P1, as in `Session`.
+#[derive(Debug, Clone)]
+pub struct RunSession {
+    state: RunState,
+}
+
+impl RunSession {
+    /// Starts a run. `seed` is a `u64` in decimal.
+    pub fn new(planeswalker: &str, seed: &str) -> Result<RunSession, String> {
+        let config = RunConfig {
+            planeswalker: PlaneswalkerId(planeswalker.to_string()),
+        };
+        let state = new_run(config, parse_seed(seed)?).map_err(|error| error.to_string())?;
+        Ok(RunSession { state })
+    }
+
+    fn run_view(&self) -> Result<RunView, String> {
+        run_view(&self.state).map_err(|error| error.to_string())
+    }
+
+    /// The `RunView`: the whole run and the legal run actions.
+    pub fn view(&self) -> Result<String, String> {
+        to_json(&self.run_view()?)
+    }
+
+    /// Applies one of the legal run actions, given as `RunAction` JSON.
+    /// Returns a `RunUpdate`.
+    pub fn apply(&mut self, action: &str) -> Result<String, String> {
+        let action: RunAction = serde_json::from_str(action)
+            .map_err(|error| format!("`{action}` is not a run action: {error}"))?;
+        let events =
+            apply_run_action(&mut self.state, action).map_err(|error| error.to_string())?;
+        to_json(&RunUpdate {
+            events,
+            view: self.run_view()?,
+        })
+    }
+
+    fn duel(&self) -> Result<&DuelState, String> {
+        self.state
+            .duel
+            .as_ref()
+            .ok_or_else(|| "no duel is being played".to_string())
+    }
+
+    fn duel_player_view(&self) -> Result<PlayerView, String> {
+        player_view(self.duel()?, PLAYER).map_err(|error| error.to_string())
+    }
+
+    /// The human's `PlayerView` of the duel in progress.
+    pub fn duel_view(&self) -> Result<String, String> {
+        to_json(&self.duel_player_view()?)
+    }
+
+    /// The human's legal actions in the duel, as a JSON array of `Action`.
+    pub fn duel_legal_actions(&self) -> Result<String, String> {
+        to_json(&legal_actions(self.duel()?, PLAYER))
+    }
+
+    /// Whether to pass priority for the human without asking them.
+    pub fn duel_should_auto_pass(&self, hold_priority: bool) -> bool {
+        self.duel()
+            .is_ok_and(|duel| should_auto_pass(duel, PLAYER, hold_priority))
+    }
+
+    /// Applies one of the human's legal duel actions. Returns a
+    /// `DuelUpdate`.
+    pub fn duel_apply(&mut self, action: &str) -> Result<String, String> {
+        let action: Action = serde_json::from_str(action)
+            .map_err(|error| format!("`{action}` is not an action: {error}"))?;
+        self.duel_act(PLAYER, action)
+    }
+
+    /// The action the AI would take in the human's place, as `Action` JSON.
+    /// It looks only at what the human may see. For hints and for tests
+    /// that click through whole runs.
+    pub fn duel_suggest(&self) -> Result<String, String> {
+        let action = ai_choose_action(self.duel()?, PLAYER).map_err(|error| error.to_string())?;
+        to_json(&action)
+    }
+
+    /// Lets the enemy take one action in the duel. Returns a `DuelUpdate`.
+    pub fn duel_ai_step(&mut self) -> Result<String, String> {
+        let action = ai_choose_action(self.duel()?, ENEMY).map_err(|error| error.to_string())?;
+        self.duel_act(ENEMY, action)
+    }
+
+    fn duel_act(&mut self, player: PlayerId, action: Action) -> Result<String, String> {
+        let events = apply_duel_action(&mut self.state, player, action)
+            .map_err(|error| error.to_string())?;
+        to_json(&DuelUpdate {
+            events: redact_events(&events, PLAYER),
+            view: self.duel_player_view()?,
+        })
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,5 +379,116 @@ mod tests {
         };
         assert_eq!(play("11"), play("11"));
         assert_ne!(play("11"), play("12"));
+    }
+
+    // ---- Runs ----
+
+    fn run_view_of(session: &RunSession) -> RunView {
+        serde_json::from_str(&session.view().unwrap()).unwrap()
+    }
+
+    fn run_update(json: &str) -> RunUpdate {
+        serde_json::from_str(json).unwrap()
+    }
+
+    fn run_act(session: &mut RunSession, action: &RunAction) -> RunUpdate {
+        run_update(&session.apply(&to_json(action).unwrap()).unwrap())
+    }
+
+    #[test]
+    fn the_run_content_crosses_as_json() {
+        let content: engine::run::RunContent =
+            serde_json::from_str(&run_content_json().unwrap()).unwrap();
+        let names: Vec<&str> = content
+            .planeswalkers
+            .iter()
+            .map(|planeswalker| planeswalker.name.as_str())
+            .collect();
+        assert_eq!(names, ["The Warden", "The Firebrand"]);
+        assert_eq!(content.relics.len(), 5);
+    }
+
+    #[test]
+    fn a_run_starts_on_the_map_and_bad_input_is_an_error() {
+        let mut session = RunSession::new("warden", "7").unwrap();
+        let view = run_view_of(&session);
+        assert_eq!(view.seed, "7");
+        assert_eq!(view.phase, engine::run::Phase::Map);
+        assert_eq!(view.actions.len(), 3);
+        // No duel yet.
+        assert!(session.duel_view().is_err());
+        assert!(session.duel_ai_step().is_err());
+        assert!(!session.duel_should_auto_pass(false));
+
+        assert_eq!(
+            RunSession::new("nobody", "7").unwrap_err(),
+            "there is no planeswalker `nobody`"
+        );
+        assert!(RunSession::new("warden", "seven").is_err());
+        let before = session.view().unwrap();
+        assert!(session.apply("not json").is_err());
+        assert!(session.apply(r#"{"type":"leave"}"#).is_err());
+        assert_eq!(session.view().unwrap(), before);
+    }
+
+    /// Plays the duel in progress through the JSON API, the human with the
+    /// AI's brain.
+    fn play_run_duel(session: &mut RunSession) {
+        for _ in 0..50_000 {
+            let duel = session.state.duel.as_ref().unwrap();
+            match duel.waiting_on() {
+                None => return,
+                Some(player) if player == PLAYER => {
+                    let action = ai_choose_action(duel, PLAYER).unwrap();
+                    assert_eq!(session.duel_suggest().unwrap(), to_json(&action).unwrap());
+                    let legal: Vec<Action> =
+                        serde_json::from_str(&session.duel_legal_actions().unwrap()).unwrap();
+                    assert!(legal.contains(&action));
+                    let json = session.duel_apply(&to_json(&action).unwrap()).unwrap();
+                    let update = update(&json);
+                    for event in &update.events {
+                        if let GameEvent::CardDrawn { player, card } = event {
+                            assert_eq!(card.face.is_some(), *player == PLAYER);
+                        }
+                    }
+                }
+                Some(_) => {
+                    assert!(session.duel_apply(r#"{"type":"pass_priority"}"#).is_err());
+                    session.duel_ai_step().unwrap();
+                }
+            }
+        }
+        panic!("the duel did not end");
+    }
+
+    #[test]
+    fn a_whole_run_plays_through_the_handle() {
+        let mut session = RunSession::new("firebrand", "5").unwrap();
+        let mut log = Vec::new();
+        for _ in 0..500 {
+            let view = run_view_of(&session);
+            if matches!(view.phase, engine::run::Phase::Over { .. }) {
+                assert!(view.actions.is_empty());
+                break;
+            }
+            if view.actions == [RunAction::Concede] {
+                let duel: PlayerView = serde_json::from_str(&session.duel_view().unwrap()).unwrap();
+                assert_eq!(duel.viewer, PLAYER);
+                play_run_duel(&mut session);
+                continue;
+            }
+            // Take the last action on offer: it finishes duels, skips
+            // rewards, leaves shops and rest sites, and starts the boss.
+            let action = view.actions.last().unwrap().clone();
+            let update = run_act(&mut session, &action);
+            assert_eq!(update.view, run_view_of(&session));
+            log.extend(update.events);
+        }
+        assert!(matches!(log.last(), Some(RunEvent::RunEnded { .. })));
+        let duels = log
+            .iter()
+            .filter(|event| matches!(event, RunEvent::DuelStarted { .. }))
+            .count();
+        assert!(duels >= 2, "only {duels} duels");
     }
 }

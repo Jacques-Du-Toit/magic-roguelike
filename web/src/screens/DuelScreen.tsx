@@ -47,6 +47,20 @@ export type Speed = 'normal' | 'fast' | 'instant'
 /** How to start the next game from the duel screen. */
 export type NextGame = 'new_seed' | 'same_seed' | 'menu'
 
+/** Where the duel screen leads: another practice game, or back to the run. */
+export type DuelExit =
+  | { kind: 'practice'; onNextGame: (next: NextGame) => void }
+  | {
+      kind: 'run'
+      /** The player's hearts, in words. */
+      hearts: string
+      /** What losing this duel costs, in words. */
+      stakes: string
+      onConcede: () => void
+      /** Leave the finished duel and take its result into the run. */
+      onContinue: () => void
+    }
+
 type Mode =
   | { kind: 'idle' }
   | { kind: 'casting'; casting: Casting }
@@ -140,7 +154,7 @@ interface DuelScreenProps {
   deckNames: ReadonlyMap<string, string>
   speed: Speed
   onSpeed: (speed: Speed) => void
-  onNextGame: (next: NextGame) => void
+  exit: DuelExit
 }
 
 export function DuelScreen({
@@ -149,7 +163,7 @@ export function DuelScreen({
   deckNames,
   speed,
   onSpeed,
-  onNextGame,
+  exit,
 }: DuelScreenProps) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const { view, actions, busy, effects, info } = snapshot
@@ -166,6 +180,7 @@ export function DuelScreen({
   const [graveyardOf, setGraveyardOf] = useState<PlayerId | null>(null)
   const [resultDismissed, setResultDismissed] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [conceding, setConceding] = useState(false)
 
   const you = view.players[playerIndex(HUMAN)]
   const opponent = view.players[playerIndex(AI)]
@@ -316,9 +331,32 @@ export function DuelScreen({
           <button type="button" className="link" onClick={copyReport}>
             {copied ? 'Copied' : 'Copy bug report'}
           </button>
-          <button type="button" className="link" onClick={() => onNextGame('menu')}>
-            Quit
-          </button>
+          {exit.kind === 'practice' && (
+            <button type="button" className="link" onClick={() => exit.onNextGame('menu')}>
+              Quit
+            </button>
+          )}
+          {exit.kind === 'run' && (
+            <span className="muted" data-testid="stakes">
+              {exit.hearts}. {exit.stakes}
+            </span>
+          )}
+          {exit.kind === 'run' && view.result === null && !conceding && (
+            <button type="button" className="link" onClick={() => setConceding(true)}>
+              Concede
+            </button>
+          )}
+          {exit.kind === 'run' && view.result === null && conceding && (
+            <>
+              <span>Concede? It counts as a loss.</span>
+              <button type="button" className="link" onClick={exit.onConcede} data-testid="concede">
+                Yes, concede
+              </button>
+              <button type="button" className="link" onClick={() => setConceding(false)}>
+                No
+              </button>
+            </>
+          )}
         </span>
       </header>
 
@@ -494,15 +532,23 @@ export function DuelScreen({
           <button type="button" onClick={() => setResultDismissed(true)}>
             Look at the board
           </button>
-          <button type="button" onClick={() => onNextGame('menu')}>
-            Change decks
-          </button>
-          <button type="button" onClick={() => onNextGame('same_seed')}>
-            Replay this seed
-          </button>
-          <button type="button" className="primary" onClick={() => onNextGame('new_seed')}>
-            Play again
-          </button>
+          {exit.kind === 'practice' ? (
+            <>
+              <button type="button" onClick={() => exit.onNextGame('menu')}>
+                Change decks
+              </button>
+              <button type="button" onClick={() => exit.onNextGame('same_seed')}>
+                Replay this seed
+              </button>
+              <button type="button" className="primary" onClick={() => exit.onNextGame('new_seed')}>
+                Play again
+              </button>
+            </>
+          ) : (
+            <button type="button" className="primary" onClick={exit.onContinue} data-testid="continue">
+              Continue
+            </button>
+          )}
         </GameOverOverlay>
       )}
     </div>

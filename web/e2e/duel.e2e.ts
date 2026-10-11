@@ -1,70 +1,13 @@
-import { type Page, expect, test } from '@playwright/test'
-
-// Drives the real app in a browser. The clicking below is deliberately
-// dumb: it only ever clicks what the screen lights up, which is how it
-// checks that the screen always offers a way forward.
-
-const idle = (page: Page) => page.locator('[data-testid="duel"][data-busy="false"]')
-const primary = (page: Page) => page.locator('.prompt-bar button.primary')
-const result = (page: Page) => page.getByTestId('result')
-
-function watchForErrors(page: Page): string[] {
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(String(error)))
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text())
-  })
-  return errors
-}
-
-async function start(page: Page, query: string): Promise<void> {
-  await page.goto(`/?${query}`)
-  await page.getByRole('dialog', { name: 'Opening hand' }).waitFor()
-  await idle(page).waitFor()
-}
-
-/** Takes one step of the game by clicking something the screen offers. */
-async function clickSomething(page: Page, step: number): Promise<void> {
-  const dialog = page.getByRole('dialog', { name: 'Opening hand' })
-  const target = page.locator('.lit-target').first()
-  const playable = page.locator('[data-testid="hand"] [data-playable="true"]').first()
-  const attackAll = page.getByRole('button', { name: 'Attack with all' })
-  const blocker = page.locator('.bf-row .permanent.lit-action').first()
-  const reset = page.getByRole('button', { name: 'Reset', exact: true })
-
-  if (await dialog.isVisible()) {
-    const keep = dialog.getByRole('button', { name: 'Keep', exact: true })
-    if (await keep.isVisible()) await keep.click()
-    else await dialog.locator('.lit-action').first().click()
-  } else if (await target.isVisible()) {
-    await target.click()
-  } else if ((await playable.isVisible()) && step % 4 !== 3) {
-    await playable.click()
-  } else if (await attackAll.isVisible()) {
-    await attackAll.click()
-    await primary(page).click()
-  } else if ((await blocker.isVisible()) && step % 2 === 0) {
-    await blocker.click()
-  } else if (await primary(page).isVisible()) {
-    await primary(page).click()
-  } else if (await reset.isVisible()) {
-    // Blocks that can't be confirmed as they stand.
-    await reset.click()
-  } else {
-    // A decision answered from the hand, e.g. discarding.
-    await page.locator('.lit-action').first().click()
-  }
-}
-
-async function playToTheEnd(page: Page): Promise<number> {
-  for (let step = 0; step < 1500; step += 1) {
-    await idle(page).waitFor()
-    if (await result(page).isVisible()) return step
-    await expect(page.getByTestId('prompt').last()).not.toBeEmpty()
-    await clickSomething(page, step)
-  }
-  throw new Error('the game did not end')
-}
+import { expect, test } from '@playwright/test'
+import {
+  clickSomething,
+  idle,
+  playToTheEnd,
+  primary,
+  result,
+  start,
+  watchForErrors,
+} from './helpers.ts'
 
 test('the menu starts a duel with the default matchup', async ({ page }) => {
   const errors = watchForErrors(page)

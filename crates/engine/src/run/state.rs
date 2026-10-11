@@ -248,6 +248,7 @@ pub enum RunEvent {
     },
     /// `gold` is the new total.
     GoldChanged {
+        #[ts(type = "number")]
         change: i64,
         gold: u32,
         reason: GoldReason,

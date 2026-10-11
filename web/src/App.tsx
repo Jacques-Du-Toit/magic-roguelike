@@ -1,15 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PreviewProvider } from './components/Preview.tsx'
 import { DuelController, type Sleep } from './duel/controller.ts'
-import { Duel, cardDefs, deckDefs, engineInfo, loadEngine, randomSeed } from './engine/index.ts'
+import {
+  Duel,
+  Run,
+  cardDefs,
+  deckDefs,
+  engineInfo,
+  loadEngine,
+  randomSeed,
+  runContent,
+} from './engine/index.ts'
 import type { CardDef } from './engine/types/CardDef.ts'
 import type { DeckDef } from './engine/types/DeckDef.ts'
+import type { RunContent } from './engine/types/RunContent.ts'
 import { DuelScreen, type NextGame, type Speed } from './screens/DuelScreen.tsx'
-import { type GameChoice, MenuScreen } from './screens/MenuScreen.tsx'
+import { type GameChoice, MenuScreen, type RunChoice } from './screens/MenuScreen.tsx'
+import { RunScreen } from './screens/RunScreen.tsx'
 
 /**
- * The default matchup (docs/ROADMAP.md, M2): the human plays the control
- * deck, and the AI one of the decks it can pilot.
+ * The default practice matchup (docs/ROADMAP.md, M2): the human plays the
+ * control deck, and the AI one of the decks it can pilot.
  */
 const DEFAULT_HUMAN_DECK = 'deck_b'
 const RANDOM_AI_DECKS = ['deck_a', 'deck_c']
@@ -24,7 +35,13 @@ function isSpeed(value: string | null): value is Speed {
 
 type EngineStatus =
   | { kind: 'loading' }
-  | { kind: 'ready'; engine: string; cards: Map<string, CardDef>; decks: DeckDef[] }
+  | {
+      kind: 'ready'
+      engine: string
+      cards: Map<string, CardDef>
+      decks: DeckDef[]
+      content: RunContent
+    }
   | { kind: 'failed'; message: string }
 
 interface Game {
@@ -35,42 +52,77 @@ interface Game {
   id: number
 }
 
+interface RunGame {
+  run: Run
+  choice: RunChoice
+  /** Counts the runs of this visit, so each gets a fresh screen. */
+  id: number
+}
+
 function endGame(game: Game | null): void {
   if (!game) return
   game.controller.dispose()
   game.duel.free()
 }
 
-/** The game the address asks for, e.g. `?seed=7&you=deck_b&ai=deck_a`. */
-function choiceFromAddress(): { choice: GameChoice; start: boolean; speed: Speed | null } {
+/**
+ * What the address asks for: a practice duel such as
+ * `?seed=7&you=deck_b&ai=deck_a`, or a run such as `?run=warden&seed=7`.
+ */
+function choiceFromAddress(): {
+  choice: GameChoice
+  run: RunChoice
+  start: 'duel' | 'run' | null
+  speed: Speed | null
+} {
   const params = new URLSearchParams(window.location.search)
   const speed = params.get('speed')
+  const seed = params.get('seed') ?? ''
+  const run = params.get('run')
   return {
     choice: {
       humanDeck: params.get('you') ?? DEFAULT_HUMAN_DECK,
       aiDeck: params.get('ai') ?? 'random',
-      seed: params.get('seed') ?? '',
+      seed: run === null ? seed : '',
     },
-    start: params.has('seed'),
+    run: { planeswalker: run ?? '', seed: run === null ? '' : seed },
+    start: run !== null ? 'run' : params.has('seed') ? 'duel' : null,
     speed: isSpeed(speed) ? speed : null,
   }
+}
+
+/** The seed to use: the one typed, a new random one, or null if it is no number. */
+function readSeed(text: string): string | null {
+  const seed = text.trim()
+  if (seed === '') return randomSeed()
+  return /^\d+$/.test(seed) ? seed : null
 }
 
 function App() {
   const [status, setStatus] = useState<EngineStatus>({ kind: 'loading' })
   const [game, setGame] = useState<Game | null>(null)
+  const [runGame, setRunGame] = useState<RunGame | null>(null)
   const [menuError, setMenuError] = useState<string | null>(null)
+  const [runError, setRunError] = useState<string | null>(null)
   const [lastChoice, setLastChoice] = useState<GameChoice>(() => choiceFromAddress().choice)
+  const [lastRun, setLastRun] = useState<RunChoice>(() => choiceFromAddress().run)
   const [speed, setSpeed] = useState<Speed>(() => {
     const stored = window.localStorage.getItem(SPEED_KEY)
     return choiceFromAddress().speed ?? (isSpeed(stored) ? stored : 'normal')
   })
   // The controller reads the speed at each pause, so a change applies at once.
+  // A run left for the menu may still have a duel winding down; its handle
+  // is freed when the next run starts.
+  const staleRun = useRef<Run | null>(null)
   const speedRef = useRef(speed)
   const changeSpeed = (next: Speed) => {
     speedRef.current = next
     setSpeed(next)
     window.localStorage.setItem(SPEED_KEY, next)
+  }
+  const sleep: Sleep = (ms) => {
+    const scaled = ms * SPEED_FACTOR[speedRef.current]
+    return scaled <= 0 ? Promise.resolve() : new Promise((done) => setTimeout(done, scaled))
   }
 
   const startGame = (
@@ -78,21 +130,16 @@ function App() {
     cards: ReadonlyMap<string, CardDef>,
     previous: Game | null,
   ) => {
-    const seedText = choice.seed.trim()
-    if (seedText !== '' && !/^\d+$/.test(seedText)) {
+    const seed = readSeed(choice.seed)
+    if (seed === null) {
       setMenuError('The seed must be a whole number.')
       return
     }
-    const seed = seedText === '' ? randomSeed() : seedText
     // The seed decides a random opponent too, so a seed replays the same game.
     const aiDeck =
       choice.aiDeck === 'random'
         ? RANDOM_AI_DECKS[Number(BigInt(seed) % BigInt(RANDOM_AI_DECKS.length))]
         : choice.aiDeck
-    const sleep: Sleep = (ms) => {
-      const scaled = ms * SPEED_FACTOR[speedRef.current]
-      return scaled <= 0 ? Promise.resolve() : new Promise((done) => setTimeout(done, scaled))
-    }
     try {
       const duel = new Duel(choice.humanDeck, aiDeck, seed)
       const info = { humanDeck: choice.humanDeck, aiDeck, seed }
@@ -107,6 +154,25 @@ function App() {
     }
   }
 
+  const startRun = (choice: RunChoice, previous: RunGame | null) => {
+    const seed = readSeed(choice.seed)
+    if (seed === null) {
+      setRunError('The seed must be a whole number.')
+      return
+    }
+    try {
+      const run = new Run(choice.planeswalker, seed)
+      previous?.run.free()
+      staleRun.current?.free()
+      staleRun.current = null
+      setRunError(null)
+      setLastRun(choice)
+      setRunGame({ run, choice, id: (previous?.id ?? 0) + 1 })
+    } catch (error) {
+      setRunError(error instanceof Error ? error.message : String(error))
+    }
+  }
+
   useEffect(() => {
     let cancelled = false
     loadEngine()
@@ -114,14 +180,21 @@ function App() {
         if (cancelled) return
         const info = engineInfo()
         const cards = new Map(cardDefs().map((card) => [card.id, card]))
+        const content = runContent()
         setStatus({
           kind: 'ready',
           engine: `Rules engine ${info.name} ${info.version}.`,
           cards,
           decks: deckDefs(),
+          content,
         })
         const asked = choiceFromAddress()
-        if (asked.start) startGame(asked.choice, cards, null)
+        setLastRun((last) => ({
+          ...last,
+          planeswalker: last.planeswalker || content.planeswalkers[0].id,
+        }))
+        if (asked.start === 'duel') startGame(asked.choice, cards, null)
+        if (asked.start === 'run') startRun(asked.run, null)
       })
       .catch((error: unknown) => {
         if (!cancelled) setStatus({ kind: 'failed', message: String(error) })
@@ -129,7 +202,7 @@ function App() {
     return () => {
       cancelled = true
     }
-    // Runs once: it loads the engine and starts the game the address names.
+    // Runs once: it loads the engine and starts what the address names.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -172,31 +245,61 @@ function App() {
     }
   }
 
-  return (
-    <PreviewProvider>
-      {game ? (
-        <DuelScreen
-          key={game.id}
-          controller={game.controller}
-          cards={status.cards}
-          deckNames={deckNames}
-          speed={speed}
-          onSpeed={changeSpeed}
-          onNextGame={onNextGame}
-        />
-      ) : (
-        <MenuScreen
-          decks={status.decks}
-          cards={status.cards}
-          initial={lastChoice}
-          randomDecks={RANDOM_AI_DECKS.map((deck) => deckNames.get(deck) ?? deck)}
-          error={menuError}
-          engine={status.engine}
-          onStart={(choice) => startGame(choice, status.cards, null)}
-        />
-      )}
-    </PreviewProvider>
-  )
+  const onRunExit = (next: 'menu' | 'new_run') => {
+    if (!runGame) return
+    if (next === 'new_run') {
+      startRun({ ...runGame.choice, seed: '' }, runGame)
+    } else {
+      staleRun.current = runGame.run
+      setLastRun({ ...runGame.choice, seed: runGame.run.seed })
+      setRunGame(null)
+    }
+  }
+
+  let screen
+  if (runGame) {
+    screen = (
+      <RunScreen
+        key={runGame.id}
+        run={runGame.run}
+        content={status.content}
+        cards={status.cards}
+        sleep={sleep}
+        speed={speed}
+        onSpeed={changeSpeed}
+        onExit={onRunExit}
+      />
+    )
+  } else if (game) {
+    screen = (
+      <DuelScreen
+        key={game.id}
+        controller={game.controller}
+        cards={status.cards}
+        deckNames={deckNames}
+        speed={speed}
+        onSpeed={changeSpeed}
+        exit={{ kind: 'practice', onNextGame }}
+      />
+    )
+  } else {
+    screen = (
+      <MenuScreen
+        decks={status.decks}
+        cards={status.cards}
+        planeswalkers={status.content.planeswalkers}
+        initial={lastChoice}
+        initialRun={lastRun}
+        randomDecks={RANDOM_AI_DECKS.map((deck) => deckNames.get(deck) ?? deck)}
+        error={menuError}
+        runError={runError}
+        engine={status.engine}
+        onStart={(choice) => startGame(choice, status.cards, null)}
+        onStartRun={(choice) => startRun(choice, null)}
+      />
+    )
+  }
+  return <PreviewProvider>{screen}</PreviewProvider>
 }
 
 export default App

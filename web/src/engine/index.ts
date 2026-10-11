@@ -2,7 +2,14 @@
 // module that talks to wasm (see docs/ARCHITECTURE.md §9). Data crosses the
 // boundary as JSON strings and is typed with the ts-rs generated types.
 
-import init, { Duel as WasmDuel, card_defs, decks, engine_info } from '../wasm/engine_wasm.js'
+import init, {
+  Duel as WasmDuel,
+  Run as WasmRun,
+  card_defs,
+  decks,
+  engine_info,
+  run_content,
+} from '../wasm/engine_wasm.js'
 import type { Action } from './types/Action.ts'
 import type { CardDef } from './types/CardDef.ts'
 import type { DeckDef } from './types/DeckDef.ts'
@@ -10,6 +17,10 @@ import type { DuelUpdate } from './types/DuelUpdate.ts'
 import type { EngineInfo } from './types/EngineInfo.ts'
 import type { PlayerId } from './types/PlayerId.ts'
 import type { PlayerView } from './types/PlayerView.ts'
+import type { RunAction } from './types/RunAction.ts'
+import type { RunContent } from './types/RunContent.ts'
+import type { RunUpdate } from './types/RunUpdate.ts'
+import type { RunView } from './types/RunView.ts'
 
 let loading: Promise<void> | undefined
 
@@ -32,6 +43,11 @@ export function cardDefs(): CardDef[] {
 /** Every decklist, in id order. */
 export function deckDefs(): DeckDef[] {
   return JSON.parse(decks()) as DeckDef[]
+}
+
+/** Everything a run can contain: planeswalkers, relics, boons and enemies. */
+export function runContent(): RunContent {
+  return JSON.parse(run_content()) as RunContent
 }
 
 /** The seats of a duel against the AI: the engine-wasm crate fixes them. */
@@ -103,5 +119,63 @@ export class Duel {
   /** Releases the wasm memory. The handle can't be used afterwards. */
   free(): void {
     this.#duel.free()
+  }
+}
+
+/** One thing the human did in a run: enough, with the seed, to replay it. */
+export type RunInput = { run: RunAction } | { duel: Action }
+
+/**
+ * A run, with whatever duel it is in. The state lives in wasm memory; this
+ * is a handle to it. Every method throws an `Error` with the engine's
+ * message if the engine refuses.
+ */
+export class Run {
+  readonly #run: WasmRun
+  readonly planeswalker: string
+  readonly seed: string
+  /** Everything the human has done, in order. */
+  readonly inputs: RunInput[] = []
+
+  constructor(planeswalker: string, seed: string) {
+    this.#run = new WasmRun(planeswalker, seed)
+    this.planeswalker = planeswalker
+    this.seed = seed
+  }
+
+  /** The whole run and the legal run actions. */
+  view(): RunView {
+    return JSON.parse(this.#run.view()) as RunView
+  }
+
+  /** Applies one of the legal run actions. */
+  apply(action: RunAction): RunUpdate {
+    const update = JSON.parse(this.#run.apply(JSON.stringify(action))) as RunUpdate
+    this.inputs.push({ run: action })
+    return update
+  }
+
+  /**
+   * The duel in progress, in the shape the duel controller drives. Its
+   * methods throw when no duel is being played.
+   */
+  readonly duel = {
+    view: (): PlayerView => JSON.parse(this.#run.duel_view()) as PlayerView,
+    legalActions: (): Action[] => JSON.parse(this.#run.duel_legal_actions()) as Action[],
+    shouldAutoPass: (holdPriority: boolean): boolean =>
+      this.#run.duel_should_auto_pass(holdPriority),
+    apply: (action: Action): DuelUpdate => {
+      const update = JSON.parse(this.#run.duel_apply(JSON.stringify(action))) as DuelUpdate
+      this.inputs.push({ duel: action })
+      return update
+    },
+    aiStep: (): DuelUpdate => JSON.parse(this.#run.duel_ai_step()) as DuelUpdate,
+    /** What the AI would do in the human's place. */
+    suggest: (): Action => JSON.parse(this.#run.duel_suggest()) as Action,
+  }
+
+  /** Releases the wasm memory. The handle can't be used afterwards. */
+  free(): void {
+    this.#run.free()
   }
 }

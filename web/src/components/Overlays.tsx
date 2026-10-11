@@ -10,7 +10,7 @@ import { CardFrame } from './Card.tsx'
 import { Hand } from './Hand.tsx'
 import { usePreview } from './usePreview.ts'
 
-function Overlay({ label, children }: { label: string; children: ReactNode }) {
+export function Overlay({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="overlay" role="dialog" aria-label={label}>
       <div className="overlay-box">{children}</div>
