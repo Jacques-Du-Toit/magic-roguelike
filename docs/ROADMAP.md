@@ -11,13 +11,13 @@ Build in small milestones. Each has **acceptance criteria**; a milestone is done
 Goal: an empty but working pipeline from Rust to browser.
 
 - [ ] `git init`, first commit, GitHub remote.
-- [ ] Cargo workspace with `crates/engine`, `crates/engine-wasm`, `crates/sim`.
-- [ ] `web/` Vite + React + TypeScript (strict) app.
-- [ ] Engine exposes one trivial function through wasm; web app calls it and displays the result.
-- [ ] One Rust type is exported to TypeScript with `ts-rs` and used by the web app.
-- [ ] npm script to build wasm; `npm run dev` works end to end.
-- [ ] `.gitignore`, `cargo fmt`, clippy, Vitest set up.
-- [ ] `CLAUDE.md` commands section verified accurate.
+- [x] Cargo workspace with `crates/engine`, `crates/engine-wasm`, `crates/sim`.
+- [x] `web/` Vite + React + TypeScript (strict) app.
+- [x] Engine exposes one trivial function through wasm; web app calls it and displays the result.
+- [x] One Rust type is exported to TypeScript with `ts-rs` and used by the web app.
+- [x] npm script to build wasm; `npm run dev` works end to end.
+- [x] `.gitignore`, `cargo fmt`, clippy, Vitest set up.
+- [x] `CLAUDE.md` commands section verified accurate.
 
 **Done when:** a fresh clone can follow `TECH_STACK.md` and see the page load data from Rust.
 
