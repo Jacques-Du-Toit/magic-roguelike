@@ -47,7 +47,7 @@
     "name": "Sky Patrol",
     "tier": "easy",
     "cards": [
-      { "card": "healers_hawk", "count": 2 },
+      { "card": "coral_merfolk", "count": 2 },
       { "card": "wind_drake", "count": 3 },
       { "card": "inspiring_overseer", "count": 2 },
       { "card": "assault_griffin", "count": 2 },
@@ -132,7 +132,8 @@
       { "card": "llanowar_elves", "count": 2 },
       { "card": "grizzly_bears", "count": 2 },
       { "card": "elvish_visionary", "count": 1 },
-      { "card": "centaur_courser", "count": 3 },
+      { "card": "centaur_courser", "count": 2 },
+      { "card": "sentinel_spider", "count": 1 },
       { "card": "rumbling_baloth", "count": 2 },
       { "card": "stampeding_rhino", "count": 2 },
       { "card": "colossal_dreadmaw", "count": 1 },
