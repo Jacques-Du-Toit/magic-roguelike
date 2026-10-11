@@ -96,6 +96,7 @@ for (const [you, ai, seed] of [
   ['deck_e', 'deck_d', 13],
   ['deck_f', 'deck_e', 14],
   ['deck_g', 'deck_f', 15],
+  ['deck_h', 'deck_g', 16],
 ] as const) {
   test(`a whole game as ${you} against ${ai} can be clicked through`, async ({ page }) => {
     const errors = watchForErrors(page)
@@ -188,6 +189,45 @@ test('a game with the sacrifice deck shows an ability being used and a sacrifice
   console.log(`sacrifice deck, seed ${seed}: saw ${[...seen].join(' ')}`)
   if (process.env.SACRIFICE_SEED) return
   expect([...seen]).toEqual(expect.arrayContaining(['sacrifice', 'used', 'sacrificed']))
+})
+
+// The graveyard deck mills itself and takes creature cards back: its
+// targets are cards in a graveyard, shown to be picked from.
+// GRAVEYARD_SEED=n tries another game.
+test('a game with the graveyard deck shows graveyard cards to choose from', async ({ page }) => {
+  const seed = process.env.GRAVEYARD_SEED ?? '3'
+  const errors = watchForErrors(page)
+  await start(page, `seed=${seed}&you=deck_h&ai=deck_c&speed=instant`)
+  const seen = new Set<string>()
+  for (let step = 0; step < 1500; step += 1) {
+    await idle(page).waitFor()
+    if (await result(page).isVisible()) break
+    const choices = page.getByTestId('graveyard-choices')
+    if (await choices.isVisible()) {
+      expect(await choices.locator('.graveyard-choice').count()).toBeGreaterThan(0)
+      if (process.env.SHOTS && !seen.has('choices')) {
+        await page.screenshot({ path: `${process.env.SHOTS}/duel-graveyard.png` })
+      }
+      seen.add('choices')
+      // A "you may" ability can be turned down; do so once.
+      const decline = page.getByRole('button', { name: "Don't use it" })
+      if ((await decline.isVisible()) && !seen.has('declined')) {
+        seen.add('declined')
+        await decline.click()
+        continue
+      }
+    }
+    await clickSomething(page, step)
+  }
+  await expect(result(page)).toHaveText(/You win|You lose|Draw/)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  expect(errors).toEqual([])
+  const log = await page.getByTestId('log').innerText()
+  if (log.includes('from the graveyard to hand')) seen.add('returned')
+  if (log.includes('from the library to the graveyard')) seen.add('milled')
+  console.log(`graveyard deck, seed ${seed}: saw ${[...seen].join(' ')}`)
+  if (process.env.GRAVEYARD_SEED) return
+  expect([...seen]).toEqual(expect.arrayContaining(['choices', 'declined', 'returned', 'milled']))
 })
 
 test('the same seed can be replayed, and events play with their pauses', async ({ page }) => {

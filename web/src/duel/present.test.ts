@@ -83,6 +83,12 @@ describe('describeEvent', () => {
     expect(text({ type: 'permanent_sacrificed', player: 'P1', permanent: 2 })).toBe(
       'You sacrifice Wind Drake',
     )
+    expect(text({ type: 'card_milled', player: 'P1', card: drake })).toBe(
+      'Your Wind Drake goes from the library to the graveyard',
+    )
+    expect(text({ type: 'card_returned_to_hand', player: 'P2', card: drake })).toBe(
+      'Opponent returns Wind Drake from the graveyard to hand',
+    )
     expect(text({ type: 'card_kept_on_top', player: 'P1' })).toBe('You keep a card on top')
     expect(text({ type: 'card_kept_on_top', player: 'P2' })).toBe('Opponent keeps a card on top')
     // A bounced permanent is shown leaving before the view changes.

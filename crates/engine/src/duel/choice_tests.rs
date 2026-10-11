@@ -376,7 +376,8 @@ fn opt_shows_the_top_card_to_its_caster_only_and_then_draws() {
         Some(Decision::Scry {
             player: me,
             kept: 0,
-            remaining: 1
+            remaining: 1,
+            surveil: false
         })
     );
     assert_eq!(

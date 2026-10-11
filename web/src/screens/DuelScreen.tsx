@@ -312,6 +312,20 @@ export function DuelScreen({
       : view.combat?.assignments.find((entry) => entry.attacker === dividing && !entry.confirmed)
   const scryKeep = simpleAction(actions, 'scry_keep')
   const scryBottom = simpleAction(actions, 'scry_bottom')
+  const scryGraveyard = simpleAction(actions, 'scry_graveyard')
+  // A "you may" ability can be declined: the choice of no targets.
+  const decline =
+    mode.kind === 'aiming'
+      ? actions.find((action) => action.type === 'choose_targets' && action.targets.length === 0)
+      : undefined
+  // Cards in a graveyard that can be picked now, with whose they are.
+  const graveyardChoices = view.players.flatMap((player) =>
+    player.graveyard.flatMap((card) =>
+      targets.has(`o:${card.object}`) && card.face
+        ? [{ object: card.object, def: cards.get(card.face.def), yours: player.player === HUMAN }]
+        : [],
+    ),
+  )
   const lookingAt = view.looking_at?.face ? cards.get(view.looking_at.face.def) : undefined
   const keep = simpleAction(actions, 'keep')
   const mulligan = simpleAction(actions, 'mulligan')
@@ -492,6 +506,25 @@ export function DuelScreen({
               {lookingAt && <CardFrame def={lookingAt} size="normal" />}
             </div>
           )}
+          {graveyardChoices.length > 0 && (
+            <div className="graveyard-choices" data-testid="graveyard-choices">
+              {graveyardChoices.map(
+                (choice) =>
+                  choice.def && (
+                    <button
+                      key={choice.object}
+                      type="button"
+                      className="graveyard-choice lit-target"
+                      data-object={choice.object}
+                      onClick={() => onTarget({ type: 'object', object: choice.object })}
+                      aria-label={`${choice.def.name}, in ${choice.yours ? 'your' : "the opponent's"} graveyard`}
+                    >
+                      <CardFrame def={choice.def} size="small" />
+                    </button>
+                  ),
+              )}
+            </div>
+          )}
           {assignment && (
             <DamagePanel
               assignment={assignment}
@@ -520,9 +553,19 @@ export function DuelScreen({
                 Choose again
               </button>
             )}
+            {decline && (
+              <button type="button" onClick={() => send(decline)}>
+                Don't use it
+              </button>
+            )}
             {scryBottom && (
               <button type="button" onClick={() => send(scryBottom)}>
                 Put on the bottom
+              </button>
+            )}
+            {scryGraveyard && (
+              <button type="button" onClick={() => send(scryGraveyard)}>
+                Put in the graveyard
               </button>
             )}
             {scryKeep && (

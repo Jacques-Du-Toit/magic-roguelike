@@ -19,6 +19,8 @@ mod effects;
 #[cfg(test)]
 mod emblem_tests;
 mod error;
+#[cfg(test)]
+mod graveyard_tests;
 mod ids;
 #[cfg(test)]
 mod keyword_tests;
@@ -85,7 +87,8 @@ fn try_legal_actions(state: &DuelState, player: PlayerId) -> Result<Vec<Action>,
         Decision::DeclareBlockers { .. } => combat::legal_block_actions(state)?,
         Decision::AssignCombatDamage { .. } => combat::legal_assignment_actions(state)?,
         Decision::ChooseTargets { .. } => stack::legal_target_choices(state)?,
-        Decision::Scry { .. } => vec![Action::ScryKeep, Action::ScryBottom],
+        Decision::Scry { surveil: false, .. } => vec![Action::ScryKeep, Action::ScryBottom],
+        Decision::Scry { surveil: true, .. } => vec![Action::ScryKeep, Action::ScryGraveyard],
     })
 }
 
@@ -179,20 +182,25 @@ fn perform(
             turn::choose_trigger_targets(state, &mut events, targets)?;
         }
         (
-            Action::ScryKeep | Action::ScryBottom,
+            Action::ScryKeep | Action::ScryBottom | Action::ScryGraveyard,
             Some(Decision::Scry {
                 kept, remaining, ..
             }),
         ) => {
-            let to_bottom = *action == Action::ScryBottom;
-            turn::scry(state, &mut events, player, kept, remaining, to_bottom)?;
+            let to = match action {
+                Action::ScryBottom => turn::ScryTo::Bottom,
+                Action::ScryGraveyard => turn::ScryTo::Graveyard,
+                _ => turn::ScryTo::Top,
+            };
+            turn::scry(state, &mut events, player, kept, remaining, to)?;
         }
         (
             Action::BottomCard { .. }
             | Action::Discard { .. }
             | Action::ResetDeclaration
             | Action::ScryKeep
-            | Action::ScryBottom,
+            | Action::ScryBottom
+            | Action::ScryGraveyard,
             _,
         ) => {
             return Err(InternalError::new(format!(

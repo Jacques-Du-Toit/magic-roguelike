@@ -1,0 +1,20 @@
+{
+  "id": "deck_h",
+  "name": "Black-Green graveyard: mill, surveil and recursion",
+  "cards": [
+    { "card": "stitchers_supplier", "count": 2 },
+    { "card": "mire_triton", "count": 2 },
+    { "card": "gravedigger", "count": 2 },
+    { "card": "golgari_findbroker", "count": 1 },
+    { "card": "raise_dead", "count": 1 },
+    { "card": "typhoid_rats", "count": 1 },
+    { "card": "elvish_visionary", "count": 1 },
+    { "card": "thornweald_archer", "count": 1 },
+    { "card": "centaur_courser", "count": 1 },
+    { "card": "rumbling_baloth", "count": 1 },
+    { "card": "murder", "count": 1 },
+    { "card": "rabid_bite", "count": 1 },
+    { "card": "swamp", "count": 5 },
+    { "card": "forest", "count": 5 }
+  ]
+}

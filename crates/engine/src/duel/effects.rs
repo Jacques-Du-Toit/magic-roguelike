@@ -6,7 +6,7 @@ use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::stack::permanent_entered;
 use super::state::{Decision, DuelState, StackItemKind, Zone};
-use super::turn::{discard_card, draw_card};
+use super::turn::{discard_card, draw_card, mill_card};
 use crate::cards::{Effect, PlayerRef};
 
 /// Whether an effect was carried out in full, or has stopped for a choice.
@@ -145,9 +145,25 @@ pub(crate) fn apply_effect(
                 toughness,
             });
         }
+        Effect::Mill { player, amount } => {
+            let player = resolve_player(effect, player, controller, targets)?;
+            for _ in 0..amount {
+                let Some(&top) = state.player(player).library.last() else {
+                    break;
+                };
+                mill_card(state, events, player, top)?;
+            }
+        }
         Effect::ReturnToHand { .. } => {
             let permanent = object(effect, targets, 0)?;
-            if state.is_on_battlefield(permanent) {
+            if state.objects.get(&permanent).map(|card| card.zone) == Some(Zone::Graveyard) {
+                let player = state.object(permanent)?.owner;
+                let card = state.move_object(permanent, Zone::Hand)?;
+                events.push(GameEvent::CardReturnedToHand {
+                    player,
+                    card: state.card_ref(card)?,
+                });
+            } else if state.is_on_battlefield(permanent) {
                 let player = state.object(permanent)?.owner;
                 let card = state.move_object(permanent, Zone::Hand)?;
                 events.push(GameEvent::PermanentReturnedToHand {
@@ -165,6 +181,20 @@ pub(crate) fn apply_effect(
                     player: controller,
                     kept: 0,
                     remaining: u8::try_from(amount).unwrap_or(u8::MAX),
+                    surveil: false,
+                });
+                return Ok(Applied::Waiting);
+            }
+        }
+        Effect::Surveil { amount } => {
+            let library = state.player(controller).library.len();
+            let amount = usize::try_from(amount).unwrap_or(usize::MAX).min(library);
+            if amount > 0 {
+                state.decision = Some(Decision::Scry {
+                    player: controller,
+                    kept: 0,
+                    remaining: u8::try_from(amount).unwrap_or(u8::MAX),
+                    surveil: true,
                 });
                 return Ok(Applied::Waiting);
             }

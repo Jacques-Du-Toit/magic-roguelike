@@ -56,7 +56,7 @@ pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, A
         // blockers as the damage allows.
         Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,
         Decision::ChooseTargets { .. } => best_choice(state, player, &actions, LOOKAHEAD)?,
-        Decision::Scry { kept, .. } => scry(state, player, kept)?,
+        Decision::Scry { kept, surveil, .. } => scry(state, player, kept, surveil)?,
     };
     if actions.contains(&choice) {
         Ok(choice)
@@ -177,7 +177,12 @@ fn best_choice(
 
 /// Keep the card on top unless it is a land with plenty of lands already,
 /// or a spell that is a long way from castable.
-fn scry(state: &DuelState, player: PlayerId, kept: u8) -> Result<Action, InternalError> {
+fn scry(
+    state: &DuelState,
+    player: PlayerId,
+    kept: u8,
+    surveil: bool,
+) -> Result<Action, InternalError> {
     let def = state.def(scry_card(state, player, kept)?)?;
     let mut lands = lands_in_hand(state, player)?.len();
     for permanent in state.permanents_of(player) {
@@ -190,10 +195,10 @@ fn scry(state: &DuelState, player: PlayerId, kept: u8) -> Result<Action, Interna
     } else {
         def.mana_cost.mana_value() as usize > lands + 3
     };
-    Ok(if unwanted {
-        Action::ScryBottom
-    } else {
-        Action::ScryKeep
+    Ok(match (unwanted, surveil) {
+        (false, _) => Action::ScryKeep,
+        (true, false) => Action::ScryBottom,
+        (true, true) => Action::ScryGraveyard,
     })
 }
 

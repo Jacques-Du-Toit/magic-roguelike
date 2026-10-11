@@ -336,30 +336,47 @@ pub(crate) fn choose_trigger_targets(
     open_priority_for(state, events, player)
 }
 
-/// While scrying, the player keeps the card they are looking at on top of
-/// their library or puts it on the bottom.
+/// Where a card looked at in a scry or a surveil goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ScryTo {
+    Top,
+    Bottom,
+    Graveyard,
+}
+
+/// While scrying or surveilling, the player keeps the card they are looking
+/// at on top of their library, or puts it on the bottom or into their
+/// graveyard.
 pub(crate) fn scry(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
     player: PlayerId,
     kept: u8,
     remaining: u8,
-    to_bottom: bool,
+    to: ScryTo,
 ) -> Result<(), InternalError> {
     let card = scry_card(state, player, kept)?;
-    let kept = if to_bottom {
-        let library = &mut state.player_mut(player).library;
-        library.retain(|other| *other != card);
-        library.insert(0, card);
-        events.push(GameEvent::CardPutOnBottom {
-            player,
-            card: state.card_ref(card)?,
-        });
-        kept
-    } else {
-        events.push(GameEvent::CardKeptOnTop { player });
-        kept + 1
+    let kept = match to {
+        ScryTo::Top => {
+            events.push(GameEvent::CardKeptOnTop { player });
+            kept + 1
+        }
+        ScryTo::Bottom => {
+            let library = &mut state.player_mut(player).library;
+            library.retain(|other| *other != card);
+            library.insert(0, card);
+            events.push(GameEvent::CardPutOnBottom {
+                player,
+                card: state.card_ref(card)?,
+            });
+            kept
+        }
+        ScryTo::Graveyard => {
+            mill_card(state, events, player, card)?;
+            kept
+        }
     };
+    let surveil = matches!(state.decision, Some(Decision::Scry { surveil: true, .. }));
     match remaining.saturating_sub(1) {
         0 => resume_resolution(state, events),
         remaining => {
@@ -367,10 +384,26 @@ pub(crate) fn scry(
                 player,
                 kept,
                 remaining,
+                surveil,
             });
             Ok(())
         }
     }
+}
+
+/// Moves a card from the player's library to their graveyard.
+pub(crate) fn mill_card(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    player: PlayerId,
+    card: ObjectId,
+) -> Result<(), InternalError> {
+    let milled = state.move_object(card, Zone::Graveyard)?;
+    events.push(GameEvent::CardMilled {
+        player,
+        card: state.card_ref(milled)?,
+    });
+    Ok(())
 }
 
 /// The card a scrying player is looking at: the top of their library, below

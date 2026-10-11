@@ -141,6 +141,7 @@ fn write_replay(
             }
             Action::ScryKeep => Some("scries: keeps the card on top".to_string()),
             Action::ScryBottom => Some("scries: puts the card on the bottom".to_string()),
+            Action::ScryGraveyard => Some("surveils: puts the card into the graveyard".to_string()),
             Action::ConfirmAttackers => state
                 .combat
                 .as_ref()

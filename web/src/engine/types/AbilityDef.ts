@@ -9,4 +9,9 @@ export type AbilityDef = { "kind": "spell", effects: Array<Effect>, } | { "kind"
 /**
  * "The first time each turn": it triggers once a turn at most.
  */
-once_each_turn: boolean, } | { "kind": "activated", cost: ActivationCost, effects: Array<Effect>, } | { "kind": "static" } & StaticAbility | { "kind": "mana", cost: AbilityCost, produces: string, };
+once_each_turn: boolean, 
+/**
+ * "You may": its controller can decline to use it instead of
+ * choosing its targets.
+ */
+optional: boolean, } | { "kind": "activated", cost: ActivationCost, effects: Array<Effect>, } | { "kind": "static" } & StaticAbility | { "kind": "mana", cost: AbilityCost, produces: string, };

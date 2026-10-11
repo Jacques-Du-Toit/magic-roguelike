@@ -175,6 +175,10 @@ pub enum AbilityDef {
         /// "The first time each turn": it triggers once a turn at most.
         #[serde(default)]
         once_each_turn: bool,
+        /// "You may": its controller can decline to use it instead of
+        /// choosing its targets.
+        #[serde(default)]
+        optional: bool,
     },
     /// An ability its controller may use whenever they have priority, by
     /// paying its cost. It uses the stack.
@@ -366,6 +370,11 @@ pub enum Effect {
         player: PlayerRef,
         amount: u32,
     },
+    /// The player puts the top cards of their library into their graveyard.
+    Mill {
+        player: PlayerRef,
+        amount: u32,
+    },
     ModifyPtUntilEot {
         target: TargetSpec,
         power: i32,
@@ -377,6 +386,10 @@ pub enum Effect {
     /// The controller looks at the top cards of their library, one at a
     /// time, and puts each back or on the bottom.
     Scry {
+        amount: u32,
+    },
+    /// As scry, but the cards not kept go to the graveyard.
+    Surveil {
         amount: u32,
     },
     /// Taps the target. With `skip_next_untap` it also stays tapped through
@@ -403,9 +416,11 @@ impl Effect {
             Effect::GainLife { .. } => "gain_life",
             Effect::GrantKeywordUntilEot { .. } => "grant_keyword_until_eot",
             Effect::LoseLife { .. } => "lose_life",
+            Effect::Mill { .. } => "mill",
             Effect::ModifyPtUntilEot { .. } => "modify_pt_until_eot",
             Effect::ReturnToHand { .. } => "return_to_hand",
             Effect::Scry { .. } => "scry",
+            Effect::Surveil { .. } => "surveil",
             Effect::Tap { .. } => "tap",
         }
     }
@@ -427,8 +442,9 @@ impl Effect {
             Effect::Discard { player, .. }
             | Effect::DrawCards { player, .. }
             | Effect::GainLife { player, .. }
-            | Effect::LoseLife { player, .. } => player.target().into_iter().collect(),
-            Effect::CreateToken { .. } | Effect::Scry { .. } => Vec::new(),
+            | Effect::LoseLife { player, .. }
+            | Effect::Mill { player, .. } => player.target().into_iter().collect(),
+            Effect::CreateToken { .. } | Effect::Scry { .. } | Effect::Surveil { .. } => Vec::new(),
         }
     }
 }
@@ -469,6 +485,8 @@ pub enum TargetSpec {
     /// A creature or a player.
     AnyTarget {},
     Creature(CreatureFilter),
+    /// A card in the graveyard of the spell or ability's controller.
+    CardInYourGraveyard(GraveyardFilter),
     /// An opponent of the spell or ability's controller.
     Opponent {},
     Player {},
@@ -481,6 +499,9 @@ pub enum TargetSpec {
     /// Not a target: what made the ability trigger ("that creature gains
     /// haste").
     Triggering {},
+    /// Not a target: the spell or ability's controller ("deals 2 damage to
+    /// you").
+    You {},
     /// A spell on the stack.
     Spell(SpellFilter),
 }
@@ -509,6 +530,23 @@ pub struct CreatureFilter {
 pub enum ControlledBy {
     You,
     Opponent,
+}
+
+/// Which cards of a graveyard can be a target. Empty means any card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct GraveyardFilter {
+    #[serde(default)]
+    pub kind: Option<GraveyardKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum GraveyardKind {
+    /// A creature card.
+    Creature,
+    /// A permanent card: anything but an instant or a sorcery.
+    Permanent,
 }
 
 /// Conditions a spell must meet to be a target. Empty means any spell.
@@ -544,7 +582,10 @@ impl TargetSpec {
     pub fn is_chosen(&self) -> bool {
         !matches!(
             self,
-            TargetSpec::Same {} | TargetSpec::This {} | TargetSpec::Triggering {}
+            TargetSpec::Same {}
+                | TargetSpec::This {}
+                | TargetSpec::Triggering {}
+                | TargetSpec::You {}
         )
     }
 
@@ -552,12 +593,14 @@ impl TargetSpec {
     pub fn name(&self) -> &'static str {
         match self {
             TargetSpec::AnyTarget {} => "any_target",
+            TargetSpec::CardInYourGraveyard(_) => "card_in_your_graveyard",
             TargetSpec::Creature(_) => "creature",
             TargetSpec::Opponent {} => "opponent",
             TargetSpec::Player {} => "player",
             TargetSpec::Same {} => "same",
             TargetSpec::This {} => "this",
             TargetSpec::Triggering {} => "triggering",
+            TargetSpec::You {} => "you",
             TargetSpec::Spell(_) => "spell",
         }
     }
@@ -808,8 +851,15 @@ pub(crate) fn validate_effects(effects: &[Effect]) -> Result<(), CardError> {
 pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     let creature = |target: &TargetSpec| matches!(target, TargetSpec::Creature(_));
     // A creature to choose, or one already known.
-    let creature_or_same =
-        |target: &TargetSpec| matches!(target, TargetSpec::Creature(_)) || !target.is_chosen();
+    let creature_or_same = |target: &TargetSpec| {
+        matches!(
+            target,
+            TargetSpec::Creature(_)
+                | TargetSpec::Same {}
+                | TargetSpec::This {}
+                | TargetSpec::Triggering {}
+        )
+    };
     let bad_target = match effect {
         Effect::CounterSpell { target } => {
             (!matches!(target, TargetSpec::Spell(_))).then_some(target)
@@ -820,13 +870,17 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
                 | TargetSpec::Creature(_)
                 | TargetSpec::Opponent {}
                 | TargetSpec::Player {}
+                | TargetSpec::You {}
         ))
+        .then_some(target),
+        // A creature on the battlefield, or a card in the graveyard.
+        Effect::ReturnToHand { target } => (!creature_or_same(target)
+            && !matches!(target, TargetSpec::CardInYourGraveyard(_)))
         .then_some(target),
         Effect::AddCounters { target, .. }
         | Effect::Destroy { target }
         | Effect::GrantKeywordUntilEot { target, .. }
         | Effect::ModifyPtUntilEot { target, .. }
-        | Effect::ReturnToHand { target }
         | Effect::Tap { target, .. } => (!creature_or_same(target)).then_some(target),
         Effect::DealPowerDamage { source, target } => {
             if creature(source) {
@@ -840,7 +894,9 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }
         | Effect::LoseLife { .. }
-        | Effect::Scry { .. } => None,
+        | Effect::Mill { .. }
+        | Effect::Scry { .. }
+        | Effect::Surveil { .. } => None,
     };
     if let Some(target) = bad_target {
         return Err(CardError::BadTarget {
@@ -855,7 +911,9 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::DrawCards { amount: 0, .. }
         | Effect::GainLife { amount: 0, .. }
         | Effect::LoseLife { amount: 0, .. }
-        | Effect::Scry { amount: 0 } => Err(CardError::ZeroAmount(effect.name())),
+        | Effect::Mill { amount: 0, .. }
+        | Effect::Scry { amount: 0 }
+        | Effect::Surveil { amount: 0 } => Err(CardError::ZeroAmount(effect.name())),
         Effect::CreateToken { count: 0, .. } => Err(CardError::NoTokens),
         _ => Ok(()),
     }

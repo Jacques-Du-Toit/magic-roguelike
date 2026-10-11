@@ -1,0 +1,39 @@
+{
+  "id": "golgari_findbroker",
+  "name": "Golgari Findbroker",
+  "mana_cost": "{B}{B}{G}{G}",
+  "colors": [
+    "B",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Shaman"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters, return target permanent card from your graveyard to your hand.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "return_to_hand",
+          "target": {
+            "card_in_your_graveyard": {
+              "kind": "permanent"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

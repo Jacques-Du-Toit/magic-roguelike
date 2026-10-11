@@ -81,7 +81,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 
 **In (v1):** flying, reach, first strike, double strike, deathtouch, lifelink, trample, haste, vigilance, menace, defender, hexproof, flash, indestructible. All are built.
 
-**In, added in M4a:** prowess (built), surveil (to build with the graveyard cards).
+**In, added in M4a:** prowess and surveil, both built. Surveil has scry's simplification: one card at a time, and those kept stay in their order.
 
 **Later:** ward, fight, kicker, flashback, cycling, landfall, cascade.
 
@@ -134,6 +134,9 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 | Alternate win/lose conditions | Out |
 | Hidden information (hand, library order) | In |
 | Random discard, look at top N, reveal | In |
+| Mill (library to graveyard) | In |
+| Targets in a graveyard; returning a card from a graveyard to hand | In |
+| "You may" on a triggered ability | Simplified: decided when the ability would go on the stack (decline, or choose its targets), not when it resolves. |
 
 ## Vision examples that don't fit this scope yet
 

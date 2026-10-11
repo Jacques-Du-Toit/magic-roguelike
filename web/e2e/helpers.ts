@@ -102,11 +102,12 @@ export async function followHint(page: Page): Promise<void> {
     if (target.type === 'player') {
       await page.locator(`[data-player="${target.player}"] button.life`).click()
     } else {
-      // A creature, or a spell on the stack.
+      // A creature, a spell on the stack, or a card in a graveyard.
       await page
         .locator(
           `.permanent-slot[data-object="${target.object}"] > button.permanent, ` +
-            `.stack-item[data-object="${target.object}"]`,
+            `.stack-item[data-object="${target.object}"], ` +
+            `.graveyard-choice[data-object="${target.object}"]`,
         )
         .click()
     }
@@ -136,7 +137,12 @@ export async function followHint(page: Page): Promise<void> {
       for (const target of action.targets ?? []) await clickTarget(target)
       break
     case 'choose_targets':
+      // No targets is a "you may" ability turned down.
+      if ((action.targets ?? []).length === 0) await button("Don't use it").click()
       for (const target of action.targets ?? []) await clickTarget(target)
+      break
+    case 'scry_graveyard':
+      await button('Put in the graveyard').click()
       break
     case 'scry_keep':
       await button('Keep on top').click()

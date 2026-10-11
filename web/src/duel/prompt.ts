@@ -109,10 +109,12 @@ export function promptText({
       return abilitySource
         ? `Choose a target for ${abilitySource}'s ability.`
         : 'Choose a target for the ability.'
-    case 'scry':
-      return decision.remaining > 1
-        ? `Scry: keep this card on top of your library, or put it on the bottom? (${decision.remaining} to look at)`
+    case 'scry': {
+      const question = decision.surveil
+        ? 'Surveil: keep this card on top of your library, or put it into your graveyard?'
         : 'Scry: keep this card on top of your library, or put it on the bottom?'
+      return decision.remaining > 1 ? `${question} (${decision.remaining} to look at)` : question
+    }
     case 'declare_attackers':
       return 'Declare attackers: click your creatures to attack with them, then confirm.'
     case 'declare_blockers':

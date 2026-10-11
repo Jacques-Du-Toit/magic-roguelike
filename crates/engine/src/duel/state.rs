@@ -417,13 +417,16 @@ pub enum Decision {
     /// Choose the targets of a triggered ability of `source` (a permanent
     /// or an emblem) that is about to go on the stack.
     ChooseTargets { player: PlayerId, source: ObjectId },
-    /// Scry: look at the next card of the library and keep it on top or put
-    /// it on the bottom. `kept` cards have been put back on top so far and
+    /// Scry or surveil: look at the next card of the library and keep it on
+    /// top, or put it on the bottom (scry) or into the graveyard (surveil). `kept` cards have been put back on top so far and
     /// `remaining` are still to look at, this one included.
     Scry {
         player: PlayerId,
         kept: u8,
         remaining: u8,
+        /// Surveil: the card not kept goes to the graveyard, not the
+        /// bottom of the library.
+        surveil: bool,
     },
 }
 

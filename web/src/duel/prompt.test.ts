@@ -60,7 +60,7 @@ describe('promptText', () => {
       { type: 'declare_blockers', player: 'P1' },
       { type: 'assign_combat_damage', player: 'P1', attacker: 4 },
       { type: 'choose_targets', player: 'P1', source: 7 },
-      { type: 'scry', player: 'P1', kept: 0, remaining: 1 },
+      { type: 'scry', player: 'P1', kept: 0, remaining: 1, surveil: false },
     ]
     const texts = decisions.map((decision) => prompt({ decision }))
     expect(new Set(texts).size).toBe(decisions.length)
@@ -82,8 +82,17 @@ describe('promptText', () => {
       "Choose a target for Man-o'-War's ability.",
     )
     expect(prompt({ decision: aim })).toBe('Choose a target for the ability.')
-    expect(prompt({ decision: { type: 'scry', player: 'P1', kept: 0, remaining: 2 } })).toContain(
-      '(2 to look at)',
+    const scry = (surveil: boolean, remaining: number): Decision => ({
+      type: 'scry',
+      player: 'P1',
+      kept: 0,
+      remaining,
+      surveil,
+    })
+    expect(prompt({ decision: scry(false, 2) })).toContain('(2 to look at)')
+    expect(prompt({ decision: scry(false, 1) })).toContain('put it on the bottom?')
+    expect(prompt({ decision: scry(true, 1) })).toBe(
+      'Surveil: keep this card on top of your library, or put it into your graveyard?',
     )
   })
 

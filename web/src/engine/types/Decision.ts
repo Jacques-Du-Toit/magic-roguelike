@@ -6,4 +6,9 @@ import type { PlayerId } from "./PlayerId";
  * A choice the game is waiting on. `legal_actions` lists the ways to answer
  * it.
  */
-export type Decision = { "type": "mulligan", player: PlayerId, } | { "type": "bottom_cards", player: PlayerId, remaining: number, } | { "type": "priority", player: PlayerId, } | { "type": "discard", player: PlayerId, remaining: number, } | { "type": "declare_attackers", player: PlayerId, } | { "type": "declare_blockers", player: PlayerId, } | { "type": "assign_combat_damage", player: PlayerId, attacker: ObjectId, } | { "type": "choose_targets", player: PlayerId, source: ObjectId, } | { "type": "scry", player: PlayerId, kept: number, remaining: number, };
+export type Decision = { "type": "mulligan", player: PlayerId, } | { "type": "bottom_cards", player: PlayerId, remaining: number, } | { "type": "priority", player: PlayerId, } | { "type": "discard", player: PlayerId, remaining: number, } | { "type": "declare_attackers", player: PlayerId, } | { "type": "declare_blockers", player: PlayerId, } | { "type": "assign_combat_damage", player: PlayerId, attacker: ObjectId, } | { "type": "choose_targets", player: PlayerId, source: ObjectId, } | { "type": "scry", player: PlayerId, kept: number, remaining: number, 
+/**
+ * Surveil: the card not kept goes to the graveyard, not the
+ * bottom of the library.
+ */
+surveil: boolean, };

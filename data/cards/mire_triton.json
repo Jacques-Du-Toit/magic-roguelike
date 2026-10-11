@@ -1,0 +1,43 @@
+{
+  "id": "mire_triton",
+  "name": "Mire Triton",
+  "mana_cost": "{1}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Zombie",
+    "Merfolk"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "deathtouch"
+  ],
+  "oracle_text": "Deathtouch\nWhen this creature enters, mill two cards and you gain 2 life. (To mill two cards, put the top two cards of your library into your graveyard.)",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "mill",
+          "player": "controller",
+          "amount": 2
+        },
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 2
+        }
+      ]
+    }
+  ]
+}

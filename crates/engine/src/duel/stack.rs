@@ -12,8 +12,8 @@ use super::state::{
 };
 use super::triggers::{Happening, fire};
 use crate::cards::{
-    AbilityDef, CardDef, CardType, ControlledBy, CreatureFilter, Effect, Keyword, SpellKind,
-    TargetSpec,
+    AbilityDef, CardDef, CardType, ControlledBy, CreatureFilter, Effect, GraveyardKind, Keyword,
+    SpellKind, TargetSpec,
 };
 
 /// Every spell the player could cast right now, as concrete actions: one
@@ -149,12 +149,28 @@ fn candidates(
             creatures(&mut targets, CreatureFilter::default())?;
         }
         TargetSpec::Creature(filter) => creatures(&mut targets, filter)?,
+        TargetSpec::CardInYourGraveyard(filter) => {
+            for &object in &state.player(player).graveyard {
+                let def = state.def(object)?;
+                let passes = match filter.kind {
+                    None => true,
+                    Some(GraveyardKind::Creature) => def.is_creature(),
+                    Some(GraveyardKind::Permanent) => !def.is_instant_or_sorcery(),
+                };
+                if passes {
+                    targets.push(Target::Object { object });
+                }
+            }
+        }
         TargetSpec::Opponent {} => targets.push(Target::Player {
             player: player.opponent(),
         }),
         TargetSpec::Player {} => players(&mut targets),
         // Never chosen: they stand for something already known.
-        TargetSpec::Same {} | TargetSpec::This {} | TargetSpec::Triggering {} => {}
+        TargetSpec::Same {}
+        | TargetSpec::This {}
+        | TargetSpec::Triggering {}
+        | TargetSpec::You {} => {}
         TargetSpec::Spell(filter) => {
             for item in &state.stack {
                 if item.kind != StackItemKind::Spell {
@@ -314,6 +330,12 @@ pub(crate) fn resolve_top(
                 TargetSpec::Same {} => last.ok_or_else(missing)?,
                 TargetSpec::This {} => known(item.source()),
                 TargetSpec::Triggering {} => known(item.subject.ok_or_else(missing)?),
+                TargetSpec::You {} => (
+                    Target::Player {
+                        player: item.controller,
+                    },
+                    true,
+                ),
                 _ => {
                     let target = *chosen.next().ok_or_else(missing)?;
                     let legal = is_legal_target(state, item.controller, spec, target)?;
@@ -475,13 +497,29 @@ pub(crate) fn put_triggers_on_stack(
 }
 
 /// Every way to aim a waiting triggered ability. One way, with no targets,
-/// if it has none.
+/// if it has none. A "you may" ability that has a legal target can also be
+/// declined, which is the choice of no targets at all.
 fn trigger_target_choices(
     state: &DuelState,
     trigger: &PendingTrigger,
 ) -> Result<Vec<Vec<Target>>, InternalError> {
     let specs = chosen_specs(&ability_effects(state, &trigger.ability)?);
-    target_choices(state, trigger.controller, &specs)
+    let mut choices = target_choices(state, trigger.controller, &specs)?;
+    if !specs.is_empty() && !choices.is_empty() && is_optional(&trigger.ability)? {
+        choices.push(Vec::new());
+    }
+    Ok(choices)
+}
+
+/// Whether a triggered ability is a "you may" one.
+fn is_optional(ability: &TriggeredAbility) -> Result<bool, InternalError> {
+    let TriggeredAbility::Card { ability } = ability else {
+        return Ok(false);
+    };
+    Ok(matches!(
+        card_def(&ability.def)?.abilities.get(ability.index),
+        Some(AbilityDef::Triggered { optional: true, .. })
+    ))
 }
 
 fn push_trigger(
@@ -533,7 +571,12 @@ pub(crate) fn choose_targets(
         ));
     }
     let trigger = state.pending_triggers.remove(0);
-    push_trigger(state, events, trigger, targets.to_vec());
+    // No targets for an ability that needs some: its controller declined.
+    let declined =
+        targets.is_empty() && !chosen_specs(&ability_effects(state, &trigger.ability)?).is_empty();
+    if !declined {
+        push_trigger(state, events, trigger, targets.to_vec());
+    }
     Ok(())
 }
 

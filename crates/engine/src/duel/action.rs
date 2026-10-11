@@ -91,6 +91,8 @@ pub enum Action {
     ScryKeep,
     /// While scrying: put the card being looked at on the bottom.
     ScryBottom,
+    /// While surveilling: put the card being looked at into the graveyard.
+    ScryGraveyard,
 }
 
 /// What a spell or ability is aimed at.
@@ -269,6 +271,17 @@ pub enum GameEvent {
     PermanentReturnedToHand {
         player: PlayerId,
         permanent: ObjectId,
+        card: CardRef,
+    },
+    /// A card went from a library to its owner's graveyard: milled, or not
+    /// kept in a surveil.
+    CardMilled {
+        player: PlayerId,
+        card: CardRef,
+    },
+    /// A card went from a graveyard to its owner's hand.
+    CardReturnedToHand {
+        player: PlayerId,
         card: CardRef,
     },
     /// While scrying, the player put the card they looked at back on top.

@@ -186,6 +186,14 @@ export function describeEvent(event: GameEvent, context: NameContext): LogEntry 
       )
     case 'permanent_returned_to_hand':
       return line(`${whose(event.player)} ${face(event.card)} returns to its owner's hand`)
+    case 'card_milled':
+      return line(
+        `${whose(event.player)} ${face(event.card)} goes from the library to the graveyard`,
+      )
+    case 'card_returned_to_hand':
+      return line(
+        `${who(event.player)} ${verb(event.player, 'return')} ${face(event.card)} from the graveyard to hand`,
+      )
     case 'card_kept_on_top':
       return line(`${who(event.player)} ${verb(event.player, 'keep')} a card on top`)
     case 'step_began':

@@ -1,0 +1,28 @@
+{
+  "id": "raise_dead",
+  "name": "Raise Dead",
+  "mana_cost": "{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Return target creature card from your graveyard to your hand.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "return_to_hand",
+          "target": {
+            "card_in_your_graveyard": {
+              "kind": "creature"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

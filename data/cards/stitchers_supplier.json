@@ -1,0 +1,48 @@
+{
+  "id": "stitchers_supplier",
+  "name": "Stitcher's Supplier",
+  "mana_cost": "{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Zombie"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters or dies, mill three cards. (Put the top three cards of your library into your graveyard.)",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "mill",
+          "player": "controller",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "mill",
+          "player": "controller",
+          "amount": 3
+        }
+      ]
+    }
+  ]
+}

@@ -65,16 +65,16 @@ Every `Action` returned by `legal_actions` is concrete and can be passed straigh
 | Mulligan | `Keep`, `Mulligan`, then `BottomCard { card }` once per card owed |
 | Discard to hand size | `Discard { card }` |
 | Divide combat damage | `AssignDamage { target }`, `UnassignDamage { target }` (one point each), `ConfirmDamage` |
-| Aim a triggered ability | `ChooseTargets { targets }`, once per legal combination, like a spell's |
-| Scry | `ScryKeep`, `ScryBottom`, once per card looked at |
+| Aim a triggered ability | `ChooseTargets { targets }`, once per legal combination, like a spell's; for a "you may" ability also with no targets, which declines it |
+| Scry, surveil | `ScryKeep`, and `ScryBottom` (scry) or `ScryGraveyard` (surveil), once per card looked at |
 | Discard for an effect | `Discard { card }`, as at cleanup |
-| Later: order triggers, "may" choices | one step action each |
+| Later: order triggers | one step action each |
 
 A `Confirm…` action is only legal when the declaration so far is legal (e.g. `ConfirmBlockers` is absent while a menace attacker has exactly one blocker, and `ConfirmDamage` while damage is unassigned or tramples over a blocker that has less than lethal).
 
 Other actions: `PlayLand { card }`, `PassPriority`.
 
-**Triggered abilities with targets.** A triggered ability is aimed when it goes on the stack, which is the next time a player would get priority. With no legal target it never goes on the stack; with exactly one way to aim it, that way is taken without asking; otherwise its controller gets the `ChooseTargets` decision and any other waiting abilities queue behind it.
+**Triggered abilities with targets.** A triggered ability is aimed when it goes on the stack, which is the next time a player would get priority. With no legal target it never goes on the stack; with exactly one way to aim it, that way is taken without asking; otherwise its controller gets the `ChooseTargets` decision and any other waiting abilities queue behind it. A "you may" ability (`"optional": true`) with a legal target is always asked about, because it can be declined: choosing no targets means it never goes on the stack.
 
 **Effects that stop for a choice.** A discard or a scry needs an answer in the middle of a resolution. The spell or ability being resolved is kept in `DuelState::resolving` with the effects it still has to carry out; the effect sets the decision, and when the player has answered, the resolution carries on from where it stopped. Targets are checked once, when the resolution begins. A discard or scry with no real choice in it (the whole hand goes, the library is empty) doesn't ask.
 
@@ -288,18 +288,18 @@ Dual land (one mana ability per colour; it still makes one mana per tap):
 ### Effect primitives (initial set; grow carefully)
 `deal_damage`, `gain_life`, `lose_life`, `draw_cards`, `discard`, `destroy`, `exile`, `counter_spell`, `create_token`, `add_counters`, `modify_pt_until_eot`, `grant_keyword_until_eot`, `tap`, `untap`, `return_to_hand`, `add_mana`, `scry`, `search_library` (if needed), `mill`, `sacrifice`.
 
-Built so far: `add_counters` (+1/+1 counters on a creature; they last as long as it stays on the battlefield), `create_token` (see Tokens below), `deal_damage`, `deal_power_damage` (a creature deals damage equal to its power: two targets), `destroy`, `counter_spell`, `discard`, `draw_cards`, `gain_life`, `lose_life`, `grant_keyword_until_eot`, `modify_pt_until_eot`, `return_to_hand`, `scry`, `tap` (with `skip_next_untap` for "doesn't untap during its controller's next untap step").
+Built so far: `add_counters` (+1/+1 counters on a creature; they last as long as it stays on the battlefield), `create_token` (see Tokens below), `deal_damage`, `deal_power_damage` (a creature deals damage equal to its power: two targets), `destroy`, `counter_spell`, `discard`, `draw_cards`, `gain_life`, `lose_life`, `grant_keyword_until_eot`, `mill`, `modify_pt_until_eot`, `return_to_hand` (a creature on the battlefield, or a card in a graveyard), `scry`, `surveil`, `tap` (with `skip_next_untap` for "doesn't untap during its controller's next untap step").
 
 Effects on a player name one: `controller`, `opponent`, or a targeted one, `target_player` or `target_opponent`.
 
-Two effects on one target ("target creature gets +3/+0 and gains first strike") are written as two effects, the second with `"target": { "same": {} }`, which reuses the target before it instead of asking for another. Two more entries stand for something known rather than chosen, in triggered abilities only: `{ "this": {} }` is the permanent the ability is on ("this creature gets +2/+0"), and `{ "triggering": {} }` is the creature that set the ability off ("that creature gains haste"). They do nothing if that permanent has left the battlefield.
+Two effects on one target ("target creature gets +3/+0 and gains first strike") are written as two effects, the second with `"target": { "same": {} }`, which reuses the target before it instead of asking for another. Three more entries stand for something known rather than chosen. `{ "you": {} }` is the controller ("deals 2 damage to you"). In abilities only, `{ "this": {} }` is the permanent the ability is on ("this creature gets +2/+0"), and in triggered abilities `{ "triggering": {} }` is the creature that set the ability off ("that creature gains haste"); these two do nothing if that permanent has left the battlefield.
 
 `discard` takes `"random": true` for a discard at random, which uses the duel's seeded RNG.
 
 ### Tokens
 A token is defined like a card, in `data/tokens/` (one file per token, e.g. `soldier_token.json`): a creature with a name, colours, subtypes and power and toughness, and no mana cost. The loader marks everything in that folder as a token (`CardDef::token`), whatever the file says, and puts it in the same card database, so the engine and the UI treat a token on the battlefield like any other permanent. `{ "type": "create_token", "token": "soldier_token", "count": 2 }` creates them under the controller's control; a token named by an effect must exist. Tokens are never in a deck, a reward or a shop, and `tools/scryfall.mjs check` doesn't look at them. A token that leaves the battlefield goes where it was sent and then ceases to exist the next time state-based actions are checked, as in Magic, so "when this dies" abilities see it die.
 
-Targets are structured data: `any_target`, `creature`, `player`, `opponent` and `spell`, each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, `{ "creature": { "controller": "you" } }` or `"opponent"`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
+Targets are structured data: `any_target`, `creature`, `player`, `opponent`, `spell` and `card_in_your_graveyard` (with `"kind": "creature"` or `"permanent"`), each written with braces that hold its conditions. Built so far: `{ "creature": { "not_color": "B" } }` (nonblack), `{ "creature": { "min_power": 4 } }`, `{ "creature": { "keyword": "flying" } }`, `{ "creature": { "controller": "you" } }` or `"opponent"`, and `{ "spell": { "kind": "creature" } }` or `"noncreature"`. Conditions are checked when the target is chosen and again on resolution. Separately from the conditions, a player can't aim at an opponent's permanent with hexproof (`is_legal_target`); an Aura already attached only needs its creature to still fit `enchant` (`fits_target_spec`).
 
 Keywords built so far: deathtouch, defender, double strike, first strike, flash, flying, haste, hexproof, indestructible, lifelink, menace, reach, trample, vigilance.
 
@@ -316,7 +316,7 @@ On load, every card is validated (costs parse, targets exist, keywords known, Au
 The Rust types list only what a card in the pool uses, and unknown fields, keywords, effects and targets fail to load. Adding a card that needs something new therefore means adding the enum variant and its rules first. Two current limits are enforced the same way: a mana ability produces exactly one coloured mana, and an emblem's triggered ability can't have targets (a card's can). A restriction ("can't attack or block") is still for Auras only.
 
 ### Decklists
-`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo), E (white-black drain), F (green-white tokens) and G (black-red sacrifice) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
+`data/decks/*.json`: `{ "id", "name", "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 5 }] }`. Lands and spells share one list. Validated on load against the card database. A, B and C are from M1. D (blue-black tempo), E (white-black drain), F (green-white tokens), G (black-red sacrifice) and H (black-green graveyard) were added in M4a so that its cards can be played in a practice duel before the run's decks are rebuilt on the cube.
 
 ## 5. Duel internals
 
@@ -381,7 +381,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 - `web/src/duel/` — the duel's logic on the TypeScript side, all of it free of rules and unit-tested:
   - `controller.ts` runs a duel for the screen. It applies the human's action, then lets the AI act and passes for the human until the human has a decision, one step at a time. Each step's events are played before the view that follows them is shown, and input is ignored meanwhile. An engine error is shown on screen rather than thrown.
   - `present.ts` turns a batch of events into log lines and animation beats. Damage, life changes and deaths are played over the old view, because what they happen to may be gone from the new one; everything else appears with the new view, which is then held long enough to read.
-  - `interaction.ts` maps clicks onto the list from `legal_actions`: which actions use a hand card, which targets can be picked next, which creature can attack or block, which permanent has an ability to activate and what it still needs picked (the creature to sacrifice, then the targets).
+  - `interaction.ts` maps clicks onto the list from `legal_actions`: which actions use a hand card, which targets can be picked next, which creature can attack or block, which permanent has an ability to activate and what it still needs picked (the creature to sacrifice, then the targets). A target that is a card in a graveyard is shown in the prompt bar to be clicked.
   - `prompt.ts` holds the wording: what the game is waiting for and what the buttons say.
 - `web/src/run/` — wording for the run: what just happened, and the names of nodes.
 - `web/src/screens/` — Menu (start a run, or a practice duel), Run and Duel. The run screen shows the map, rewards, rest sites, shops, the boons and the end of the run from the `RunView`, offers the legal run actions and sends one back. While the run is in a duel it shows the duel screen, with a controller driving the run handle's duel.

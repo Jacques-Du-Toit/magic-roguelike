@@ -1143,6 +1143,22 @@ button:disabled {
   z-index: 25;
 }
 
+/* Cards in a graveyard that a spell or ability can be aimed at. */
+.graveyard-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0.5rem 0;
+}
+
+.graveyard-choice {
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 8px;
+}
+
 /* The card a scrying player is looking at. */
 .scry-panel {
   display: flex;
