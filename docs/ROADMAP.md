@@ -111,21 +111,29 @@ Goal: a human can play a full duel against the AI in the browser, and it's fun. 
 
 ## M3 — One-act roguelike loop
 
-- [ ] Run state, seeded map generation (one act), node selection screen.
-- [ ] Node types: Duel, Elite, Boss, Rest, Shop (basic).
-- [ ] Hearts system + loss consequences; boons before boss.
-- [ ] Card rewards (pick 1 of 3), gold, card removal.
-- [ ] 2 planeswalkers with starting decks and passives.
-- [ ] ~5 relics using the modifier system.
-- [ ] Extend `data/balance.json` with all run-level numbers.
-- [ ] 4–6 enemy decks + 1 boss with emblems.
-- [ ] Automatic basic-land management as the deck changes; non-basic lands as rewards and shop items.
-- [ ] Manual combat damage division where it matters.
+- [x] Run state, seeded map generation (one act), node selection screen.
+- [x] Node types: Duel, Elite, Boss, Rest, Shop (basic).
+- [x] Hearts system + loss consequences; boons before boss.
+- [x] Card rewards (pick 1 of 3), gold, card removal.
+- [x] 2 planeswalkers with starting decks and passives.
+- [x] ~5 relics using the modifier system.
+- [x] Extend `data/balance.json` with all run-level numbers.
+- [x] 4–6 enemy decks + 1 boss with emblems. (Seven normal decks in two tiers, two elites, one boss.)
+- [x] Automatic basic-land management as the deck changes; non-basic lands as rewards and shop items.
+- [x] Manual combat damage division where it matters.
 
 **Done when:** a full act can be played start to finish, and win/loss feels fair.
 
----
+**Status (2026-10-11):** the features are built; the milestone is waiting on the owner playing a full act. Automated checks: a run with the same seed and actions is identical, duels included; random walks through runs never find a state with nothing to do; Playwright clicks two whole acts through to a boss win in a headless browser.
 
+Numbers from the sim, with the AI playing both sides (a person should do better than the AI does with the player's deck):
+
+- `sim --runs --games 400`: the Warden wins the act in 37% of runs and the Firebrand in 44%. They reach the boss in 84% and 71% of runs, with 2.7 and 2.6 hearts, and beat it 44% and 62% of the time.
+- `sim --enemies --games 400`, starting decks only: 61–93% against the three easy decks, 37–70% against the four normal ones, 24–61% against the elites, 16–27% against the boss before any boons or new cards.
+
+Known limits, left for M4: the AI only ever double-blocks to survive a menace attacker, so the damage-division screen is rarely seen; the rare tier of the card pool is one card (Gigantosaurus); elites and the boss are harder for the Warden than for the Firebrand.
+
+---
 ## M4 — Content expansion
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes.

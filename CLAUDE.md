@@ -23,7 +23,7 @@ Priorities: reach a playable version quickly, without closing off a maintainable
 
 ## Architecture in one paragraph
 
-A **pure Rust rules engine** (`crates/engine`) holds all game logic and knows nothing about rendering. It is compiled to **WebAssembly** via a thin bindings crate (`crates/engine-wasm`). A **TypeScript + React** front end (`web/`) renders state and sends player actions. A headless **simulation CLI** (`crates/sim`) runs AI-vs-AI games for testing and balance. Cards are **data** (`data/cards/`), not code.
+A **pure Rust rules engine** (`crates/engine`) holds all game logic and knows nothing about rendering. It is compiled to **WebAssembly** via a thin bindings crate (`crates/engine-wasm`). A **TypeScript + React** front end (`web/`) renders state and sends player actions. A headless **simulation CLI** (`crates/sim`) runs AI-vs-AI games for testing and balance. The engine has two layers of the same shape: the **duel** (`crates/engine/src/duel`) and the **run** around it (`crates/engine/src/run`), which owns the duel in progress. Cards are **data** (`data/cards/`), not code, and so is the run's content (`data/run/`).
 
 ## Commands
 
@@ -36,6 +36,8 @@ cargo fmt
 cargo run -p sim -- --games 100 # headless AI-vs-AI simulation: 100 games for every pairing
                                 # of the decks in data/decks, then a report (--seed S to vary)
 cargo run -p sim -- --replay deck_a deck_c --seed 7   # one game, move by move
+cargo run --release -p sim -- --enemies --games 400   # the run's starting decks against its enemy decks
+cargo run --release -p sim -- --runs --games 400      # whole runs: how often the act is won
 
 # WASM build (from repo root)
 wasm-pack build crates/engine-wasm --target web --out-dir ../../web/src/wasm
@@ -46,7 +48,7 @@ npm run wasm                    # same wasm-pack build as above; needed before d
 npm run dev                     # local dev server
 npm run build                   # production build to web/dist
 npm test                        # Vitest
-npm run e2e                     # Playwright: clicks through whole games in a headless browser
+npm run e2e                     # Playwright: clicks through whole games and whole acts in a headless browser
                                 # (once: npx playwright install chromium)
 npm run lint                    # oxlint
 ```
@@ -59,11 +61,11 @@ Update this section if commands change.
 
 ## Rules for working in this repo
 
-1. **All game logic lives in `crates/engine`.** The UI never decides what is legal; it asks the engine (`legal_actions`) and sends actions. No rules logic in TypeScript, and that includes mana payment and deciding when to auto-pass.
+1. **All game logic lives in `crates/engine`.** The UI never decides what is legal; it asks the engine (`legal_actions`, `run_legal_actions`) and sends actions. That goes for the run too: what a node gives, what a reward holds, what something costs. No rules logic in TypeScript, and that includes mana payment and deciding when to auto-pass.
 2. **The engine is deterministic.** All randomness goes through the seeded RNG in game state. Never use `thread_rng`, system time, or HashMap iteration order for anything gameplay-relevant (use `BTreeMap`/`IndexMap` or sort).
 3. **Cards are data.** New cards are added to `data/cards/*.json` using existing effect primitives. Only add a new effect primitive when a card genuinely can't be expressed; add a test for the primitive. `Custom` effects implemented in Rust are a last resort and must be listed in `docs/ARCHITECTURE.md`.
 4. **Tests are mandatory for rules.** Every card, keyword, and rules interaction gets a test. Every bug fixed gets a regression test that fails before the fix. Run `cargo test` before declaring work done.
-5. **No magic numbers for balance.** Life totals, opening hand sizes, fatigue, hearts, rewards, prices, boon values, deck sizes, etc. live in `data/balance.json`, never hard-coded. The file starts in M1 with the duel numbers and grows with the run layer.
+5. **No magic numbers for balance.** Life totals, opening hand sizes, fatigue, hearts, rewards, prices, boon values, map shape, land share, etc. live in `data/balance.json`, never hard-coded. Content keeps its own numbers beside its text, as cards do: relics, passives and enemy emblems in `data/run/`.
 6. **Stay inside `docs/RULES_SCOPE.md`.** If a card needs a rule marked "out", don't add the card. Ask instead of expanding scope.
 7. **Errors, not panics.** Engine functions return `Result`. Illegal actions are rejected with a clear error, never a panic. No `unwrap()` in engine code outside tests.
 8. **Small, focused changes.** Prefer several small commits over one large one. Don't refactor unrelated code while doing a task.
@@ -84,5 +86,6 @@ Update this section if commands change.
 - **Smoothing**: the engine deals several candidate opening hands and keeps the one closest to the deck's land ratio. Lands are in the library, as in normal Magic.
 - **Fatigue**: drawing from an empty library costs life (1, then 2, then 3...) instead of losing the game.
 - **Relic**: passive item that modifies rules for the whole run.
+- **Modifier**: what relics, boons, passives and boss emblems all are in the code (`ModifierDef`). It reaches a duel through `PlayerConfig`, often as an **emblem**.
 - **Boon**: pre-boss bonus bought with remaining hearts.
 - **Planeswalker (character)**: the player's chosen starting identity (starting deck, colours, passive). Not the MTG card type.

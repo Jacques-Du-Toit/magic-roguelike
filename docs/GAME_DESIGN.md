@@ -186,11 +186,9 @@ Keep it light; avoid permanent power creep.
 ## 14. Open questions
 
 - Exact sets for the cube.
-- Should rest sites offer "restore 1 heart"?
-- Are elites optional on every path or forced sometimes?
 - Planeswalker cards as a card type: in or out for v1?
 - Run length vs map size: 45–75 minutes doesn't fit three acts of ~15 rows. Settle by playtesting.
-- What happens to the run when a duel is drawn?
-- Automatic basic lands: what share of the deck, and how is the colour split worked out?
 - How does mill win, now that an empty library means fatigue rather than a loss?
 - Several examples in §5, §7 and §8 need rules outside the current scope (see the last table in `RULES_SCOPE.md`).
+
+Settled for the one-act prototype (see `DECISIONS.md` #22 to #31): rest sites restore a heart or remove a card; elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.

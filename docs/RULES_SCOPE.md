@@ -29,7 +29,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Untap, upkeep, draw | In | Starting player skips first draw. |
 | Main phase 1 / 2 | In | |
 | Combat: beginning, declare attackers, declare blockers, combat damage, end | In | First-strike damage step when relevant. |
-| Combat damage among multiple blockers | Simplified | Current rules (no damage assignment order): attacker divides freely, lethal to every blocker before trampling over. Engine assigns automatically; manual division later. |
+| Combat damage among multiple blockers | In | Current rules (no damage assignment order): attacker divides freely, lethal to every blocker before trampling over. The attacking player is asked when an attacker has two or more blockers, starting from the automatic division; with one blocker the engine assigns automatically (lethal to the blocker, the rest tramples over). |
 | End step, cleanup | In | "Until end of turn" effects end at cleanup. |
 | Priority in every step | Simplified | Nobody gets priority in the untap or cleanup steps, or in the declare-attackers step when no creature attacks. (Real Magic gives priority in cleanup when something triggers there; no card needs that yet.) |
 | Extra turns / extra combats | Later | |
@@ -68,7 +68,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 |---|---|---|
 | Creature | In | |
 | Instant, sorcery | In | |
-| Land (basic + simple duals) | In | Duals: enter untapped / tapped variants only. |
+| Land (basic + simple duals) | In | Duals: enter untapped / tapped variants only. Built in M3 with the Guildgates: "enters tapped" is a card property, and the auto-payer matches coloured symbols to sources. |
 | Enchantment, Aura | In | Auras: "enchant creature" first. |
 | Artifact | In | |
 | Equipment | Later | |
@@ -127,7 +127,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**.
 |---|---|
 | Targeting, illegal targets on resolution (fizzle) | In |
 | Hexproof / shroud | In / Out |
-| Emblems (boss emblems) | In |
+| Emblems (boss emblems, relics, boons, passives) | In |
 | Alternate win/lose conditions | Out |
 | Hidden information (hand, library order) | In |
 | Random discard, look at top N, reveal | In |
@@ -139,6 +139,9 @@ Scry is an effect primitive rather than a keyword here, and is **In**.
 | Example | Needs |
 |---|---|
 | Boss emblem: "creatures have ward {1}" | Ward (Later) |
+| Boss emblem: "upkeep, create a 2/2 Zombie" | Tokens are In but not built yet |
+| Boon: "free mulligan to 7" | A mulligan rule change; not built |
+| Relic: "the first instant each turn costs {1} less" | Cost reduction (Simplified, not built) and per-turn counting |
 | Relic: "+1/+1 counters, that many plus one instead" | General replacement effects (Out for now) |
 | Passive: "your tokens enter with a +1/+1 counter" | Replacement effect (Out for now) |
 | Boss relic: "you can't gain life" | Replacement/restriction on life gain |
