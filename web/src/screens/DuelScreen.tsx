@@ -64,6 +64,8 @@ interface PlayerPanelProps {
   effects: Effects
   active: boolean
   targetable: boolean
+  /** Something on the stack targets this player. */
+  targeted: boolean
   onTarget: () => void
   onGraveyard: () => void
 }
@@ -77,6 +79,7 @@ function PlayerPanel({
   effects,
   active,
   targetable,
+  targeted,
   onTarget,
   onGraveyard,
 }: PlayerPanelProps) {
@@ -108,6 +111,7 @@ function PlayerPanel({
           {name}
           {active ? ` · ${turnLabel}` : ''}
         </strong>
+        {targeted && <span className="badge badge-targeted">Targeted</span>}
         <span className="muted">{deck}</span>
         <span>
           Hand {summary.hand.length} · Library {summary.library_size}
@@ -201,6 +205,8 @@ export function DuelScreen({
     mode.kind === 'casting'
       ? new Set(nextTargets(actions, mode.casting).map(targetKey))
       : new Set<string>()
+  // What the spells and abilities on the stack are aimed at.
+  const aimedAt = new Set(view.stack.flatMap((item) => item.targets.map(targetKey)))
   const blockTargets = mode.kind === 'blocking' ? blockOptions(actions, mode.blocker) : []
   const highlight = (object: number): Highlight => {
     if (mode.kind === 'casting') return targets.has(`o:${object}`) ? 'target' : null
@@ -317,6 +323,7 @@ export function DuelScreen({
             effects={effects}
             active={view.active_player === AI && view.turn > 0}
             targetable={targets.has(`p:${AI}`)}
+            targeted={aimedAt.has(`p:${AI}`)}
             onTarget={() => onTarget({ type: 'player', player: AI })}
             onGraveyard={() => setGraveyardOf(AI)}
           >
@@ -334,6 +341,7 @@ export function DuelScreen({
             effects={effects}
             active={view.active_player === HUMAN && view.turn > 0}
             targetable={targets.has(`p:${HUMAN}`)}
+            targeted={aimedAt.has(`p:${HUMAN}`)}
             onTarget={() => onTarget({ type: 'player', player: HUMAN })}
             onGraveyard={() => setGraveyardOf(HUMAN)}
           />
@@ -344,6 +352,7 @@ export function DuelScreen({
           cards={cards}
           effects={effects}
           highlight={highlight}
+          targeted={(object) => aimedAt.has(`o:${object}`)}
           onPermanent={onPermanent}
         />
 

@@ -554,6 +554,11 @@ input[type='text'] {
   background: #b3261e;
 }
 
+.badge-targeted {
+  background: var(--target);
+  color: #1b0d00;
+}
+
 .badge-damage {
   background: #7a0c0c;
 }

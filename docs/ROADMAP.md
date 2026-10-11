@@ -94,16 +94,18 @@ Verify each card's exact text against Scryfall when entering it.
 
 Goal: a human can play a full duel against the AI in the browser, and it's fun. Default matchup: the human plays Deck B, the AI plays Deck A or C (the v1 AI can't pilot a reactive deck).
 
-- [ ] Duel screen: battlefield, hands, library, life totals, stack, graveyard viewer.
-- [ ] Mulligan screen (keep / mulligan / choose cards to bottom).
-- [ ] Card component (text-based placeholder frame) with hover-to-enlarge.
-- [ ] Click/drag to play cards; targeting UI; attack/block declaration UI.
-- [ ] Arena-style auto-pass with hold-priority toggle.
-- [ ] Event-driven animations (basic: draw, cast, damage, die).
-- [ ] Game log panel.
-- [ ] Deck picker, win/lose screen, restart with new seed.
+- [x] Duel screen: battlefield, hands, library, life totals, stack, graveyard viewer.
+- [x] Mulligan screen (keep / mulligan / choose cards to bottom).
+- [x] Card component (text-based placeholder frame) with hover-to-enlarge.
+- [x] Click to play cards; targeting UI; attack/block declaration UI. (Click only: dragging was left out, see `DECISIONS.md` #20.)
+- [x] Arena-style auto-pass with hold-priority toggle.
+- [x] Event-driven animations (basic: draw, cast, damage, die).
+- [x] Game log panel.
+- [x] Deck picker, win/lose screen, restart with new seed.
 
 **Done when:** a full game can be played start to finish with no softlocks, and the owner has played 5+ games.
+
+**Status (2026-10-11):** the features are built. Automated tests play whole games through the wasm handle, the controller and the real screen in a headless browser without ever being left without a move. Still open: the owner's five games.
 
 ---
 

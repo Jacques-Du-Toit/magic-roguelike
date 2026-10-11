@@ -46,6 +46,8 @@ npm run wasm                    # same wasm-pack build as above; needed before d
 npm run dev                     # local dev server
 npm run build                   # production build to web/dist
 npm test                        # Vitest
+npm run e2e                     # Playwright: clicks through whole games in a headless browser
+                                # (once: npx playwright install chromium)
 npm run lint                    # oxlint
 ```
 

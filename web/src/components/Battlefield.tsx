@@ -17,6 +17,8 @@ interface Shared {
   cards: ReadonlyMap<string, CardDef>
   effects: Effects
   highlight: (object: number) => Highlight
+  /** Whether something on the stack targets the object. */
+  targeted: (object: number) => boolean
   onPermanent: (permanent: PermanentView) => void
   /** Auras by the object they are attached to. */
   auras: ReadonlyMap<number, PermanentView[]>
@@ -88,6 +90,9 @@ function Permanent({
           <CardFrame def={def} size="small" power={permanent.power} toughness={permanent.toughness}>
             <span className="badges">
               {badge && <span className="badge badge-combat">{badge}</span>}
+              {shared.targeted(permanent.object) && (
+                <span className="badge badge-targeted">Targeted</span>
+              )}
               {permanent.tapped && <span className="badge">Tapped</span>}
               {permanent.summoning_sick && <span className="badge">Just arrived</span>}
               {permanent.damage > 0 && (
@@ -133,10 +138,18 @@ interface BattlefieldProps {
   cards: ReadonlyMap<string, CardDef>
   effects: Effects
   highlight: (object: number) => Highlight
+  targeted: (object: number) => boolean
   onPermanent: (permanent: PermanentView) => void
 }
 
-export function Battlefield({ view, cards, effects, highlight, onPermanent }: BattlefieldProps) {
+export function Battlefield({
+  view,
+  cards,
+  effects,
+  highlight,
+  targeted,
+  onPermanent,
+}: BattlefieldProps) {
   const byObject = new Map(view.battlefield.map((permanent) => [permanent.object, permanent]))
   const auras = new Map<number, PermanentView[]>()
   for (const permanent of view.battlefield) {
@@ -144,7 +157,7 @@ export function Battlefield({ view, cards, effects, highlight, onPermanent }: Ba
       auras.set(permanent.attached_to, [...(auras.get(permanent.attached_to) ?? []), permanent])
     }
   }
-  const shared: Shared = { cards, effects, highlight, onPermanent, auras }
+  const shared: Shared = { cards, effects, highlight, targeted, onPermanent, auras }
 
   // An attacker that has left the battlefield takes its fight with it; its
   // blockers go back to their row.

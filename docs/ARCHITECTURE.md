@@ -308,8 +308,10 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 ## 8. The wasm boundary
 
 - `engine-wasm` owns the `DuelState` inside wasm memory and exposes a handle. State is never round-tripped through JavaScript.
-- Handle methods: `apply(action) -> { events, view }` for the human, `ai_step() -> { events, view }` for the opponent, plus `legal_actions()` and `has_meaningful_action()`. Events are already redacted for the human.
-- The UI drives the opponent by calling `ai_step()` while `view.waiting_on` is not the human, animating each batch of events. That loop is the only orchestration in TypeScript; it contains no rules.
+- The handle is `Duel`, made with `new Duel(human_deck, ai_deck, seed)` from two deck ids. The human is always P1 and the AI P2. Its methods: `apply(action) -> DuelUpdate` for the human, `ai_step() -> DuelUpdate` for the opponent, plus `view()`, `legal_actions()`, `has_meaningful_action()`, `should_auto_pass(hold_priority)` and `seed()`. A `DuelUpdate` is `{ events, view }`, with the events already redacted for the human.
+- `card_defs()` and `decks()` return every card definition and decklist, so the UI can show names, costs and text.
+- The crate's logic is in `session.rs`, which is plain Rust and tested natively; `lib.rs` only wraps it for wasm-bindgen.
+- The UI drives the opponent by calling `ai_step()` while the view's decision belongs to the AI, and passes for the human while `should_auto_pass` says so, playing each batch of events before the next step. That loop is the only orchestration in TypeScript; it contains no rules.
 - Data crosses as **JSON strings**. Simple, easy to log and paste into a bug report; the cost is irrelevant at this scale.
 - Seeds are `u64` and cross as decimal strings (a JS number would lose precision).
 - TypeScript types for `Action`, `PlayerView`, `GameEvent` etc. are generated from the Rust types with `ts-rs` into `web/src/engine/types/`. They are never written by hand.
@@ -317,7 +319,15 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 ## 9. Front end
 
 - `web/src/engine/` — wasm loading + typed wrapper; the only place that talks to wasm.
-- `web/src/screens/` — Duel, Map, Reward, Shop, DeckView.
-- `web/src/components/` — Card, Battlefield, Hand, Stack, LifeCounter, RelicBar.
-- State: the engine owns game state; React holds the latest `PlayerView` plus an animation queue of events.
+- `web/src/duel/` — the duel's logic on the TypeScript side, all of it free of rules and unit-tested:
+  - `controller.ts` runs a duel for the screen. It applies the human's action, then lets the AI act and passes for the human until the human has a decision, one step at a time. Each step's events are played before the view that follows them is shown, and input is ignored meanwhile. An engine error is shown on screen rather than thrown.
+  - `present.ts` turns a batch of events into log lines and animation beats. Damage, life changes and deaths are played over the old view, because what they happen to may be gone from the new one; everything else appears with the new view, which is then held long enough to read.
+  - `interaction.ts` maps clicks onto the list from `legal_actions`: which actions use a hand card, which targets can be picked next, which creature can attack or block.
+  - `prompt.ts` holds the wording: what the game is waiting for and what the buttons say.
+- `web/src/screens/` — Menu (deck picker) and Duel so far; later Map, Reward, Shop, DeckView.
+- `web/src/components/` — Card, Battlefield, Hand, the stack and log panels, the overlays (mulligan, graveyard, result) and the hover preview.
+- `web/e2e/` — Playwright tests that click through the real app.
+- State: the engine owns game state; React renders the controller's snapshot (the view on screen, the legal actions, the log and the effects being animated).
+- Every legal action is reachable from the screen: card actions through the hand, declarations and targets through the battlefield, the stack and the player panels, and the rest (pass, confirm, reset, keep, mulligan) as buttons built from the legal-action list.
+- A game can be started from the address, e.g. `?seed=7&you=deck_b&ai=deck_a&speed=instant`. The seed and the two decks are enough to replay a game; "Copy bug report" on the duel screen copies them with the human's actions.
 - Placeholder card frames (text-based) until art is added.
