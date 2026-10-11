@@ -20,7 +20,7 @@ mod spell_tests;
 mod stack;
 mod state;
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;
 mod turn;
 mod view;
 #[cfg(test)]

@@ -8,6 +8,24 @@ use thiserror::Error;
 #[serde(deny_unknown_fields)]
 pub struct Balance {
     pub duel: DuelBalance,
+    pub ai: AiBalance,
+}
+
+/// Numbers the heuristic AI plays by.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AiBalance {
+    pub mulligan: AiMulliganBalance,
+}
+
+/// The AI keeps a hand with `min_lands..=max_lands` lands, and never
+/// mulligans to fewer than `min_hand_size` cards.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AiMulliganBalance {
+    pub min_lands: u8,
+    pub max_lands: u8,
+    pub min_hand_size: u8,
 }
 
 /// Defaults for a duel. A `DuelConfig` starts from these and may differ per
@@ -38,6 +56,8 @@ pub enum BalanceError {
     StartingLife,
     #[error("`duel.smoothing_candidates` must be at least 1")]
     SmoothingCandidates,
+    #[error("`ai.mulligan.min_lands` must not be above `max_lands`")]
+    AiMulliganLands,
 }
 
 pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
@@ -46,6 +66,9 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
     }
     if balance.duel.smoothing_candidates == 0 {
         return Err(BalanceError::SmoothingCandidates);
+    }
+    if balance.ai.mulligan.min_lands > balance.ai.mulligan.max_lands {
+        return Err(BalanceError::AiMulliganLands);
     }
     Ok(())
 }
@@ -66,6 +89,13 @@ mod tests {
                     increase: 1,
                 },
             },
+            ai: AiBalance {
+                mulligan: AiMulliganBalance {
+                    min_lands: 2,
+                    max_lands: 5,
+                    min_hand_size: 5,
+                },
+            },
         }
     }
 
@@ -82,12 +112,16 @@ mod tests {
             validate(&balance(20, 0)),
             Err(BalanceError::SmoothingCandidates)
         );
+        let mut backwards = balance(20, 3);
+        backwards.ai.mulligan.min_lands = 6;
+        assert_eq!(validate(&backwards), Err(BalanceError::AiMulliganLands));
     }
 
     #[test]
     fn unknown_and_missing_fields_fail_to_parse() {
         let good = r#"{ "duel": { "starting_life": 20, "opening_hand_size": 7, "max_hand_size": 7,
-            "smoothing_candidates": 3, "fatigue": { "first_life_loss": 1, "increase": 1 } } }"#;
+            "smoothing_candidates": 3, "fatigue": { "first_life_loss": 1, "increase": 1 } },
+            "ai": { "mulligan": { "min_lands": 2, "max_lands": 5, "min_hand_size": 5 } } }"#;
         assert_eq!(
             serde_json::from_str::<Balance>(good).unwrap(),
             balance(20, 3)

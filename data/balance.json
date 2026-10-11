@@ -8,5 +8,12 @@
       "first_life_loss": 1,
       "increase": 1
     }
+  },
+  "ai": {
+    "mulligan": {
+      "min_lands": 2,
+      "max_lands": 5,
+      "min_hand_size": 5
+    }
   }
 }

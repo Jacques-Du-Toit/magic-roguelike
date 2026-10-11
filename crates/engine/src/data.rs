@@ -204,7 +204,8 @@ mod tests {
         "cards": [{ "card": "grizzly_bears", "count": 2 }, { "card": "forest", "count": 1 }] }"#;
     const BALANCE: &str = r#"{ "duel": { "starting_life": 20, "opening_hand_size": 7,
         "max_hand_size": 7, "smoothing_candidates": 3,
-        "fatigue": { "first_life_loss": 1, "increase": 1 } } }"#;
+        "fatigue": { "first_life_loss": 1, "increase": 1 } },
+        "ai": { "mulligan": { "min_lands": 2, "max_lands": 5, "min_hand_size": 5 } } }"#;
 
     fn files<'a>(cards: &[(&'a str, &'a str)], deck: &'a str, balance: &'a str) -> DataFiles<'a> {
         DataFiles {
