@@ -38,6 +38,11 @@ export function deckDefs(): DeckDef[] {
 export const HUMAN: PlayerId = 'P1'
 export const AI: PlayerId = 'P2'
 
+/** Where a player is in per-player arrays such as `PlayerView.players`. */
+export function playerIndex(player: PlayerId): 0 | 1 {
+  return player === 'P1' ? 0 : 1
+}
+
 /**
  * A new random seed: a u64 as a decimal string, which is how seeds cross the
  * boundary (a JS number would lose precision).
