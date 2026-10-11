@@ -159,10 +159,13 @@ fn win(state: &DuelState, winner: PlayerId) -> GameResult {
     }
 }
 
-/// The cleanup step's "damage wears off".
-pub(crate) fn remove_damage(state: &mut DuelState) {
+/// The cleanup step: damage wears off and "until end of turn" effects end,
+/// at the same time.
+pub(crate) fn end_of_turn_cleanup(state: &mut DuelState) {
     for object in state.objects.values_mut() {
         object.damage = 0;
         object.deathtouch_damage = false;
+        object.power_bonus = 0;
+        object.toughness_bonus = 0;
     }
 }

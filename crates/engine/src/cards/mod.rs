@@ -302,6 +302,8 @@ pub enum CardError {
     SpellAbilityOnPermanent,
     #[error("an ability needs at least one effect")]
     NoEffects,
+    #[error("triggered abilities with targets are not supported yet")]
+    TargetedTrigger,
     #[error("`{effect}` cannot target `{target}`")]
     BadTarget {
         effect: &'static str,
@@ -388,6 +390,10 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
         AbilityDef::Spell { effects } | AbilityDef::Triggered { effects, .. } => {
             if effects.is_empty() {
                 return Err(CardError::NoEffects);
+            }
+            let is_trigger = matches!(ability, AbilityDef::Triggered { .. });
+            if is_trigger && effects.iter().any(|effect| effect.target().is_some()) {
+                return Err(CardError::TargetedTrigger);
             }
             effects.iter().try_for_each(validate_effect)
         }
@@ -744,6 +750,33 @@ mod tests {
                 effect: "modify_pt_until_eot",
                 target: "spell"
             })
+        );
+    }
+
+    #[test]
+    fn triggered_abilities_cannot_target_yet() {
+        let trigger = |effect: Value| {
+            json!([{
+                "kind": "triggered",
+                "trigger": { "type": "enters_battlefield", "subject": "self" },
+                "effects": [effect]
+            }])
+        };
+        assert_eq!(
+            check(with(
+                bears(),
+                "abilities",
+                trigger(json!({ "type": "draw_cards", "player": "controller", "amount": 1 }))
+            )),
+            Ok(())
+        );
+        assert_eq!(
+            check(with(
+                bears(),
+                "abilities",
+                trigger(json!({ "type": "destroy", "target": { "creature": {} } }))
+            )),
+            Err(CardError::TargetedTrigger)
         );
     }
 

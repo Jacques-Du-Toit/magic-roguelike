@@ -27,6 +27,7 @@ pub struct DuelState {
     pub battlefield: Vec<ObjectId>,
     /// The top of the stack is the end of the list.
     pub stack: Vec<StackItem>,
+    pub pending_triggers: Vec<PendingTrigger>,
     pub combat: Option<Combat>,
     pub starting_player: PlayerId,
     /// 0 until the mulligans are over, then counts every turn of either
@@ -99,6 +100,26 @@ pub struct GameObject {
     /// A source with deathtouch has dealt damage to this creature since
     /// state-based actions were last checked.
     pub deathtouch_damage: bool,
+    /// Power and toughness changes that last until end of turn.
+    pub power_bonus: i32,
+    pub toughness_bonus: i32,
+}
+
+/// A triggered ability that has triggered and is waiting to be put on the
+/// stack, which happens the next time a player would get priority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PendingTrigger {
+    pub ability: AbilityRef,
+    pub controller: PlayerId,
+}
+
+/// Points at one ability of a card: `abilities[index]` of the definition.
+/// `source` is the object the ability came from, which may be gone by now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct AbilityRef {
+    pub source: ObjectId,
+    pub def: CardDefId,
+    pub index: usize,
 }
 
 /// The combat of the current turn, from the beginning of combat to its end.
@@ -145,6 +166,8 @@ impl GameObject {
             summoning_sick: zone == Zone::Battlefield,
             damage: 0,
             deathtouch_damage: false,
+            power_bonus: 0,
+            toughness_bonus: 0,
         }
     }
 }
@@ -163,6 +186,10 @@ pub struct StackItem {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StackItemKind {
     Spell,
+    /// A triggered ability. It is not a card, so no object has its id.
+    Trigger {
+        ability: AbilityRef,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -269,6 +296,7 @@ impl DuelState {
             objects: BTreeMap::new(),
             battlefield: Vec::new(),
             stack: Vec::new(),
+            pending_triggers: Vec::new(),
             combat: None,
             starting_player,
             turn: 0,
@@ -337,11 +365,11 @@ impl DuelState {
     }
 
     pub(crate) fn power(&self, id: ObjectId) -> Result<i32, InternalError> {
-        Ok(self.def(id)?.power.unwrap_or(0))
+        Ok(self.def(id)?.power.unwrap_or(0) + self.object(id)?.power_bonus)
     }
 
     pub(crate) fn toughness(&self, id: ObjectId) -> Result<i32, InternalError> {
-        Ok(self.def(id)?.toughness.unwrap_or(0))
+        Ok(self.def(id)?.toughness.unwrap_or(0) + self.object(id)?.toughness_bonus)
     }
 
     pub(crate) fn has_keyword(
@@ -483,7 +511,10 @@ impl DuelState {
             }
         }
         for item in &self.stack {
-            let StackItemKind::Spell = item.kind;
+            if let StackItemKind::Trigger { .. } = item.kind {
+                assert!(!self.objects.contains_key(&item.id));
+                continue;
+            }
             let owner = self.objects[&item.id].owner;
             assert!(
                 listed.insert(item.id, (owner, Zone::Stack)).is_none(),

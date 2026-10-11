@@ -138,6 +138,37 @@ pub enum GameEvent {
         player: PlayerId,
         card: CardRef,
     },
+    /// An instant or sorcery resolved and went to the graveyard.
+    SpellResolved {
+        player: PlayerId,
+        card: CardRef,
+    },
+    /// A spell left the stack without effect because all its targets had
+    /// become illegal.
+    SpellFizzled {
+        player: PlayerId,
+        card: CardRef,
+    },
+    /// A spell was countered. `player` is the spell's controller.
+    SpellCountered {
+        player: PlayerId,
+        card: CardRef,
+    },
+    /// A triggered ability of `source` went on the stack as `ability`.
+    AbilityTriggered {
+        player: PlayerId,
+        source: ObjectId,
+        ability: ObjectId,
+    },
+    AbilityResolved {
+        ability: ObjectId,
+    },
+    /// A creature got +`power`/+`toughness` until end of turn.
+    PowerToughnessChanged {
+        permanent: ObjectId,
+        power: i32,
+        toughness: i32,
+    },
     AttackersDeclared {
         player: PlayerId,
         attackers: Vec<ObjectId>,

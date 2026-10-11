@@ -1,6 +1,6 @@
 //! Helpers shared by the duel tests.
 
-use super::action::{Action, GameEvent};
+use super::action::{Action, GameEvent, Target};
 use super::config::DuelConfig;
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::state::{Decision, DuelState, Step, Zone};
@@ -57,6 +57,21 @@ pub(crate) fn put_on_battlefield(state: &mut DuelState, player: PlayerId, card: 
 pub(crate) fn empty_hand(state: &mut DuelState, player: PlayerId) {
     for card in state.player(player).hand.clone() {
         state.move_object(card, Zone::Library).unwrap();
+    }
+}
+
+/// Adds `count` untapped copies of a land to the battlefield.
+pub(crate) fn put_lands(state: &mut DuelState, player: PlayerId, land: &str, count: usize) {
+    for _ in 0..count {
+        put_on_battlefield(state, player, land);
+    }
+}
+
+/// The action that casts a spell with one target.
+pub(crate) fn cast_at(card: ObjectId, target: Target) -> Action {
+    Action::CastSpell {
+        card,
+        targets: vec![target],
     }
 }
 

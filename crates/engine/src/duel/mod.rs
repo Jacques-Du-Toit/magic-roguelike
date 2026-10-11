@@ -6,12 +6,15 @@ mod combat;
 mod combat_tests;
 mod config;
 mod damage;
+mod effects;
 mod error;
 mod ids;
 mod mana;
 mod mulligan;
 mod rng;
 mod setup;
+#[cfg(test)]
+mod spell_tests;
 mod stack;
 mod state;
 #[cfg(test)]

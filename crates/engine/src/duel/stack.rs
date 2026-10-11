@@ -1,13 +1,18 @@
-//! Casting spells and resolving the stack.
+//! Casting spells, choosing targets, triggered abilities, and resolving the
+//! stack.
 
 use super::action::{Action, GameEvent, Target};
+use super::effects::apply_effect;
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::{pay_cost, plan_payment};
-use super::state::{DuelState, StackItem, StackItemKind, Zone};
-use crate::cards::CardDef;
+use super::state::{
+    AbilityRef, DuelState, PendingTrigger, StackItem, StackItemKind, Zone, card_def,
+};
+use crate::cards::{AbilityDef, CardDef, CardType, Effect, TargetSpec, Trigger, TriggerSubject};
 
-/// Every spell the player could cast right now, as concrete actions.
+/// Every spell the player could cast right now, as concrete actions: one
+/// per legal choice of targets.
 pub(crate) fn legal_casts(
     state: &DuelState,
     player: PlayerId,
@@ -21,24 +26,97 @@ pub(crate) fn legal_casts(
         if plan_payment(state, player, &def.mana_cost, Some(card))?.is_none() {
             continue;
         }
-        actions.push(Action::CastSpell {
-            card,
-            targets: Vec::new(),
-        });
+        for targets in target_choices(state, &target_specs(def))? {
+            actions.push(Action::CastSpell { card, targets });
+        }
     }
     Ok(actions)
 }
 
 /// Whether the rules allow the player to cast this card at this moment,
-/// leaving aside whether they can pay for it.
+/// leaving aside targets and whether they can pay for it.
 fn can_cast_now(state: &DuelState, player: PlayerId, def: &CardDef) -> bool {
-    // Only creature spells are castable so far.
-    def.is_creature() && has_sorcery_timing(state, player)
+    if def.is_land() || def.is_aura() {
+        return false;
+    }
+    def.has_type(CardType::Instant) || has_sorcery_timing(state, player)
 }
 
 /// The player's own main phase with an empty stack.
 pub(crate) fn has_sorcery_timing(state: &DuelState, player: PlayerId) -> bool {
     player == state.active_player && state.step.is_main() && state.stack.is_empty()
+}
+
+/// The effects of an instant or sorcery.
+fn spell_effects(def: &CardDef) -> &[Effect] {
+    def.abilities
+        .iter()
+        .find_map(|ability| match ability {
+            AbilityDef::Spell { effects } => Some(effects.as_slice()),
+            _ => None,
+        })
+        .unwrap_or(&[])
+}
+
+/// What the spell's targets must be, in the order they are chosen: one per
+/// targeted effect.
+fn target_specs(def: &CardDef) -> Vec<TargetSpec> {
+    spell_effects(def)
+        .iter()
+        .filter_map(|effect| effect.target().copied())
+        .collect()
+}
+
+/// Everything that fits a target spec right now.
+fn candidates(state: &DuelState, spec: TargetSpec) -> Result<Vec<Target>, InternalError> {
+    let mut targets = Vec::new();
+    let creatures = |targets: &mut Vec<Target>| -> Result<(), InternalError> {
+        for &object in &state.battlefield {
+            if state.is_creature(object)? {
+                targets.push(Target::Object { object });
+            }
+        }
+        Ok(())
+    };
+    match spec {
+        TargetSpec::AnyTarget {} => {
+            for player in PlayerId::ALL {
+                targets.push(Target::Player { player });
+            }
+            creatures(&mut targets)?;
+        }
+        TargetSpec::Creature {} => creatures(&mut targets)?,
+        TargetSpec::Spell {} => {
+            for item in &state.stack {
+                if item.kind == StackItemKind::Spell {
+                    targets.push(Target::Object { object: item.id });
+                }
+            }
+        }
+    }
+    Ok(targets)
+}
+
+/// Every way to choose one target per spec. A spell with no targets has
+/// exactly one way (no targets); a spec nothing fits leaves no way at all.
+fn target_choices(
+    state: &DuelState,
+    specs: &[TargetSpec],
+) -> Result<Vec<Vec<Target>>, InternalError> {
+    let mut choices: Vec<Vec<Target>> = vec![Vec::new()];
+    for &spec in specs {
+        let options = candidates(state, spec)?;
+        let mut extended = Vec::new();
+        for chosen in &choices {
+            for &option in &options {
+                let mut next = chosen.clone();
+                next.push(option);
+                extended.push(next);
+            }
+        }
+        choices = extended;
+    }
+    Ok(choices)
 }
 
 pub(crate) fn cast_spell(
@@ -80,17 +158,129 @@ pub(crate) fn resolve_top(
         .last()
         .cloned()
         .ok_or_else(|| InternalError::new("resolving an empty stack"))?;
-    match item.kind {
-        StackItemKind::Spell => {
-            // A permanent spell becomes a permanent.
-            let permanent = state.move_object(item.id, Zone::Battlefield)?;
-            events.push(GameEvent::PermanentEntered {
-                player: item.controller,
-                card: state.card_ref(permanent)?,
-            });
+    match &item.kind {
+        StackItemKind::Spell => resolve_spell(state, events, &item),
+        StackItemKind::Trigger { ability } => {
+            state.stack.pop();
+            for effect in ability_effects(ability)? {
+                apply_effect(state, events, effect, item.controller, ability.source, None)?;
+            }
+            events.push(GameEvent::AbilityResolved { ability: item.id });
+            Ok(())
+        }
+    }
+}
+
+fn resolve_spell(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    item: &StackItem,
+) -> Result<(), InternalError> {
+    let def = state.def(item.id)?;
+    let player = item.controller;
+    if !def.is_instant_or_sorcery() {
+        // A permanent spell becomes a permanent.
+        let permanent = state.move_object(item.id, Zone::Battlefield)?;
+        events.push(GameEvent::PermanentEntered {
+            player,
+            card: state.card_ref(permanent)?,
+        });
+        return permanent_entered(state, permanent);
+    }
+
+    // Targets are checked again on resolution. A spell whose targets have
+    // all become illegal does nothing; otherwise it does what it can.
+    let specs = target_specs(def);
+    let mut still_legal = Vec::new();
+    for (&spec, target) in specs.iter().zip(&item.targets) {
+        still_legal.push(candidates(state, spec)?.contains(target));
+    }
+    let fizzles = !still_legal.is_empty() && !still_legal.contains(&true);
+    if !fizzles {
+        let mut targets = item.targets.iter().zip(&still_legal);
+        for effect in spell_effects(def) {
+            let target = match effect.target() {
+                None => None,
+                Some(_) => match targets.next() {
+                    Some((target, true)) => Some(*target),
+                    _ => continue,
+                },
+            };
+            apply_effect(state, events, effect, player, item.id, target)?;
+        }
+    }
+    let in_graveyard = state.move_object(item.id, Zone::Graveyard)?;
+    let card = state.card_ref(in_graveyard)?;
+    events.push(if fizzles {
+        GameEvent::SpellFizzled { player, card }
+    } else {
+        GameEvent::SpellResolved { player, card }
+    });
+    Ok(())
+}
+
+/// Notes the "when this enters" abilities of a permanent that has just
+/// entered the battlefield. They go on the stack the next time a player
+/// would get priority.
+pub(crate) fn permanent_entered(
+    state: &mut DuelState,
+    permanent: ObjectId,
+) -> Result<(), InternalError> {
+    let object = state.object(permanent)?;
+    let (def_id, controller) = (object.def.clone(), object.owner);
+    for (index, ability) in state.def(permanent)?.abilities.iter().enumerate() {
+        let AbilityDef::Triggered { trigger, .. } = ability else {
+            continue;
+        };
+        match trigger {
+            Trigger::EntersBattlefield {
+                subject: TriggerSubject::This,
+            } => state.pending_triggers.push(PendingTrigger {
+                ability: AbilityRef {
+                    source: permanent,
+                    def: def_id.clone(),
+                    index,
+                },
+                controller,
+            }),
         }
     }
     Ok(())
+}
+
+/// Puts the waiting triggered abilities on the stack: the active player's
+/// first (so they resolve last), then by the id of their source.
+pub(crate) fn put_triggers_on_stack(state: &mut DuelState, events: &mut Vec<GameEvent>) {
+    let mut pending = std::mem::take(&mut state.pending_triggers);
+    let active = state.active_player;
+    pending.sort_by_key(|trigger| (trigger.controller != active, trigger.ability.source));
+    for trigger in pending {
+        let id = state.next_object_id();
+        events.push(GameEvent::AbilityTriggered {
+            player: trigger.controller,
+            source: trigger.ability.source,
+            ability: id,
+        });
+        state.stack.push(StackItem {
+            id,
+            controller: trigger.controller,
+            kind: StackItemKind::Trigger {
+                ability: trigger.ability,
+            },
+            targets: Vec::new(),
+        });
+    }
+}
+
+/// The effects of a triggered ability.
+fn ability_effects(ability: &AbilityRef) -> Result<&'static [Effect], InternalError> {
+    match card_def(&ability.def)?.abilities.get(ability.index) {
+        Some(AbilityDef::Triggered { effects, .. }) => Ok(effects),
+        _ => Err(InternalError::new(format!(
+            "`{}` has no triggered ability {}",
+            ability.def, ability.index
+        ))),
+    }
 }
 
 #[cfg(test)]
@@ -401,6 +591,8 @@ mod tests {
         apply_action(&mut state, me, cast(visionary)).unwrap();
         assert!(tapped(&state, forests[0]) && tapped(&state, forests[1]));
         assert!(!tapped(&state, plains));
+        // The Visionary resolves, then its trigger.
+        pass_both(&mut state);
         pass_both(&mut state);
         assert!(can_cast(&state, me, lions));
     }

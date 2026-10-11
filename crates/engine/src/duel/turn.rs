@@ -5,12 +5,14 @@
 
 use super::action::{Action, GameEvent};
 use super::combat;
-use super::damage::{LifeCause, change_life, check_state_based_actions, remove_damage};
+use super::damage::{LifeCause, change_life, check_state_based_actions, end_of_turn_cleanup};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::empty_mana_pools;
 use super::setup::take_top_card;
-use super::stack::{has_sorcery_timing, legal_casts, resolve_top};
+use super::stack::{
+    has_sorcery_timing, legal_casts, permanent_entered, put_triggers_on_stack, resolve_top,
+};
 use super::state::{Combat, Decision, DuelState, Step, Zone};
 
 /// A rule of Magic rather than a balance number.
@@ -165,18 +167,26 @@ fn run_from_step(
 /// Finishes the cleanup step, once any discarding is done, and starts the
 /// other player's turn.
 fn end_turn(state: &mut DuelState, events: &mut Vec<GameEvent>) -> Result<(), InternalError> {
-    remove_damage(state);
+    end_of_turn_cleanup(state);
     let next_player = state.active_player.opponent();
     begin_turn(state, events, next_player)
 }
 
-/// Checks state-based actions, then gives the active player priority unless
-/// the game has ended.
+/// What happens whenever a player would get priority: state-based actions
+/// are checked and waiting triggered abilities go on the stack, repeatedly
+/// until neither does anything. Then the active player gets priority,
+/// unless the game has ended.
 pub(crate) fn open_priority(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
 ) -> Result<(), InternalError> {
-    check_state_based_actions(state, events)?;
+    loop {
+        check_state_based_actions(state, events)?;
+        if state.result.is_some() || state.pending_triggers.is_empty() {
+            break;
+        }
+        put_triggers_on_stack(state, events);
+    }
     state.consecutive_passes = 0;
     state.decision = match state.result {
         Some(_) => None,
@@ -249,9 +259,9 @@ pub(crate) fn play_land(
         player,
         card: state.card_ref(land)?,
     });
+    permanent_entered(state, land)?;
     // The player keeps priority.
-    state.consecutive_passes = 0;
-    Ok(())
+    open_priority(state, events)
 }
 
 pub(crate) fn discard(
@@ -494,9 +504,15 @@ mod tests {
     fn only_one_land_per_turn() {
         let (mut state, first, _) = started("deck_c", "deck_c", 3);
         pass_until(&mut state, 1, Step::PrecombatMain);
+        let can_play_a_land = |state: &DuelState| {
+            legal_actions(state, first)
+                .iter()
+                .any(|action| matches!(action, Action::PlayLand { .. }))
+        };
         let land = hand_land(&state, first);
+        assert!(can_play_a_land(&state));
         apply_action(&mut state, first, Action::PlayLand { card: land }).unwrap();
-        assert_eq!(legal_actions(&state, first), [Action::PassPriority]);
+        assert!(!can_play_a_land(&state));
 
         let another = hand_land(&state, first);
         assert_eq!(
@@ -508,7 +524,7 @@ mod tests {
         );
         // Not in the second main phase of the same turn either.
         pass_until(&mut state, 1, Step::PostcombatMain);
-        assert_eq!(legal_actions(&state, first), [Action::PassPriority]);
+        assert!(!can_play_a_land(&state));
 
         // The land drop comes back on the player's next turn.
         pass_until(&mut state, 2, Step::Cleanup);
