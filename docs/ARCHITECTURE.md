@@ -30,6 +30,7 @@
 pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>;
 pub fn legal_actions(state: &DuelState, player: PlayerId) -> Vec<Action>;
 pub fn has_meaningful_action(state: &DuelState, player: PlayerId) -> bool;
+pub fn should_auto_pass(state: &DuelState, player: PlayerId, hold_priority: bool) -> bool;
 pub fn apply_action(state: &mut DuelState, player: PlayerId, action: Action)
     -> Result<Vec<GameEvent>, ActionError>;
 pub fn player_view(state: &DuelState, player: PlayerId)
@@ -56,8 +57,8 @@ Every `Action` returned by `legal_actions` is concrete and can be passed straigh
 
 | Decision | Step actions |
 |---|---|
-| Declare attackers | `Attack { creature }`, `ResetDeclaration`, `ConfirmAttackers` |
-| Declare blockers | `Block { blocker, attacker }`, `ResetDeclaration`, `ConfirmBlockers` |
+| Declare attackers | `Attack { creature }`, `RemoveAttacker { creature }`, `ResetDeclaration`, `ConfirmAttackers` |
+| Declare blockers | `Block { blocker, attacker }`, `RemoveBlocker { blocker }`, `ResetDeclaration`, `ConfirmBlockers` |
 | Mulligan | `Keep`, `Mulligan`, then `BottomCard { card }` once per card owed |
 | Discard to hand size | `Discard { card }` |
 | Later: order triggers, divide combat damage, "may" choices | one step action each |
@@ -76,7 +77,14 @@ Payment is engine logic, not UI logic, because the AI and `sim` need it too.
 
 ### Auto-pass
 
-Mana abilities are always available, so "the only legal action is pass" is never literally true. `has_meaningful_action` answers the real question: is there any legal action other than `PassPriority` and mana abilities? The UI auto-passes when it returns false (unless the player is holding priority). The rule lives in the engine so it can be refined (stops, "only on my turn") without touching TypeScript.
+Mana abilities are always available, so "the only legal action is pass" is never literally true. `has_meaningful_action` answers the real question: is there any legal action other than `PassPriority` and mana abilities?
+
+`should_auto_pass(state, player, hold_priority)` is what the UI asks: it passes for the player whenever this returns true. The rule lives in the engine so it can be refined without touching TypeScript. As of M2:
+
+- Only a priority decision is ever passed for. With `hold_priority` on (the player's toggle), nothing is.
+- A player with no meaningful action is passed for.
+- With something on the stack, the player is asked when the top item is the opponent's and passed for when it is their own.
+- With an empty stack, the player is asked in their own main phases, in the declare-attackers and declare-blockers steps (once the declaration is made), and in the opponent's end step. Everywhere else they are passed for.
 
 ### Events
 

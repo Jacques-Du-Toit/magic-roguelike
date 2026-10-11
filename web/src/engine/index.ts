@@ -77,6 +77,14 @@ export class Duel {
     return this.#duel.has_meaningful_action()
   }
 
+  /**
+   * Whether to pass priority for the human without asking. The rule is the
+   * engine's; `holdPriority` is the human's toggle.
+   */
+  shouldAutoPass(holdPriority: boolean): boolean {
+    return this.#duel.should_auto_pass(holdPriority)
+  }
+
   /** Applies one of the human's legal actions. */
   apply(action: Action): DuelUpdate {
     return JSON.parse(this.#duel.apply(JSON.stringify(action))) as DuelUpdate

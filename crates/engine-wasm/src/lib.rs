@@ -70,6 +70,12 @@ impl Duel {
         self.session.has_meaningful_action()
     }
 
+    /// Whether to pass priority for the human without asking them, given
+    /// their hold-priority toggle. The rule is the engine's.
+    pub fn should_auto_pass(&self, hold_priority: bool) -> bool {
+        self.session.should_auto_pass(hold_priority)
+    }
+
     /// Applies one of the human's legal actions (`Action` JSON) and returns
     /// a `DuelUpdate` as JSON.
     pub fn apply(&mut self, action: &str) -> Result<String, JsError> {

@@ -45,6 +45,14 @@ pub enum Action {
         blocker: ObjectId,
         attacker: ObjectId,
     },
+    /// Take a creature back out of the attack being declared.
+    RemoveAttacker {
+        creature: ObjectId,
+    },
+    /// Take a creature back out of the blocks being declared.
+    RemoveBlocker {
+        blocker: ObjectId,
+    },
     /// Start the attack or block declaration again.
     ResetDeclaration,
     /// Attack with the creatures chosen so far, which may be none.

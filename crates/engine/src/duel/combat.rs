@@ -44,11 +44,37 @@ pub(crate) fn legal_attack_actions(state: &DuelState) -> Result<Vec<Action>, Int
         .into_iter()
         .map(|creature| Action::Attack { creature })
         .collect();
-    if !combat(state)?.attackers.is_empty() {
+    let declared = &combat(state)?.attackers;
+    actions.extend(declared.iter().map(|attacker| Action::RemoveAttacker {
+        creature: attacker.attacker,
+    }));
+    if !declared.is_empty() {
         actions.push(Action::ResetDeclaration);
     }
     actions.push(Action::ConfirmAttackers);
     Ok(actions)
+}
+
+/// Takes one creature back out of the attack being declared.
+pub(crate) fn remove_attacker(
+    state: &mut DuelState,
+    creature: ObjectId,
+) -> Result<(), InternalError> {
+    combat_mut(state)?
+        .attackers
+        .retain(|attacker| attacker.attacker != creature);
+    Ok(())
+}
+
+/// Takes one creature back out of the blocks being declared.
+pub(crate) fn remove_blocker(
+    state: &mut DuelState,
+    blocker: ObjectId,
+) -> Result<(), InternalError> {
+    for attacker in &mut combat_mut(state)?.attackers {
+        attacker.blockers.retain(|declared| *declared != blocker);
+    }
+    Ok(())
 }
 
 pub(crate) fn declare_attacker(
@@ -171,11 +197,17 @@ pub(crate) fn legal_block_actions(state: &DuelState) -> Result<Vec<Action>, Inte
         .into_iter()
         .map(|(blocker, attacker)| Action::Block { blocker, attacker })
         .collect();
-    if combat(state)?
+    let declared: Vec<ObjectId> = combat(state)?
         .attackers
         .iter()
-        .any(|a| !a.blockers.is_empty())
-    {
+        .flat_map(|a| a.blockers.iter().copied())
+        .collect();
+    actions.extend(
+        declared
+            .iter()
+            .map(|&blocker| Action::RemoveBlocker { blocker }),
+    );
+    if !declared.is_empty() {
         actions.push(Action::ResetDeclaration);
     }
     if blocks_are_legal(state)? {

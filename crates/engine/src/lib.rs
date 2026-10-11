@@ -20,7 +20,7 @@ pub mod duel;
 pub use ai::ai_choose_action;
 pub use duel::{
     apply_action, has_meaningful_action, legal_actions, new_duel, player_view, redact_events,
-    result,
+    result, should_auto_pass,
 };
 
 use serde::{Deserialize, Serialize};

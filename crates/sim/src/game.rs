@@ -144,6 +144,8 @@ fn write_replay(
             Action::PassPriority
             | Action::Attack { .. }
             | Action::Block { .. }
+            | Action::RemoveAttacker { .. }
+            | Action::RemoveBlocker { .. }
             | Action::ResetDeclaration => None,
         };
         if let Some(line) = line {

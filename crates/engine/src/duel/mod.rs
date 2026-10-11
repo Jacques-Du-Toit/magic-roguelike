@@ -39,7 +39,7 @@ pub use state::{
 };
 pub use view::{
     PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
-    has_meaningful_action, player_view, redact_events,
+    has_meaningful_action, player_view, redact_events, should_auto_pass,
 };
 
 /// Every action `player` may take right now. Empty unless the game is
@@ -117,6 +117,8 @@ fn perform(
         (Action::Block { blocker, attacker }, _) => {
             combat::declare_blocker(state, *blocker, *attacker)?;
         }
+        (Action::RemoveAttacker { creature }, _) => combat::remove_attacker(state, *creature)?,
+        (Action::RemoveBlocker { blocker }, _) => combat::remove_blocker(state, *blocker)?,
         (Action::ResetDeclaration, Some(Decision::DeclareAttackers { .. })) => {
             combat::reset_attackers(state)?;
         }

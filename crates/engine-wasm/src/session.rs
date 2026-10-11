@@ -8,7 +8,7 @@ use engine::data;
 use engine::decks::{DeckDef, DeckId};
 use engine::duel::{
     Action, DuelConfig, DuelState, GameEvent, PlayerId, PlayerView, apply_action,
-    has_meaningful_action, legal_actions, new_duel, player_view, redact_events,
+    has_meaningful_action, legal_actions, new_duel, player_view, redact_events, should_auto_pass,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -88,6 +88,12 @@ impl Session {
 
     pub fn has_meaningful_action(&self) -> bool {
         has_meaningful_action(&self.state, HUMAN)
+    }
+
+    /// Whether to pass priority for the human without asking them.
+    /// `hold_priority` is their toggle.
+    pub fn should_auto_pass(&self, hold_priority: bool) -> bool {
+        should_auto_pass(&self.state, HUMAN, hold_priority)
     }
 
     /// Applies one of the human's legal actions, given as `Action` JSON.
@@ -201,6 +207,7 @@ mod tests {
             } else {
                 assert_eq!(actions(&session), []);
                 assert!(!session.has_meaningful_action());
+                assert!(!session.should_auto_pass(false));
                 assert!(session.apply(r#"{"type":"keep"}"#).is_err());
             }
         }

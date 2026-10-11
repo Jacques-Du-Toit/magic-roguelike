@@ -209,11 +209,51 @@ fn face_down(card: CardRef) -> CardRef {
     }
 }
 
-/// Whether the player has anything to do other than pass priority. The UI
-/// passes automatically when this is false, unless the player is holding
-/// priority.
+/// Whether the player has anything to do other than pass priority.
 pub fn has_meaningful_action(state: &DuelState, player: PlayerId) -> bool {
     legal_actions(state, player)
         .iter()
         .any(|action| *action != Action::PassPriority)
+}
+
+/// Whether the UI should pass priority for the player without asking them
+/// (Arena-style auto-pass). `hold_priority` is the player's toggle: with it
+/// on, they are asked every time they get priority.
+///
+/// Otherwise the player is asked only when they have something to do other
+/// than pass, and then only:
+/// - when the opponent's spell or ability is on top of the stack (their own
+///   is left to resolve);
+/// - with an empty stack, in their own main phases, once attackers or
+///   blockers have been declared, and in the opponent's end step.
+///
+/// Never true for any decision other than priority.
+pub fn should_auto_pass(state: &DuelState, player: PlayerId, hold_priority: bool) -> bool {
+    if state.decision != Some(Decision::Priority { player }) {
+        return false;
+    }
+    if hold_priority {
+        return false;
+    }
+    if !has_meaningful_action(state, player) {
+        return true;
+    }
+    if let Some(top) = state.stack.last() {
+        return top.controller == player;
+    }
+    let own_turn = state.active_player == player;
+    let stop = match state.step {
+        Step::PrecombatMain | Step::PostcombatMain => own_turn,
+        Step::DeclareAttackers | Step::DeclareBlockers => true,
+        Step::End => !own_turn,
+        Step::Untap
+        | Step::Upkeep
+        | Step::Draw
+        | Step::BeginCombat
+        | Step::FirstStrikeDamage
+        | Step::CombatDamage
+        | Step::EndCombat
+        | Step::Cleanup => false,
+    };
+    !stop
 }

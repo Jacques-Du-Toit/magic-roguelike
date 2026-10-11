@@ -131,8 +131,42 @@ fn a_creature_cannot_be_declared_as_an_attacker_twice() {
     apply_action(&mut state, me, Action::Attack { creature: bears }).unwrap();
     assert_eq!(
         legal_actions(&state, me),
-        [Action::ResetDeclaration, Action::ConfirmAttackers]
+        [
+            Action::RemoveAttacker { creature: bears },
+            Action::ResetDeclaration,
+            Action::ConfirmAttackers
+        ]
     );
+}
+
+#[test]
+fn one_attacker_can_be_taken_back_out_of_the_declaration() {
+    let (mut state, me, opponent) = empty_board(1);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let giant = put_on_battlefield(&mut state, me, "hill_giant");
+    pass_until_other_decision(&mut state);
+    // Nothing is declared yet, so nothing can be removed.
+    assert!(apply_action(&mut state, me, Action::RemoveAttacker { creature: bears }).is_err());
+    apply_action(&mut state, me, Action::Attack { creature: bears }).unwrap();
+    apply_action(&mut state, me, Action::Attack { creature: giant }).unwrap();
+
+    let events = apply_action(&mut state, me, Action::RemoveAttacker { creature: bears }).unwrap();
+    assert_eq!(events, []);
+    assert_eq!(
+        legal_actions(&state, me),
+        [
+            Action::Attack { creature: bears },
+            Action::RemoveAttacker { creature: giant },
+            Action::ResetDeclaration,
+            Action::ConfirmAttackers
+        ]
+    );
+
+    // Only the giant attacks.
+    apply_action(&mut state, me, Action::ConfirmAttackers).unwrap();
+    assert!(state.objects[&giant].tapped && !state.objects[&bears].tapped);
+    finish_combat(&mut state);
+    assert_eq!(life(&state, opponent), 17);
 }
 
 #[test]
@@ -339,10 +373,25 @@ fn the_defending_player_chooses_blocks_among_untapped_creatures() {
     .unwrap();
     assert_eq!(
         legal_actions(&state, opponent),
-        [Action::ResetDeclaration, Action::ConfirmBlockers]
+        [
+            Action::RemoveBlocker { blocker },
+            Action::ResetDeclaration,
+            Action::ConfirmBlockers
+        ]
     );
     apply_action(&mut state, opponent, Action::ResetDeclaration).unwrap();
     assert_eq!(legal_actions(&state, opponent).len(), 3);
+
+    // One block can be taken back on its own, and made differently.
+    let block = |attacker| Action::Block { blocker, attacker };
+    assert!(apply_action(&mut state, opponent, Action::RemoveBlocker { blocker }).is_err());
+    apply_action(&mut state, opponent, block(giant)).unwrap();
+    let events = apply_action(&mut state, opponent, Action::RemoveBlocker { blocker }).unwrap();
+    assert_eq!(events, []);
+    assert_eq!(
+        legal_actions(&state, opponent),
+        [block(bears), block(giant), Action::ConfirmBlockers]
+    );
 
     // Not blocking at all is allowed.
     apply_action(&mut state, opponent, Action::ConfirmBlockers).unwrap();
@@ -506,7 +555,11 @@ fn menace_boggart_brute_cannot_be_blocked_by_one_creature() {
     apply_action(&mut state, opponent, block_with(first)).unwrap();
     assert_eq!(
         legal_actions(&state, opponent),
-        [block_with(second), Action::ResetDeclaration]
+        [
+            block_with(second),
+            Action::RemoveBlocker { blocker: first },
+            Action::ResetDeclaration
+        ]
     );
     assert_eq!(
         apply_action(&mut state, opponent, Action::ConfirmBlockers),
@@ -519,7 +572,12 @@ fn menace_boggart_brute_cannot_be_blocked_by_one_creature() {
     apply_action(&mut state, opponent, block_with(second)).unwrap();
     assert_eq!(
         legal_actions(&state, opponent),
-        [Action::ResetDeclaration, Action::ConfirmBlockers]
+        [
+            Action::RemoveBlocker { blocker: first },
+            Action::RemoveBlocker { blocker: second },
+            Action::ResetDeclaration,
+            Action::ConfirmBlockers
+        ]
     );
     apply_action(&mut state, opponent, Action::ConfirmBlockers).unwrap();
     let events = finish_combat(&mut state);
@@ -547,7 +605,13 @@ fn a_lone_blocker_must_let_a_menace_creature_through() {
         },
     )
     .unwrap();
-    assert_eq!(legal_actions(&state, opponent), [Action::ResetDeclaration]);
+    assert_eq!(
+        legal_actions(&state, opponent),
+        [
+            Action::RemoveBlocker { blocker: bears },
+            Action::ResetDeclaration
+        ]
+    );
     apply_action(&mut state, opponent, Action::ResetDeclaration).unwrap();
     apply_action(&mut state, opponent, Action::ConfirmBlockers).unwrap();
     finish_combat(&mut state);

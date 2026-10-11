@@ -8,8 +8,8 @@ use super::test_support::{
     attack, cast, cast_at, config, empty_board, pass_both, pass_until, pass_until_other_decision,
     play_randomly, put_in_hand, put_lands, put_on_battlefield, started,
 };
-use super::view::{PlayerView, StackItemViewKind, player_view, redact_events};
-use super::{apply_action, has_meaningful_action, new_duel};
+use super::view::{PlayerView, StackItemViewKind, player_view, redact_events, should_auto_pass};
+use super::{apply_action, has_meaningful_action, legal_actions, new_duel};
 
 const PAIRINGS: [(&str, &str); 6] = [
     ("deck_a", "deck_a"),
@@ -309,6 +309,130 @@ fn an_instant_with_a_target_is_a_meaningful_action_on_the_opponents_turn() {
     put_in_hand(&mut state, opponent, "shock");
     apply_action(&mut state, me, Action::PassPriority).unwrap();
     assert!(has_meaningful_action(&state, opponent));
+}
+
+#[test]
+fn a_player_with_nothing_to_do_is_passed_for_unless_holding_priority() {
+    let (mut state, me, opponent) = empty_board(1);
+    assert!(should_auto_pass(&state, me, false));
+    assert!(!should_auto_pass(&state, me, true));
+    // Nobody is passed for when it isn't their priority.
+    assert!(!should_auto_pass(&state, opponent, false));
+
+    // A land to play in your own main phase is worth stopping for.
+    put_in_hand(&mut state, me, "forest");
+    assert!(!should_auto_pass(&state, me, false));
+}
+
+#[test]
+fn other_decisions_are_never_passed_for() {
+    let state = new_duel(config("deck_a", "deck_c"), 1).unwrap();
+    for player in PlayerId::ALL {
+        assert!(!should_auto_pass(&state, player, false));
+    }
+
+    let (mut state, me, _) = empty_board(1);
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    pass_until_other_decision(&mut state);
+    assert_eq!(
+        state.decision,
+        Some(Decision::DeclareAttackers { player: me })
+    );
+    assert!(!should_auto_pass(&state, me, false));
+}
+
+/// Plays on until `turn` begins: everyone passes, every creature attacks and
+/// nothing blocks. Returns each (active player, step) at which `player` got
+/// priority and `stops(state)` was true.
+fn stops_until_turn(
+    state: &mut DuelState,
+    player: PlayerId,
+    turn: u32,
+    stops: impl Fn(&DuelState) -> bool,
+) -> Vec<(PlayerId, Step)> {
+    let mut stopped = Vec::new();
+    while state.turn < turn {
+        let action = match state.decision.unwrap() {
+            Decision::Priority { player: asked } => {
+                if asked == player && stops(state) {
+                    stopped.push((state.active_player, state.step));
+                }
+                Action::PassPriority
+            }
+            Decision::DeclareAttackers { player: asked } => legal_actions(state, asked)
+                .into_iter()
+                .find(|action| matches!(action, Action::Attack { .. }))
+                .unwrap_or(Action::ConfirmAttackers),
+            Decision::DeclareBlockers { .. } => Action::ConfirmBlockers,
+            other => panic!("unexpected decision {other:?}"),
+        };
+        let asked = state.waiting_on().unwrap();
+        apply_action(state, asked, action).unwrap();
+    }
+    stopped
+}
+
+#[test]
+fn with_an_instant_ready_you_are_stopped_only_where_it_matters() {
+    let setup = || {
+        let (mut state, me, opponent) = empty_board(1);
+        put_lands(&mut state, me, "swamp", 3);
+        put_in_hand(&mut state, me, "murder");
+        put_on_battlefield(&mut state, me, "grizzly_bears");
+        put_on_battlefield(&mut state, opponent, "hill_giant");
+        (state, me, opponent)
+    };
+
+    let (mut state, me, opponent) = setup();
+    let stops = stops_until_turn(&mut state, me, 3, |state| {
+        !should_auto_pass(state, me, false)
+    });
+    assert_eq!(
+        stops,
+        [
+            (me, Step::PrecombatMain),
+            (me, Step::DeclareAttackers),
+            (me, Step::DeclareBlockers),
+            (me, Step::PostcombatMain),
+            (opponent, Step::DeclareAttackers),
+            (opponent, Step::DeclareBlockers),
+            (opponent, Step::End),
+        ]
+    );
+
+    // Murder was castable every time: holding priority stops at them all.
+    let (mut state, me, _) = setup();
+    let all = stops_until_turn(&mut state, me, 3, |state| {
+        !should_auto_pass(state, me, true)
+    });
+    let (mut state, me, _) = setup();
+    let castable = stops_until_turn(&mut state, me, 3, |state| has_meaningful_action(state, me));
+    assert_eq!(all, castable);
+    assert!(all.len() > 15, "{all:?}");
+}
+
+#[test]
+fn you_are_stopped_to_respond_to_the_opponents_spell_but_not_your_own() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "mountain", 2);
+    let shock = put_in_hand(&mut state, me, "shock");
+    put_in_hand(&mut state, me, "shock");
+    put_lands(&mut state, opponent, "mountain", 1);
+    put_in_hand(&mut state, opponent, "shock");
+
+    let face = Target::Player { player: opponent };
+    apply_action(&mut state, me, cast_at(shock, face)).unwrap();
+    // I could cast the second Shock, but my own spell is left to resolve.
+    assert!(has_meaningful_action(&state, me));
+    assert!(should_auto_pass(&state, me, false));
+    assert!(!should_auto_pass(&state, me, true));
+
+    apply_action(&mut state, me, Action::PassPriority).unwrap();
+    assert!(!should_auto_pass(&state, opponent, false));
+
+    // With nothing to respond with, the opponent would be passed for.
+    crate::duel::test_support::empty_hand(&mut state, opponent);
+    assert!(should_auto_pass(&state, opponent, false));
 }
 
 // ---- Determinism and random play ----
