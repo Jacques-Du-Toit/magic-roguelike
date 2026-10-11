@@ -1,0 +1,492 @@
+// The duel: renders the controller's snapshot and turns clicks into the
+// engine's legal actions.
+
+import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
+import { Battlefield, type Highlight } from '../components/Battlefield.tsx'
+import { CardBack } from '../components/Card.tsx'
+import { Hand } from '../components/Hand.tsx'
+import { GameOverOverlay, GraveyardOverlay, MulliganOverlay } from '../components/Overlays.tsx'
+import { LogPanel, StackPanel } from '../components/SidePanel.tsx'
+import type { DuelController } from '../duel/controller.ts'
+import {
+  type BlockClick,
+  type Casting,
+  type Click,
+  blockOptions,
+  cardActions,
+  clickAttacker,
+  clickBlockedAttacker,
+  clickBlocker,
+  clickHandCard,
+  clickTarget,
+  completedCast,
+  nextTargets,
+  simpleAction,
+} from '../duel/interaction.ts'
+import { stackItemName } from '../duel/names.ts'
+import { type Effects, targetKey } from '../duel/present.ts'
+import {
+  PHASES,
+  type PromptMode,
+  confirmAttackersLabel,
+  confirmBlockersLabel,
+  passLabel,
+  phaseIndex,
+  promptText,
+} from '../duel/prompt.ts'
+import { AI, HUMAN, playerIndex } from '../engine/index.ts'
+import type { Action } from '../engine/types/Action.ts'
+import type { CardDef } from '../engine/types/CardDef.ts'
+import type { PermanentView } from '../engine/types/PermanentView.ts'
+import type { PlayerId } from '../engine/types/PlayerId.ts'
+import type { PlayerSummary } from '../engine/types/PlayerSummary.ts'
+import type { Target } from '../engine/types/Target.ts'
+
+export type Speed = 'normal' | 'fast' | 'instant'
+
+/** How to start the next game from the duel screen. */
+export type NextGame = 'new_seed' | 'same_seed' | 'menu'
+
+type Mode =
+  | { kind: 'idle' }
+  | { kind: 'casting'; casting: Casting }
+  | { kind: 'blocking'; blocker: number }
+
+const IDLE: Mode = { kind: 'idle' }
+
+interface PlayerPanelProps {
+  name: string
+  /** Said after the name while it is this player's turn. */
+  turnLabel: string
+  children?: ReactNode
+  deck: string
+  summary: PlayerSummary
+  effects: Effects
+  active: boolean
+  targetable: boolean
+  onTarget: () => void
+  onGraveyard: () => void
+}
+
+function PlayerPanel({
+  name,
+  turnLabel,
+  children,
+  deck,
+  summary,
+  effects,
+  active,
+  targetable,
+  onTarget,
+  onGraveyard,
+}: PlayerPanelProps) {
+  const floats = effects.floats.filter((float) => float.key === `p:${summary.player}`)
+  return (
+    <div
+      className={`player-panel${active ? ' player-active' : ''}`}
+      data-player={summary.player}
+      data-testid={`player-${summary.player}`}
+    >
+      <button
+        type="button"
+        className={`life${targetable ? ' lit-target' : ''}`}
+        onClick={onTarget}
+        aria-label={`${name}: ${summary.life} life${targetable ? ', can be targeted' : ''}`}
+      >
+        <span className="life-total" data-testid={`life-${summary.player}`}>
+          {summary.life}
+        </span>
+        <span className="life-label">life</span>
+        {floats.map((float, index) => (
+          <span key={index} className={`float float-${float.tone}`}>
+            {float.text}
+          </span>
+        ))}
+      </button>
+      <div className="player-facts">
+        <strong>
+          {name}
+          {active ? ` · ${turnLabel}` : ''}
+        </strong>
+        <span className="muted">{deck}</span>
+        <span>
+          Hand {summary.hand.length} · Library {summary.library_size}
+        </span>
+        <button type="button" className="link" onClick={onGraveyard}>
+          Graveyard {summary.graveyard.length}
+        </button>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+interface DuelScreenProps {
+  controller: DuelController
+  cards: ReadonlyMap<string, CardDef>
+  deckNames: ReadonlyMap<string, string>
+  speed: Speed
+  onSpeed: (speed: Speed) => void
+  onNextGame: (next: NextGame) => void
+}
+
+export function DuelScreen({
+  controller,
+  cards,
+  deckNames,
+  speed,
+  onSpeed,
+  onNextGame,
+}: DuelScreenProps) {
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+  const { view, actions, busy, effects, info } = snapshot
+
+  // What is being pointed at only makes sense for the actions it was started
+  // under: any change of legal actions drops it.
+  const [modeState, setModeState] = useState<{ mode: Mode; actions: Action[] }>({
+    mode: IDLE,
+    actions,
+  })
+  const mode = modeState.actions === actions ? modeState.mode : IDLE
+  const setMode = (next: Mode) => setModeState({ mode: next, actions })
+
+  const [graveyardOf, setGraveyardOf] = useState<PlayerId | null>(null)
+  const [resultDismissed, setResultDismissed] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const you = view.players[playerIndex(HUMAN)]
+  const opponent = view.players[playerIndex(AI)]
+  const name = (def: string | undefined) => (def ? (cards.get(def)?.name ?? def) : 'a card')
+  const permanentName = (object: number) =>
+    name(view.battlefield.find((permanent) => permanent.object === object)?.def)
+  const targetName = (target: Target): string => {
+    if (target.type === 'player') return target.player === HUMAN ? 'you' : 'the opponent'
+    const item = view.stack.find((entry) => entry.id === target.object)
+    return item ? stackItemName(item, cards) : permanentName(target.object)
+  }
+
+  const send = (action: Action) => {
+    setMode(IDLE)
+    void controller.act(action)
+  }
+  const resolve = (click: Click | BlockClick): boolean => {
+    if (click.kind === 'send') send(click.action)
+    else if (click.kind === 'cast') setMode({ kind: 'casting', casting: click.casting })
+    else if (click.kind === 'pick_attacker') setMode({ kind: 'blocking', blocker: click.blocker })
+    return click.kind !== 'nothing'
+  }
+
+  const onHandCard = (object: number) => {
+    if (mode.kind === 'casting' && mode.casting.card === object) setMode(IDLE)
+    else resolve(clickHandCard(actions, object))
+  }
+  const onTarget = (target: Target) => {
+    if (mode.kind === 'casting') resolve(clickTarget(actions, mode.casting, target))
+  }
+  const onPermanent = (permanent: PermanentView) => {
+    const object = permanent.object
+    if (mode.kind === 'casting') {
+      onTarget({ type: 'object', object })
+    } else if (mode.kind === 'blocking') {
+      if (!resolve(clickBlockedAttacker(actions, mode.blocker, object))) {
+        // Clicking the picked-up creature again puts it down.
+        if (object === mode.blocker || !resolve(clickBlocker(actions, object))) setMode(IDLE)
+      }
+    } else if (!resolve(clickAttacker(actions, object))) {
+      resolve(clickBlocker(actions, object))
+    }
+  }
+
+  const targets =
+    mode.kind === 'casting'
+      ? new Set(nextTargets(actions, mode.casting).map(targetKey))
+      : new Set<string>()
+  const blockTargets = mode.kind === 'blocking' ? blockOptions(actions, mode.blocker) : []
+  const highlight = (object: number): Highlight => {
+    if (mode.kind === 'casting') return targets.has(`o:${object}`) ? 'target' : null
+    if (mode.kind === 'blocking') {
+      if (object === mode.blocker) return 'selected'
+      return blockTargets.includes(object) ? 'target' : null
+    }
+    const usable =
+      clickAttacker(actions, object).kind !== 'nothing' ||
+      clickBlocker(actions, object).kind !== 'nothing'
+    return usable ? 'action' : null
+  }
+
+  const pass = simpleAction(actions, 'pass_priority')
+  const confirmAttackers = simpleAction(actions, 'confirm_attackers')
+  const confirmBlockers = simpleAction(actions, 'confirm_blockers')
+  const reset = simpleAction(actions, 'reset_declaration')
+  const keep = simpleAction(actions, 'keep')
+  const mulligan = simpleAction(actions, 'mulligan')
+  const canAttack = actions.some((action) => action.type === 'attack')
+  const castNow = mode.kind === 'casting' ? completedCast(actions, mode.casting) : undefined
+  const primary = pass ?? confirmAttackers ?? confirmBlockers
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const element = event.target instanceof HTMLElement ? event.target.tagName : ''
+      if (event.key === 'Escape') setModeState((current) => ({ ...current, mode: IDLE }))
+      // A focused button already answers the space bar itself.
+      const typing = ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(element)
+      if (event.key === ' ' && primary && !typing) {
+        event.preventDefault()
+        void controller.act(primary)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [controller, primary])
+
+  const promptMode: PromptMode =
+    mode.kind === 'casting'
+      ? {
+          kind: 'casting',
+          cardName: name(you.hand.find((card) => card.object === mode.casting.card)?.face?.def),
+        }
+      : mode.kind === 'blocking'
+        ? { kind: 'blocking', blockerName: permanentName(mode.blocker) }
+        : { kind: 'idle' }
+  const top = view.stack.at(-1)
+  const prompt = promptText({
+    view,
+    busy,
+    mode: promptMode,
+    topOfStack: top ? stackItemName(top, cards) : null,
+    canConfirmBlocks: confirmBlockers !== undefined,
+  })
+
+  const copyReport = () => {
+    const report = JSON.stringify({ ...info, error: snapshot.error, actions: snapshot.history })
+    void navigator.clipboard.writeText(report).then(() => setCopied(true))
+  }
+
+  const inMulligans = view.turn === 0 && view.result === null
+  const playable = (object: number) => cardActions(actions, object).length > 0
+  const phase = phaseIndex(view.step)
+  const deckName = (deck: string) => deckNames.get(deck) ?? deck
+
+  return (
+    <div className="duel" data-busy={busy} data-testid="duel">
+      <header className="topbar">
+        <span className="turn" data-testid="turn">
+          {view.turn === 0
+            ? 'Before the game'
+            : `Turn ${view.turn} · ${view.active_player === HUMAN ? 'your turn' : "opponent's turn"}`}
+        </span>
+        <ol className="phases" aria-label="Phases">
+          {PHASES.map((label, index) => (
+            <li
+              key={label}
+              className={index === phase && view.turn > 0 ? 'phase-current' : ''}
+              aria-current={index === phase && view.turn > 0 ? 'step' : undefined}
+            >
+              {label}
+            </li>
+          ))}
+        </ol>
+        <span className="topbar-tools">
+          <label>
+            Speed{' '}
+            <select value={speed} onChange={(event) => onSpeed(event.target.value as Speed)}>
+              <option value="normal">Normal</option>
+              <option value="fast">Fast</option>
+              <option value="instant">Instant</option>
+            </select>
+          </label>
+          <span className="muted" data-testid="seed">
+            Seed {info.seed}
+          </span>
+          <button type="button" className="link" onClick={copyReport}>
+            {copied ? 'Copied' : 'Copy bug report'}
+          </button>
+          <button type="button" className="link" onClick={() => onNextGame('menu')}>
+            Quit
+          </button>
+        </span>
+      </header>
+
+      <div className="duel-main">
+        <div className="players">
+          <PlayerPanel
+            name="Opponent"
+            turnLabel="their turn"
+            deck={deckName(info.aiDeck)}
+            summary={opponent}
+            effects={effects}
+            active={view.active_player === AI && view.turn > 0}
+            targetable={targets.has(`p:${AI}`)}
+            onTarget={() => onTarget({ type: 'player', player: AI })}
+            onGraveyard={() => setGraveyardOf(AI)}
+          >
+            <div className="opponent-hand" aria-label={`Opponent's hand: ${opponent.hand.length} cards`}>
+              {opponent.hand.map((card) => (
+                <CardBack key={card.object} />
+              ))}
+            </div>
+          </PlayerPanel>
+          <PlayerPanel
+            name="You"
+            turnLabel="your turn"
+            deck={deckName(info.humanDeck)}
+            summary={you}
+            effects={effects}
+            active={view.active_player === HUMAN && view.turn > 0}
+            targetable={targets.has(`p:${HUMAN}`)}
+            onTarget={() => onTarget({ type: 'player', player: HUMAN })}
+            onGraveyard={() => setGraveyardOf(HUMAN)}
+          />
+        </div>
+
+        <Battlefield
+          view={view}
+          cards={cards}
+          effects={effects}
+          highlight={highlight}
+          onPermanent={onPermanent}
+        />
+
+        <div className="prompt-bar">
+          {snapshot.error && (
+            <p role="alert" className="error">
+              The rules engine reported a problem: {snapshot.error}{' '}
+              <button type="button" className="link" onClick={copyReport}>
+                {copied ? 'Copied' : 'Copy bug report'}
+              </button>
+            </p>
+          )}
+          <p className="prompt-text" data-testid="prompt">
+            {prompt}
+          </p>
+          <div className="button-row">
+            <label className="hold">
+              <input
+                type="checkbox"
+                checked={snapshot.holdPriority}
+                onChange={(event) => controller.setHoldPriority(event.target.checked)}
+              />{' '}
+              Hold priority
+            </label>
+            {mode.kind !== 'idle' && (
+              <button type="button" onClick={() => setMode(IDLE)}>
+                Cancel
+              </button>
+            )}
+            {castNow && (
+              <button type="button" onClick={() => send(castNow)}>
+                Cast with these targets
+              </button>
+            )}
+            {canAttack && (
+              <button
+                type="button"
+                onClick={() =>
+                  void controller.actWhile((legal) => legal.find((action) => action.type === 'attack'))
+                }
+              >
+                Attack with all
+              </button>
+            )}
+            {reset && (
+              <button type="button" onClick={() => send(reset)}>
+                Reset
+              </button>
+            )}
+            {confirmAttackers && (
+              <button type="button" className="primary" onClick={() => send(confirmAttackers)}>
+                {confirmAttackersLabel(view)}
+              </button>
+            )}
+            {confirmBlockers && (
+              <button type="button" className="primary" onClick={() => send(confirmBlockers)}>
+                {confirmBlockersLabel(view)}
+              </button>
+            )}
+            {pass && (
+              <button type="button" className="primary" onClick={() => send(pass)}>
+                {passLabel(view)}
+              </button>
+            )}
+            {view.result && (
+              <button type="button" className="primary" onClick={() => setResultDismissed(false)}>
+                Show result
+              </button>
+            )}
+          </div>
+        </div>
+
+        {!inMulligans && (
+          <Hand
+            hand={you.hand}
+            cards={cards}
+            playable={playable}
+            selected={mode.kind === 'casting' ? mode.casting.card : null}
+            onCard={onHandCard}
+          />
+        )}
+      </div>
+
+      <aside className="duel-side">
+        <StackPanel
+          view={view}
+          cards={cards}
+          targetName={targetName}
+          isTarget={(object) => targets.has(`o:${object}`)}
+          onItem={(item) => onTarget({ type: 'object', object: item.id })}
+        />
+        <LogPanel log={snapshot.log} />
+      </aside>
+
+      {inMulligans && (
+        <MulliganOverlay
+          view={view}
+          cards={cards}
+          prompt={prompt}
+          playable={playable}
+          onCard={onHandCard}
+          buttons={
+            <>
+              {mulligan && (
+                <button type="button" onClick={() => send(mulligan)}>
+                  Mulligan
+                </button>
+              )}
+              {keep && (
+                <button type="button" className="primary" onClick={() => send(keep)}>
+                  Keep
+                </button>
+              )}
+            </>
+          }
+        />
+      )}
+
+      {graveyardOf && (
+        <GraveyardOverlay
+          title={graveyardOf === HUMAN ? 'Your graveyard' : "Opponent's graveyard"}
+          graveyard={view.players[playerIndex(graveyardOf)].graveyard}
+          cards={cards}
+          onClose={() => setGraveyardOf(null)}
+        />
+      )}
+
+      {view.result && !busy && !resultDismissed && (
+        <GameOverOverlay result={view.result} turn={view.turn} seed={info.seed}>
+          <button type="button" onClick={() => setResultDismissed(true)}>
+            Look at the board
+          </button>
+          <button type="button" onClick={() => onNextGame('menu')}>
+            Change decks
+          </button>
+          <button type="button" onClick={() => onNextGame('same_seed')}>
+            Replay this seed
+          </button>
+          <button type="button" className="primary" onClick={() => onNextGame('new_seed')}>
+            Play again
+          </button>
+        </GameOverOverlay>
+      )}
+    </div>
+  )
+}
