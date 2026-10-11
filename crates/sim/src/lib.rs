@@ -10,12 +10,14 @@ use std::thread;
 use engine::data;
 use engine::decks::{DeckDef, DeckId};
 use engine::duel::{DuelConfig, PlayerId};
+use engine::run::{Loadout, duel_config, starting_deck};
 
 use game::{GameRecord, play_game};
 use report::{PairingStats, format_report};
 
 pub const USAGE: &str = "\
 Usage: sim [--games N] [--seed S]
+       sim --enemies [--games N] [--seed S]
        sim --replay P1_DECK P2_DECK [--seed S]
 
 Plays N AI-vs-AI games (default 100) for every pairing of the decks in
@@ -23,6 +25,10 @@ data/decks, mirror matches included, and prints a report. Game i of each
 pairing uses seed S + i (S defaults to 1), so a run can be repeated exactly.
 In the report's game i (counting from 0), the first-named deck is P1 when i
 is even and P2 when i is odd.
+
+--enemies plays each planeswalker's starting deck, with its passive, against
+every enemy deck of the run, with its emblems, instead of the test decks.
+The planeswalker is always P1, as the human is in a run.
 
 --replay plays one game with seed S instead and prints what each player
 did, e.g. to look into a game the report flagged.";
@@ -35,6 +41,8 @@ pub struct Options {
     pub seed: u64,
     /// The decks of P1 and P2 for a single replayed game.
     pub replay: Option<(String, String)>,
+    /// Play the run's starting decks against its enemy decks.
+    pub enemies: bool,
 }
 
 impl Default for Options {
@@ -43,6 +51,7 @@ impl Default for Options {
             games: 100,
             seed: 1,
             replay: None,
+            enemies: false,
         }
     }
 }
@@ -71,6 +80,7 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
                     .parse()
                     .map_err(|_| format!("--seed: `{text}` is not a whole number"))?;
             }
+            "--enemies" => options.enemies = true,
             "--replay" => {
                 let p1 = value("--replay")?.to_string();
                 let p2 = value("--replay")?.to_string();
@@ -132,8 +142,31 @@ fn play_safely(config: DuelConfig, seed: u64) -> Result<GameRecord, String> {
     }
 }
 
+/// Plays the games of one pairing. `setup` gives each game its config and
+/// the seat of the first-named deck.
+fn play_pairing(
+    stats: &mut PairingStats,
+    options: &Options,
+    setup: impl Fn(u32) -> (DuelConfig, PlayerId) + Sync,
+) {
+    let results = in_parallel(options.games, |game| {
+        play_safely(setup(game).0, options.seed + u64::from(game))
+    });
+    for (game, result) in (0..options.games).zip(results) {
+        let seed = options.seed + u64::from(game);
+        match result {
+            Some(Ok(record)) => stats.add(&record, setup(game).1),
+            Some(Err(message)) => stats.add_error(seed, message),
+            None => stats.add_error(seed, "the game was never played".to_string()),
+        }
+    }
+}
+
 /// Plays every pairing and returns its statistics, in deck order.
 pub fn run(options: &Options) -> Result<Vec<PairingStats>, String> {
+    if options.enemies {
+        return run_enemies(options);
+    }
     let data = data::embedded().map_err(|error| error.to_string())?;
     let decks: Vec<&DeckDef> = data.decks.values().collect();
     let mut all = Vec::new();
@@ -142,34 +175,49 @@ pub fn run(options: &Options) -> Result<Vec<PairingStats>, String> {
             let mut stats = PairingStats::new(&first.id.0, &second.id.0);
             // The decks swap seats every game, so neither is helped by any
             // difference between the seats.
-            let first_deck_seat = |game: u32| {
+            play_pairing(&mut stats, options, |game| {
                 if game.is_multiple_of(2) {
-                    PlayerId::P1
+                    (
+                        DuelConfig::from_decks(first, second, &data.balance.duel),
+                        PlayerId::P1,
+                    )
                 } else {
-                    PlayerId::P2
+                    (
+                        DuelConfig::from_decks(second, first, &data.balance.duel),
+                        PlayerId::P2,
+                    )
                 }
-            };
-            let results = in_parallel(options.games, |game| {
-                let config = match first_deck_seat(game) {
-                    PlayerId::P1 => DuelConfig::from_decks(first, second, &data.balance.duel),
-                    PlayerId::P2 => DuelConfig::from_decks(second, first, &data.balance.duel),
-                };
-                play_safely(config, options.seed + u64::from(game))
             });
-            for (game, result) in (0..options.games).zip(results) {
-                let seed = options.seed + u64::from(game);
-                match result {
-                    Some(Ok(record)) => stats.add(&record, first_deck_seat(game)),
-                    Some(Err(message)) => stats.add_error(seed, message),
-                    None => stats.add_error(seed, "the game was never played".to_string()),
-                }
-            }
             all.push(stats);
         }
     }
     Ok(all)
 }
 
+/// Plays each planeswalker's starting deck against every enemy of the run,
+/// set up exactly as the run sets a duel up.
+fn run_enemies(options: &Options) -> Result<Vec<PairingStats>, String> {
+    let data = data::embedded().map_err(|error| error.to_string())?;
+    let mut all = Vec::new();
+    for planeswalker in &data.run.planeswalkers {
+        for enemy in &data.run.enemies {
+            let player = Loadout::player(
+                &starting_deck(planeswalker),
+                &planeswalker.colors,
+                vec![&planeswalker.passive],
+                &data.cards,
+                &data.balance,
+            )
+            .map_err(|error| error.to_string())?;
+            let opponent = Loadout::enemy(enemy, &data.cards).map_err(|error| error.to_string())?;
+            let config = duel_config(player, opponent, &data.balance);
+            let mut stats = PairingStats::new(&planeswalker.id.0, &enemy.id.0);
+            play_pairing(&mut stats, options, |_| (config.clone(), PlayerId::P1));
+            all.push(stats);
+        }
+    }
+    Ok(all)
+}
 /// Runs the simulation (or the one replayed game) and returns the text to
 /// print and whether any game failed.
 pub fn run_report(options: &Options) -> Result<(String, bool), String> {
@@ -208,7 +256,8 @@ mod tests {
             Ok(Some(Options {
                 games: 100,
                 seed: 1,
-                replay: None
+                replay: None,
+                enemies: false
             }))
         );
         assert_eq!(
@@ -216,7 +265,8 @@ mod tests {
             Ok(Some(Options {
                 games: 1000,
                 seed: 42,
-                replay: None
+                replay: None,
+                enemies: false
             }))
         );
         assert_eq!(parse_args(&args("--seed 7")).unwrap().unwrap().games, 100);
@@ -226,7 +276,8 @@ mod tests {
             Ok(Some(Options {
                 games: 100,
                 seed: 9,
-                replay: Some(("deck_b".to_string(), "deck_c".to_string()))
+                replay: Some(("deck_b".to_string(), "deck_c".to_string())),
+                enemies: false
             }))
         );
         assert_eq!(
@@ -276,6 +327,33 @@ mod tests {
             parse_args(&args("--fast")),
             Err("unknown argument `--fast`".to_string())
         );
+    }
+
+    #[test]
+    fn the_starting_decks_can_be_played_against_every_enemy() {
+        let options = Options {
+            games: 2,
+            enemies: true,
+            ..Options::default()
+        };
+        assert_eq!(
+            parse_args(&args("--enemies --games 2")),
+            Ok(Some(options.clone()))
+        );
+        let stats = run(&options).unwrap();
+        assert_eq!(stats.len(), 2 * 10);
+        assert_eq!(stats[0].first_deck, "warden");
+        assert_eq!(stats[0].second_deck, "goblin_raid");
+        assert_eq!(stats[19].first_deck, "firebrand");
+        assert_eq!(stats[19].second_deck, "pyre_tyrant");
+        for pairing in &stats {
+            assert_eq!(
+                pairing.games, 2,
+                "{} v {}",
+                pairing.first_deck, pairing.second_deck
+            );
+            assert_eq!(pairing.errors, []);
+        }
     }
 
     #[test]

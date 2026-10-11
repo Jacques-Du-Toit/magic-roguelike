@@ -122,10 +122,16 @@ pub fn format_report(
          turn cap {}",
         info.name, info.version, limits.turn_cap
     );
+    let width = stats
+        .iter()
+        .map(|pairing| pairing.first_deck.len() + pairing.second_deck.len() + 3)
+        .max()
+        .unwrap_or(0)
+        .max(17);
     let _ = writeln!(out);
     let _ = writeln!(
         out,
-        "{:<17} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>8} {:>5} {:>6} {:>7}",
+        "{:<width$} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>8} {:>5} {:>6} {:>7}",
         "Pairing",
         "Games",
         "Win%",
@@ -144,7 +150,7 @@ pub fn format_report(
     for pairing in stats {
         let _ = writeln!(
             out,
-            "{:<17} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>8} {:>5} {:>6} {:>7}",
+            "{:<width$} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>8} {:>5} {:>6} {:>7}",
             format!("{} v {}", pairing.first_deck, pairing.second_deck),
             pairing.games,
             percent(pairing.first_deck_wins, pairing.wins()),

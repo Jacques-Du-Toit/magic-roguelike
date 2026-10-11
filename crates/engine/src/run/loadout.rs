@@ -192,8 +192,8 @@ mod tests {
                 .filter(|instance| instance.card_id.as_str() == card)
                 .count()
         };
-        // 7 white symbols and 8 green.
-        assert_eq!((count("plains"), count("forest")), (5, 5));
+        // 6 white symbols and 10 green.
+        assert_eq!((count("plains"), count("forest")), (4, 6));
         assert_eq!(player.starting_life, 20);
         assert_eq!(player.emblems.len(), 1);
         assert_eq!(player.emblems[0].name, "Warden's Welcome");

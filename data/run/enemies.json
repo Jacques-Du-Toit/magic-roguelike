@@ -4,13 +4,13 @@
     "name": "Goblin Raid",
     "tier": "easy",
     "cards": [
-        { "card": "raging_goblin", "count": 3 },
-        { "card": "goblin_piker", "count": 4 },
-        { "card": "boggart_brute", "count": 2 },
-        { "card": "hill_giant", "count": 2 },
-        { "card": "shock", "count": 2 },
-        { "card": "volcanic_hammer", "count": 2 },
-        { "card": "mountain", "count": 10 }
+      { "card": "raging_goblin", "count": 3 },
+      { "card": "goblin_piker", "count": 4 },
+      { "card": "boggart_brute", "count": 2 },
+      { "card": "hill_giant", "count": 2 },
+      { "card": "shock", "count": 2 },
+      { "card": "volcanic_hammer", "count": 2 },
+      { "card": "mountain", "count": 10 }
     ]
   },
   {
@@ -18,45 +18,44 @@
     "name": "Forest Pack",
     "tier": "easy",
     "cards": [
-        { "card": "llanowar_elves", "count": 2 },
-        { "card": "grizzly_bears", "count": 4 },
-        { "card": "elvish_visionary", "count": 2 },
-        { "card": "centaur_courser", "count": 3 },
-        { "card": "giant_spider", "count": 2 },
-        { "card": "giant_growth", "count": 2 },
-        { "card": "forest", "count": 10 }
+      { "card": "llanowar_elves", "count": 2 },
+      { "card": "grizzly_bears", "count": 4 },
+      { "card": "elvish_visionary", "count": 2 },
+      { "card": "centaur_courser", "count": 3 },
+      { "card": "giant_spider", "count": 2 },
+      { "card": "giant_growth", "count": 2 },
+      { "card": "forest", "count": 10 }
     ]
   },
   {
     "id": "town_militia",
     "name": "Town Militia",
-    "tier": "easy",
+    "tier": "normal",
     "cards": [
-        { "card": "savannah_lions", "count": 3 },
-        { "card": "glory_seeker", "count": 4 },
-        { "card": "youthful_knight", "count": 2 },
-        { "card": "healers_hawk", "count": 2 },
-        { "card": "assault_griffin", "count": 2 },
-        { "card": "siege_mastodon", "count": 1 },
-        { "card": "pacifism", "count": 1 },
-        { "card": "plains", "count": 10 }
+      { "card": "savannah_lions", "count": 3 },
+      { "card": "glory_seeker", "count": 4 },
+      { "card": "youthful_knight", "count": 2 },
+      { "card": "healers_hawk", "count": 2 },
+      { "card": "assault_griffin", "count": 2 },
+      { "card": "siege_mastodon", "count": 1 },
+      { "card": "pacifism", "count": 1 },
+      { "card": "plains", "count": 10 }
     ]
   },
   {
     "id": "sky_patrol",
     "name": "Sky Patrol",
-    "tier": "normal",
+    "tier": "easy",
     "cards": [
-        { "card": "healers_hawk", "count": 2 },
-        { "card": "coral_merfolk", "count": 2 },
-        { "card": "wind_drake", "count": 3 },
-        { "card": "inspiring_overseer", "count": 2 },
-        { "card": "assault_griffin", "count": 2 },
-        { "card": "snapping_drake", "count": 2 },
-        { "card": "air_elemental", "count": 1 },
-        { "card": "pacifism", "count": 1 },
-        { "card": "plains", "count": 5 },
-        { "card": "island", "count": 5 }
+      { "card": "healers_hawk", "count": 2 },
+      { "card": "wind_drake", "count": 3 },
+      { "card": "inspiring_overseer", "count": 2 },
+      { "card": "assault_griffin", "count": 2 },
+      { "card": "snapping_drake", "count": 2 },
+      { "card": "air_elemental", "count": 2 },
+      { "card": "pacifism", "count": 2 },
+      { "card": "plains", "count": 5 },
+      { "card": "island", "count": 5 }
     ]
   },
   {
@@ -64,14 +63,14 @@
     "name": "Plague Court",
     "tier": "normal",
     "cards": [
-        { "card": "typhoid_rats", "count": 3 },
-        { "card": "vampire_of_the_dire_moon", "count": 2 },
-        { "card": "walking_corpse", "count": 2 },
-        { "card": "barony_vampire", "count": 2 },
-        { "card": "vampire_spawn", "count": 3 },
-        { "card": "vampire_nighthawk", "count": 1 },
-        { "card": "murder", "count": 2 },
-        { "card": "swamp", "count": 10 }
+      { "card": "typhoid_rats", "count": 2 },
+      { "card": "vampire_of_the_dire_moon", "count": 1 },
+      { "card": "walking_corpse", "count": 4 },
+      { "card": "barony_vampire", "count": 3 },
+      { "card": "vampire_spawn", "count": 2 },
+      { "card": "vampire_nighthawk", "count": 1 },
+      { "card": "murder", "count": 2 },
+      { "card": "swamp", "count": 10 }
     ]
   },
   {
@@ -79,18 +78,18 @@
     "name": "Wild Hunt",
     "tier": "normal",
     "cards": [
-        { "card": "llanowar_elves", "count": 2 },
-        { "card": "grizzly_bears", "count": 2 },
-        { "card": "youthful_knight", "count": 2 },
-        { "card": "centaur_courser", "count": 2 },
-        { "card": "rumbling_baloth", "count": 2 },
-        { "card": "sentinel_spider", "count": 1 },
-        { "card": "stampeding_rhino", "count": 1 },
-        { "card": "angel_of_mercy", "count": 1 },
-        { "card": "giant_growth", "count": 1 },
-        { "card": "pacifism", "count": 1 },
-        { "card": "forest", "count": 6 },
-        { "card": "plains", "count": 4 }
+      { "card": "llanowar_elves", "count": 2 },
+      { "card": "grizzly_bears", "count": 3 },
+      { "card": "elvish_visionary", "count": 1 },
+      { "card": "youthful_knight", "count": 2 },
+      { "card": "centaur_courser", "count": 2 },
+      { "card": "rumbling_baloth", "count": 1 },
+      { "card": "giant_spider", "count": 1 },
+      { "card": "angel_of_mercy", "count": 1 },
+      { "card": "giant_growth", "count": 1 },
+      { "card": "pacifism", "count": 1 },
+      { "card": "forest", "count": 6 },
+      { "card": "plains", "count": 4 }
     ]
   },
   {
@@ -98,14 +97,14 @@
     "name": "Fire Giants",
     "tier": "normal",
     "cards": [
-        { "card": "goblin_piker", "count": 2 },
-        { "card": "boggart_brute", "count": 3 },
-        { "card": "hill_giant", "count": 2 },
-        { "card": "thundering_giant", "count": 2 },
-        { "card": "fire_elemental", "count": 2 },
-        { "card": "shock", "count": 2 },
-        { "card": "lightning_strike", "count": 2 },
-        { "card": "mountain", "count": 10 }
+      { "card": "goblin_piker", "count": 2 },
+      { "card": "boggart_brute", "count": 3 },
+      { "card": "hill_giant", "count": 2 },
+      { "card": "thundering_giant", "count": 2 },
+      { "card": "fire_elemental", "count": 2 },
+      { "card": "shock", "count": 2 },
+      { "card": "lightning_strike", "count": 2 },
+      { "card": "mountain", "count": 10 }
     ]
   },
   {
@@ -113,15 +112,16 @@
     "name": "Angelic Host",
     "tier": "elite",
     "cards": [
-        { "card": "savannah_lions", "count": 2 },
-        { "card": "youthful_knight", "count": 2 },
-        { "card": "aerial_responder", "count": 2 },
-        { "card": "inspiring_overseer", "count": 2 },
-        { "card": "assault_griffin", "count": 2 },
-        { "card": "serra_angel", "count": 3 },
-        { "card": "revitalize", "count": 1 },
-        { "card": "pacifism", "count": 1 },
-        { "card": "plains", "count": 10 }
+      { "card": "savannah_lions", "count": 2 },
+      { "card": "glory_seeker", "count": 2 },
+      { "card": "youthful_knight", "count": 2 },
+      { "card": "aerial_responder", "count": 1 },
+      { "card": "inspiring_overseer", "count": 2 },
+      { "card": "assault_griffin", "count": 2 },
+      { "card": "serra_angel", "count": 2 },
+      { "card": "revitalize", "count": 1 },
+      { "card": "pacifism", "count": 1 },
+      { "card": "plains", "count": 10 }
     ]
   },
   {
@@ -129,15 +129,16 @@
     "name": "Primal Stampede",
     "tier": "elite",
     "cards": [
-        { "card": "llanowar_elves", "count": 3 },
-        { "card": "grizzly_bears", "count": 1 },
-        { "card": "centaur_courser", "count": 2 },
-        { "card": "rumbling_baloth", "count": 3 },
-        { "card": "stampeding_rhino", "count": 2 },
-        { "card": "colossal_dreadmaw", "count": 2 },
-        { "card": "gigantosaurus", "count": 1 },
-        { "card": "giant_growth", "count": 1 },
-        { "card": "forest", "count": 10 }
+      { "card": "llanowar_elves", "count": 2 },
+      { "card": "grizzly_bears", "count": 2 },
+      { "card": "elvish_visionary", "count": 1 },
+      { "card": "centaur_courser", "count": 3 },
+      { "card": "rumbling_baloth", "count": 2 },
+      { "card": "stampeding_rhino", "count": 2 },
+      { "card": "colossal_dreadmaw", "count": 1 },
+      { "card": "gigantosaurus", "count": 1 },
+      { "card": "giant_growth", "count": 1 },
+      { "card": "forest", "count": 10 }
     ]
   },
   {
@@ -145,24 +146,31 @@
     "name": "The Pyre Tyrant",
     "tier": "boss",
     "cards": [
-        { "card": "llanowar_elves", "count": 2 },
-        { "card": "boggart_brute", "count": 2 },
-        { "card": "centaur_courser", "count": 2 },
-        { "card": "rumbling_baloth", "count": 2 },
-        { "card": "thundering_giant", "count": 1 },
-        { "card": "charging_monstrosaur", "count": 2 },
-        { "card": "colossal_dreadmaw", "count": 1 },
-        { "card": "shock", "count": 1 },
-        { "card": "lightning_strike", "count": 2 },
-        { "card": "mountain", "count": 5 },
-        { "card": "forest", "count": 5 }
+      { "card": "llanowar_elves", "count": 2 },
+      { "card": "goblin_piker", "count": 1 },
+      { "card": "boggart_brute", "count": 2 },
+      { "card": "centaur_courser", "count": 2 },
+      { "card": "rumbling_baloth", "count": 2 },
+      { "card": "thundering_giant", "count": 1 },
+      { "card": "charging_monstrosaur", "count": 1 },
+      { "card": "colossal_dreadmaw", "count": 1 },
+      { "card": "shock", "count": 1 },
+      { "card": "lightning_strike", "count": 2 },
+      { "card": "mountain", "count": 5 },
+      { "card": "forest", "count": 5 }
     ],
     "modifiers": [
       {
         "id": "tyrants_vigour",
         "name": "Tyrant's Vigour",
         "text": "The Pyre Tyrant starts with 5 more life.",
-        "effects": [{ "type": "starting_life", "who": "owner", "change": 5 }]
+        "effects": [
+          {
+            "type": "starting_life",
+            "who": "owner",
+            "change": 5
+          }
+        ]
       },
       {
         "id": "tyrants_pyre",
@@ -174,8 +182,16 @@
             "abilities": [
               {
                 "kind": "triggered",
-                "trigger": { "type": "beginning_of_upkeep" },
-                "effects": [{ "type": "lose_life", "player": "opponent", "amount": 1 }]
+                "trigger": {
+                  "type": "beginning_of_upkeep"
+                },
+                "effects": [
+                  {
+                    "type": "lose_life",
+                    "player": "opponent",
+                    "amount": 1
+                  }
+                ]
               }
             ]
           }
