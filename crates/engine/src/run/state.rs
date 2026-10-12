@@ -10,7 +10,7 @@ use crate::duel::{
     ActionError, CardInstance, ConfigError, DuelRng, DuelState, InternalError, PlayerId,
 };
 
-use super::defs::{EnemyId, ModifierId, PlaneswalkerId};
+use super::defs::{EnemyId, EventId, ModifierId, PlaneswalkerId};
 
 /// The human's seat in every duel of a run. The starting player is still
 /// the duel's seeded coin flip.
@@ -41,6 +41,7 @@ pub enum NodeKind {
     Shop,
     Draft,
     Treasure,
+    Event,
     Boss,
 }
 
@@ -114,6 +115,14 @@ pub enum Phase {
         relics: Vec<ModifierId>,
         gold: u32,
     },
+    /// An event has been met: one of its options may be taken, or none.
+    /// `relics` and `cards` are what it shows, for the options that give
+    /// them.
+    Event {
+        event: EventId,
+        relics: Vec<ModifierId>,
+        cards: Vec<CardDefId>,
+    },
     /// Before the boss: each remaining heart buys one boon.
     Boons {
         picks_left: u8,
@@ -167,6 +176,11 @@ pub struct RunState {
     pub duel: Option<DuelState>,
     /// Enemies already met, so the next one is someone new if possible.
     pub fought: Vec<EnemyId>,
+    /// Events already met, likewise.
+    pub events_met: Vec<EventId>,
+    /// Modifiers from events that the player takes into their next duel
+    /// and no further.
+    pub next_duel: Vec<ModifierId>,
     pub rng: DuelRng,
 }
 
@@ -217,7 +231,14 @@ pub enum RunAction {
     },
     /// At a treasure: take the gold instead of a relic.
     TakeGold,
-    /// Leave a rest site, a shop or a draft.
+    /// At an event: take `options[option]` of it. `pick` is the relic
+    /// shown or the card of the deck it is about, for an option that needs
+    /// one chosen.
+    TakeEvent {
+        option: usize,
+        pick: Option<usize>,
+    },
+    /// Leave a rest site, a shop, a draft or an event.
     Leave,
     /// Before the boss: spend a pick on a boon.
     TakeBoon {
@@ -246,6 +267,7 @@ pub enum GoldReason {
     Purchase,
     Removal,
     Treasure,
+    Event,
 }
 
 /// Something that happened in the run, in order.
@@ -289,6 +311,10 @@ pub enum RunEvent {
     },
     BoonTaken {
         boon: ModifierId,
+    },
+    /// An event has left the player a modifier for their next duel.
+    NextDuelModified {
+        modifier: ModifierId,
     },
     RunEnded {
         won: bool,

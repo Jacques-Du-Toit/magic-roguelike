@@ -31,8 +31,8 @@ pub struct RunRecord {
 
 /// The run choice a sensible but simple player makes: rest and shop when
 /// they are on offer, take the first card of a reward, heal at a rest site,
-/// buy what can be afforded, take a treasure's first relic, and take every
-/// boon. `choices` breaks ties between map nodes.
+/// buy what can be afforded, take a treasure's first relic, take from an
+/// event what costs no heart, and take every boon. `choices` breaks ties between map nodes.
 fn choose(state: &RunState, actions: &[RunAction], choices: &mut DuelRng) -> RunAction {
     let first = |wanted: fn(&RunAction) -> bool| actions.iter().find(|action| wanted(action));
     let pick = match &state.phase {
@@ -59,6 +59,14 @@ fn choose(state: &RunState, actions: &[RunAction], choices: &mut DuelRng) -> Run
         Phase::Draft { .. } => first(|action| matches!(action, RunAction::TakeDraft { .. })),
         // The first relic; the gold, last on offer, when there is none.
         Phase::Treasure { .. } => first(|action| matches!(action, RunAction::TakeTreasure { .. })),
+        // The first thing an event offers that doesn't cost a heart, found
+        // by trying it on a copy of the run.
+        Phase::Event { .. } => actions.iter().find(|action| {
+            let mut after = state.clone();
+            matches!(action, RunAction::TakeEvent { .. })
+                && apply_run_action(&mut after, (*action).clone()).is_ok()
+                && after.hearts >= state.hearts
+        }),
         Phase::Rest => first(|action| matches!(action, RunAction::RestHeal)),
         Phase::Shop { .. } => first(|action| matches!(action, RunAction::Buy { .. })),
         Phase::Boons { .. } => first(|action| matches!(action, RunAction::TakeBoon { .. })),

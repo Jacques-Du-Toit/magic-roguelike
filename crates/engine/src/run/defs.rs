@@ -44,6 +44,7 @@ id_type!(
 );
 id_type!(PlaneswalkerId);
 id_type!(EnemyId);
+id_type!(EventId);
 
 /// Something that changes how a duel is set up for its owner. Relics, boons,
 /// planeswalker passives and boss emblems are all modifiers.
@@ -188,6 +189,74 @@ pub struct EnemyDef {
     pub commander: Option<CardDefId>,
 }
 
+/// A text event met at an event node: a few options, each a trade, of
+/// which one may be taken. An event can always be walked away from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(deny_unknown_fields)]
+pub struct EventDef {
+    pub id: EventId,
+    pub name: String,
+    /// The scene, in words, for the player.
+    pub text: String,
+    /// How many relics the player doesn't own it shows, for `gain_relic`.
+    #[serde(default)]
+    pub relics: u8,
+    /// How many cards in the player's colours it shows, for `gain_cards`.
+    #[serde(default)]
+    pub cards: u8,
+    pub options: Vec<EventOptionDef>,
+}
+
+/// One thing an event offers: everything in `effects` happens, in order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct EventOptionDef {
+    /// What the option gives and costs, in words.
+    pub text: String,
+    pub effects: Vec<EventEffect>,
+}
+
+/// A cost or a gain of an event's option. An option is on offer only while
+/// every cost can be paid and every gain can be had.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum EventEffect {
+    /// Costs hearts. Never the last one: an event doesn't end a run.
+    LoseHearts {
+        amount: u8,
+    },
+    /// Restores hearts, up to the most the player can have.
+    RestoreHearts {
+        amount: u8,
+    },
+    GainGold {
+        amount: u32,
+    },
+    PayGold {
+        amount: u32,
+    },
+    /// One of the relics the event shows, of the player's choosing.
+    GainRelic {},
+    /// Every card the event shows joins the deck.
+    GainCards {},
+    /// A card of the player's choosing leaves the deck, and a random card
+    /// of the next rarity up in their colours takes its place.
+    Transmute {},
+    /// The modifier is the player's for their next duel only.
+    NextDuel {
+        modifier: ModifierDef,
+    },
+}
+
+impl EventEffect {
+    /// Whether the player has to pick something for this effect: which
+    /// relic, or which card of their deck.
+    pub fn needs_pick(&self) -> bool {
+        matches!(self, EventEffect::GainRelic {} | EventEffect::Transmute {})
+    }
+}
+
 /// The run content loaded from `data/run/`. Each list is in file order.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RunData {
@@ -196,9 +265,26 @@ pub struct RunData {
     pub emblems: Vec<ModifierDef>,
     pub relics: Vec<ModifierDef>,
     pub enemies: Vec<EnemyDef>,
+    pub events: Vec<EventDef>,
 }
 
 impl RunData {
+    pub fn event(&self, id: &EventId) -> Option<&EventDef> {
+        self.events.iter().find(|def| def.id == *id)
+    }
+
+    /// A modifier some event gives for the next duel.
+    pub fn next_duel_modifier(&self, id: &ModifierId) -> Option<&ModifierDef> {
+        self.events
+            .iter()
+            .flat_map(|event| &event.options)
+            .flat_map(|option| &option.effects)
+            .find_map(|effect| match effect {
+                EventEffect::NextDuel { modifier } if modifier.id == *id => Some(modifier),
+                _ => None,
+            })
+    }
+
     pub fn planeswalker(&self, id: &PlaneswalkerId) -> Option<&PlaneswalkerDef> {
         self.planeswalkers.iter().find(|def| def.id == *id)
     }
@@ -241,6 +327,12 @@ pub enum RunDataError {
     BadDiscount(String),
     #[error("`{id}`: `{token}` is not a file in tokens/")]
     UnknownToken { id: String, token: CardDefId },
+    #[error("`{0}`: an event needs options, and each option an effect")]
+    NoOptions(String),
+    #[error("`{0}`: an option asks for a relic or cards the event doesn't show")]
+    NothingShown(String),
+    #[error("`{0}`: an option can ask the player to pick only one thing")]
+    TwoPicks(String),
     #[error("`{0}` has no colours")]
     NoColors(String),
     #[error("`{0}` has no cards")]
@@ -286,6 +378,8 @@ pub enum ModifierKind {
     Boon,
     Passive,
     Enemy,
+    /// What an event gives for the next duel.
+    Event,
 }
 
 pub fn validate_modifier(modifier: &ModifierDef, kind: ModifierKind) -> Result<(), RunDataError> {
@@ -492,6 +586,51 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
             validate_modifier_tokens(modifier, cards)?;
         }
     }
+    unique(run.events.iter().map(|def| def.id.as_str()))?;
+    let mut next_duel = BTreeSet::new();
+    for event in &run.events {
+        let id = event.id.as_str();
+        check_id(id)?;
+        if event.name.trim().is_empty() || event.text.trim().is_empty() {
+            return Err(RunDataError::EmptyText(id.to_string()));
+        }
+        if event.options.is_empty() || event.options.iter().any(|o| o.effects.is_empty()) {
+            return Err(RunDataError::NoOptions(id.to_string()));
+        }
+        for option in &event.options {
+            if option.text.trim().is_empty() {
+                return Err(RunDataError::EmptyText(id.to_string()));
+            }
+            if option.effects.iter().filter(|e| e.needs_pick()).count() > 1 {
+                return Err(RunDataError::TwoPicks(id.to_string()));
+            }
+            for effect in &option.effects {
+                match effect {
+                    EventEffect::LoseHearts { amount: 0 }
+                    | EventEffect::RestoreHearts { amount: 0 }
+                    | EventEffect::GainGold { amount: 0 }
+                    | EventEffect::PayGold { amount: 0 } => {
+                        return Err(RunDataError::ZeroChange(id.to_string()));
+                    }
+                    EventEffect::GainRelic {} if event.relics == 0 => {
+                        return Err(RunDataError::NothingShown(id.to_string()));
+                    }
+                    EventEffect::GainCards {} if event.cards == 0 => {
+                        return Err(RunDataError::NothingShown(id.to_string()));
+                    }
+                    EventEffect::NextDuel { modifier } => {
+                        validate_modifier(modifier, ModifierKind::Event)?;
+                        validate_modifier_tokens(modifier, cards)?;
+                        if !next_duel.insert(modifier.id.as_str()) {
+                            return Err(RunDataError::DuplicateId(modifier.id.0.clone()));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
     for tier in [
         EnemyTier::Easy,
         EnemyTier::Normal,

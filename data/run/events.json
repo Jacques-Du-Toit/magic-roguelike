@@ -1,0 +1,74 @@
+[
+  {
+    "id": "devils_bargain",
+    "name": "The Devil's Bargain",
+    "text": "A smiling stranger lays two relics on the road and names his price: a heart.",
+    "relics": 2,
+    "options": [
+      {
+        "text": "Lose 1 heart and take this relic.",
+        "effects": [{ "type": "lose_hearts", "amount": 1 }, { "type": "gain_relic" }]
+      }
+    ]
+  },
+  {
+    "id": "moneylender",
+    "name": "The Moneylender",
+    "text": "She deals in gold and in years of your life, and she buys as readily as she sells.",
+    "options": [
+      {
+        "text": "Lose 1 heart and gain 100 gold.",
+        "effects": [{ "type": "lose_hearts", "amount": 1 }, { "type": "gain_gold", "amount": 100 }]
+      },
+      {
+        "text": "Pay 70 gold and restore 1 heart.",
+        "effects": [{ "type": "pay_gold", "amount": 70 }, { "type": "restore_hearts", "amount": 1 }]
+      }
+    ]
+  },
+  {
+    "id": "wandering_smith",
+    "name": "The Wandering Smith",
+    "text": "The smith will melt down one of your cards and forge something finer from it. She won't say what.",
+    "options": [
+      {
+        "text": "Give up a card of your choice for a random card one rarity higher.",
+        "effects": [{ "type": "transmute" }]
+      }
+    ]
+  },
+  {
+    "id": "all_or_nothing",
+    "name": "All or Nothing",
+    "text": "A pedlar's bundle, tied shut with wire. He sells it whole or not at all, and today it is free.",
+    "cards": 3,
+    "options": [
+      {
+        "text": "Take all three cards.",
+        "effects": [{ "type": "gain_cards" }]
+      }
+    ]
+  },
+  {
+    "id": "rivals_wager",
+    "name": "The Rival's Wager",
+    "text": "A rival duelist tosses you a purse. \"Keep it. You'll fight your next duel hurt, and I'll enjoy watching.\"",
+    "options": [
+      {
+        "text": "Gain 50 gold. You start your next duel with 5 less life.",
+        "effects": [
+          { "type": "gain_gold", "amount": 50 },
+          {
+            "type": "next_duel",
+            "modifier": {
+              "id": "rivals_wager_wound",
+              "name": "Rival's Wager",
+              "text": "You start your next duel with 5 less life.",
+              "effects": [{ "type": "starting_life", "who": "owner", "change": -5 }]
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

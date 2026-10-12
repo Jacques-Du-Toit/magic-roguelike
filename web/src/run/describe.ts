@@ -29,6 +29,18 @@ export function boonDef(names: RunNames, id: string): ModifierDef | undefined {
   return names.content.boons.find((boon) => boon.id === id)
 }
 
+/** A modifier an event leaves for the next duel. */
+export function nextDuelDef(names: RunNames, id: string): ModifierDef | undefined {
+  for (const event of names.content.events) {
+    for (const option of event.options) {
+      for (const effect of option.effects) {
+        if (effect.type === 'next_duel' && effect.modifier.id === id) return effect.modifier
+      }
+    }
+  }
+  return undefined
+}
+
 /** A node kind in words and a symbol. The symbol never stands alone. */
 export const NODE_LABEL: Record<NodeKind, { name: string; symbol: string; about: string }> = {
   duel: { name: 'Duel', symbol: '⚔', about: 'Fight an opponent. Win for gold and a card.' },
@@ -41,6 +53,7 @@ export const NODE_LABEL: Record<NodeKind, { name: string; symbol: string; about:
   shop: { name: 'Shop', symbol: '◈', about: 'Buy cards, a land or a relic, or pay to remove a card.' },
   draft: { name: 'Draft', symbol: '❖', about: 'Open a pack of five cards and keep up to two.' },
   treasure: { name: 'Treasure', symbol: '✦', about: 'Take one of two relics, or gold instead.' },
+  event: { name: 'Event', symbol: '?', about: 'A chance meeting: take the trade it offers, or walk on.' },
   boss: { name: 'Boss', symbol: '♛', about: 'Beat the boss to win the act.' },
 }
 
@@ -80,6 +93,8 @@ export function describeRunEvent(event: RunEvent, names: RunNames): string | nul
           return `You pay ${amount} for the removal.`
         case 'treasure':
           return `+${amount} from the treasure.`
+        case 'event':
+          return event.change < 0 ? `You pay ${amount}.` : `+${amount}.`
       }
       return null
     }
@@ -94,6 +109,10 @@ export function describeRunEvent(event: RunEvent, names: RunNames): string | nul
     case 'boon_taken': {
       const boon = boonDef(names, event.boon)
       return boon ? `Boon taken: ${boon.name}.` : 'Boon taken.'
+    }
+    case 'next_duel_modified': {
+      const modifier = nextDuelDef(names, event.modifier)
+      return modifier ? `${modifier.name}: ${modifier.text}` : 'Your next duel is changed.'
     }
     case 'travelled':
     case 'duel_started':

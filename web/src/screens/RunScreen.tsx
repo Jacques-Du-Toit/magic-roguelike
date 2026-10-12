@@ -21,6 +21,7 @@ import {
   boonDef,
   describeRunEvents,
   enemyName,
+  nextDuelDef,
   relicDef,
 } from '../run/describe.ts'
 import { DuelScreen, type Speed } from './DuelScreen.tsx'
@@ -77,6 +78,8 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   const [duel, setDuel] = useState<RunDuel | null>(null)
   const [deckOpen, setDeckOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
+  // The option of an event that a card of the deck is being chosen for.
+  const [picking, setPicking] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [abandoning, setAbandoning] = useState(false)
 
@@ -111,6 +114,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
     }
     setError(null)
     setRemoving(false)
+    setPicking(null)
     // A duel that has been left, or replaced by a rematch, is over.
     const started = events.some((event) => event.type === 'duel_started')
     if (duel && (started || next.phase.type !== 'duel')) {
@@ -177,7 +181,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         <>
           <RunMap view={view} onTravel={(node) => send({ type: 'travel', node })} />
           <ul className="map-legend">
-            {(['duel', 'elite', 'draft', 'treasure', 'rest', 'shop', 'boss'] as const).map((kind) => (
+            {(['duel', 'elite', 'draft', 'treasure', 'event', 'rest', 'shop', 'boss'] as const).map((kind) => (
               <li key={kind}>
                 <span aria-hidden="true">{NODE_LABEL[kind].symbol}</span>{' '}
                 <strong>{NODE_LABEL[kind].name}</strong> {NODE_LABEL[kind].about}
@@ -270,6 +274,70 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
               data-testid="take-gold"
             >
               {phase.relics.length > 0 ? `Take ${phase.gold} gold instead` : `Take ${phase.gold} gold`}
+            </button>
+          </div>
+        </>
+      )
+      break
+    }
+    case 'event': {
+      const def = content.events.find((event) => event.id === phase.event)
+      const takes = actions.flatMap((action) => (action.type === 'take_event' ? [action] : []))
+      const unavailable = <span className="muted"> (Not possible for you now.)</span>
+      title = def?.name ?? 'Event'
+      body = (
+        <>
+          <p className="event-text" data-testid="event-text">
+            {def?.text}
+          </p>
+          {phase.cards.length > 0 && (
+            <div className="card-grid choice-row" data-testid="event-cards">
+              {phase.cards.map((card) => (
+                <RunCard key={card} def={cards.get(card)} testId="event-card" />
+              ))}
+            </div>
+          )}
+          <div className="choice-list" data-testid="event-options">
+            {def?.options.flatMap((option, index) => {
+              const mine = takes.filter((action) => action.option === index)
+              // An option that gives a relic is shown once for each relic.
+              if (option.effects.some((effect) => effect.type === 'gain_relic') && phase.relics.length > 0) {
+                return phase.relics.map((id, pick) => {
+                  const relic = relicDef(names, id)
+                  const take = mine.find((action) => action.pick === pick)
+                  return (
+                    <button
+                      key={`${index}-${id}`}
+                      type="button"
+                      disabled={!take}
+                      onClick={() => take && send(take)}
+                      data-testid="event-option"
+                    >
+                      {option.text} <strong>{relic?.name ?? id}</strong>{' '}
+                      <span className="muted">{relic?.text}</span>
+                      {!take && unavailable}
+                    </button>
+                  )
+                })
+              }
+              // One that is about a card of the deck opens the deck to pick it.
+              const fromDeck = option.effects.some((effect) => effect.type === 'transmute')
+              const take = mine[0]
+              return [
+                <button
+                  key={index}
+                  type="button"
+                  disabled={!take}
+                  onClick={() => take && (fromDeck ? setPicking(index) : send(take))}
+                  data-testid="event-option"
+                >
+                  {option.text}
+                  {!take && unavailable}
+                </button>,
+              ]
+            })}
+            <button type="button" className="primary" onClick={() => send({ type: 'leave' })} data-testid="leave">
+              Walk on
             </button>
           </div>
         </>
@@ -557,6 +625,17 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
               </ul>
             )}
           </section>
+          {view.next_duel.length > 0 && (
+            <section className="panel">
+              <h2>Your next duel</h2>
+              <ul className="modifiers">
+                {view.next_duel.map((id, index) => {
+                  const modifier = nextDuelDef(names, id)
+                  return modifier && <Modifier key={index} def={modifier} kind="next-duel" />
+                })}
+              </ul>
+            </section>
+          )}
           {view.boons.length > 0 && (
             <section className="panel">
               <h2>Boons for the boss</h2>
@@ -571,7 +650,26 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         </aside>
       </div>
 
-      {deckOpen && !removing && (
+      {picking !== null && (
+        <DeckView
+          view={view}
+          cards={cards}
+          title="Choose a card"
+          hint="Click the card to give up. It is gone for the rest of the run."
+          pickable={
+            new Set(
+              actions.flatMap((action) =>
+                action.type === 'take_event' && action.option === picking && action.pick !== null
+                  ? [action.pick]
+                  : [],
+              ),
+            )
+          }
+          onPick={(card) => send({ type: 'take_event', option: picking, pick: card })}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {deckOpen && !removing && picking === null && (
         <DeckView view={view} cards={cards} title="Your deck" onClose={() => setDeckOpen(false)} />
       )}
       {removing && (

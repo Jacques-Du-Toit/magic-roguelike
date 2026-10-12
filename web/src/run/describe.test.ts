@@ -70,6 +70,22 @@ describe('describeRunEvents', () => {
     ])
   })
 
+  it('tells what an event cost and gave', () => {
+    const events: RunEvent[] = [
+      { type: 'travelled', node: 14, kind: 'event' },
+      { type: 'gold_changed', change: -70, gold: 5, reason: 'event' },
+      { type: 'hearts_changed', change: 1, hearts: 3 },
+      { type: 'gold_changed', change: 50, gold: 55, reason: 'event' },
+      { type: 'next_duel_modified', modifier: 'rivals_wager_wound' },
+    ]
+    expect(describeRunEvents(events, names())).toEqual([
+      'You pay 70 gold.',
+      'You restore 1 heart (3 now).',
+      '+50 gold.',
+      "Rival's Wager: You start your next duel with 5 less life.",
+    ])
+  })
+
   it('says a drawn boss duel is fought again', () => {
     const drawn = (kind: 'normal' | 'boss'): RunEvent[] => [
       { type: 'duel_ended', enemy: 'pyre_tyrant', kind, outcome: 'drawn' },

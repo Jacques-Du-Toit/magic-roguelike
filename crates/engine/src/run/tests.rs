@@ -104,7 +104,7 @@ fn walk_to(state: &mut RunState, wanted: NodeKind) -> Option<NodeId> {
             Phase::Reward { .. } => {
                 act(state, RunAction::SkipReward);
             }
-            Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. } => {
+            Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. } | Phase::Event { .. } => {
                 act(state, RunAction::Leave);
             }
             Phase::Treasure { .. } => {
@@ -1021,6 +1021,372 @@ fn treasures_turn_up_on_the_fourth_row() {
     assert!(treasures > 20, "{treasures} treasures on 60 maps");
 }
 
+// ---- Events ----
+
+fn event_id(id: &str) -> EventId {
+    EventId(id.to_string())
+}
+
+/// A run that has just met the event `id` at an event node.
+fn at_event(id: &str) -> RunState {
+    let (mut state, node) = run_before("warden", NodeKind::Event);
+    // Every other event has been met, so this is the one that is new.
+    state.events_met = data::embedded()
+        .unwrap()
+        .run
+        .events
+        .iter()
+        .map(|event| event.id.clone())
+        .filter(|event| event.as_str() != id)
+        .collect();
+    act(&mut state, RunAction::Travel { node });
+    assert!(
+        matches!(&state.phase, Phase::Event { event, .. } if event.as_str() == id),
+        "expected {id}, got {:?}",
+        state.phase
+    );
+    state
+}
+
+fn take(option: usize, pick: Option<usize>) -> RunAction {
+    RunAction::TakeEvent { option, pick }
+}
+
+#[test]
+fn an_event_node_meets_an_event_that_can_be_walked_away_from() {
+    let data = data::embedded().unwrap();
+    let (before, node) = run_before("warden", NodeKind::Event);
+    let mut state = before.clone();
+    let events = act(&mut state, RunAction::Travel { node });
+    assert_eq!(
+        events,
+        [RunEvent::Travelled {
+            node,
+            kind: NodeKind::Event
+        }]
+    );
+    let Phase::Event { event, .. } = state.phase.clone() else {
+        panic!("expected an event, got {:?}", state.phase);
+    };
+    assert!(data.run.event(&event).is_some());
+    assert_eq!(state.events_met, [event]);
+    assert_eq!(run_legal_actions(&state).last(), Some(&RunAction::Leave));
+
+    // Walking away changes nothing but where the player is.
+    let arrived = state.clone();
+    assert_eq!(act(&mut state, RunAction::Leave), []);
+    assert_eq!(state.phase, Phase::Map);
+    assert_eq!(
+        (state.hearts, state.gold, &state.deck, &state.relics),
+        (arrived.hearts, arrived.gold, &arrived.deck, &arrived.relics)
+    );
+    assert_eq!(travels(&state), state.map.node(node).unwrap().next);
+
+    // Once every event has been met, one comes round again.
+    let mut again = before.clone();
+    again.events_met = data.run.events.iter().map(|e| e.id.clone()).collect();
+    act(&mut again, RunAction::Travel { node });
+    assert!(matches!(again.phase, Phase::Event { .. }));
+    assert_eq!(again.events_met.len(), data.run.events.len());
+
+    // Every event in the data can be met, and each can be left.
+    for def in &data.run.events {
+        let mut state = at_event(def.id.as_str());
+        act(&mut state, RunAction::Leave);
+        assert_eq!(state.phase, Phase::Map);
+    }
+}
+
+#[test]
+fn the_devils_bargain_gives_a_relic_of_two_for_a_heart() {
+    let mut state = at_event("devils_bargain");
+    let Phase::Event { relics, cards, .. } = state.phase.clone() else {
+        panic!("expected an event");
+    };
+    assert_eq!(relics.len(), 2);
+    assert_ne!(relics[0], relics[1]);
+    assert!(cards.is_empty());
+    assert_eq!(
+        run_legal_actions(&state),
+        [take(0, Some(0)), take(0, Some(1)), RunAction::Leave]
+    );
+    // The relic has to be named.
+    for refused in [take(0, None), take(0, Some(2)), take(1, Some(0))] {
+        assert_eq!(
+            apply_run_action(&mut state, refused.clone()),
+            Err(RunError::IllegalAction(refused))
+        );
+    }
+
+    // Not for the last heart, and not with every relic owned.
+    let mut last_heart = state.clone();
+    last_heart.hearts = 1;
+    assert_eq!(run_legal_actions(&last_heart), [RunAction::Leave]);
+    let mut collector = at_event("devils_bargain");
+    collector.relics = every_relic();
+    collector.phase = Phase::Event {
+        event: event_id("devils_bargain"),
+        relics: Vec::new(),
+        cards: Vec::new(),
+    };
+    assert_eq!(run_legal_actions(&collector), [RunAction::Leave]);
+
+    let gold = state.gold;
+    let events = act(&mut state, take(0, Some(1)));
+    assert_eq!(
+        events,
+        [
+            RunEvent::HeartsChanged {
+                change: -1,
+                hearts: 2
+            },
+            RunEvent::RelicGained {
+                relic: relics[1].clone()
+            }
+        ]
+    );
+    assert_eq!(state.hearts, 2);
+    assert_eq!(state.relics, std::slice::from_ref(&relics[1]));
+    assert_eq!(state.gold, gold);
+    assert_eq!(state.phase, Phase::Map);
+}
+
+#[test]
+fn the_moneylender_trades_a_heart_for_gold_or_gold_for_a_heart() {
+    let arrived = at_event("moneylender");
+
+    // At full hearts there is no heart to buy back.
+    let mut healthy = arrived.clone();
+    healthy.gold = 500;
+    assert_eq!(
+        run_legal_actions(&healthy),
+        [take(0, None), RunAction::Leave]
+    );
+    let events = act(&mut healthy, take(0, None));
+    assert_eq!(
+        events,
+        [
+            RunEvent::HeartsChanged {
+                change: -1,
+                hearts: 2
+            },
+            RunEvent::GoldChanged {
+                change: 100,
+                gold: 600,
+                reason: GoldReason::Event
+            }
+        ]
+    );
+    assert_eq!(healthy.phase, Phase::Map);
+
+    // Hurt and with exactly the price: either way.
+    let mut hurt = arrived.clone();
+    (hurt.hearts, hurt.gold) = (2, 70);
+    assert_eq!(
+        run_legal_actions(&hurt),
+        [take(0, None), take(1, None), RunAction::Leave]
+    );
+    let events = act(&mut hurt, take(1, None));
+    assert_eq!(
+        events,
+        [
+            RunEvent::GoldChanged {
+                change: -70,
+                gold: 0,
+                reason: GoldReason::Event
+            },
+            RunEvent::HeartsChanged {
+                change: 1,
+                hearts: 3
+            }
+        ]
+    );
+
+    // On the last heart and short of gold she has nothing to offer.
+    let mut broke = arrived.clone();
+    (broke.hearts, broke.gold) = (1, 69);
+    assert_eq!(run_legal_actions(&broke), [RunAction::Leave]);
+    assert_eq!(
+        apply_run_action(&mut broke, take(0, None)),
+        Err(RunError::IllegalAction(take(0, None)))
+    );
+}
+
+#[test]
+fn the_wandering_smith_swaps_a_card_for_one_a_rarity_higher() {
+    use crate::cards::{Color, Rarity};
+    let data = data::embedded().unwrap();
+    let mut state = at_event("wandering_smith");
+    // A land can't be reforged, and nor can a card with nothing above it.
+    state.deck.push(crate::duel::CardInstance::new(CardDefId(
+        "selesnya_guildgate".to_string(),
+    )));
+    let rarity = |card: &CardDefId| data.cards.get(card).unwrap().rarity;
+    let picks: Vec<usize> = run_legal_actions(&state)
+        .into_iter()
+        .filter_map(|action| match action {
+            RunAction::TakeEvent {
+                option: 0,
+                pick: Some(pick),
+            } => Some(pick),
+            RunAction::Leave => None,
+            other => panic!("unexpected {other:?}"),
+        })
+        .collect();
+    let gate = state.deck.len() - 1;
+    assert!(!picks.contains(&gate));
+    assert!(!picks.is_empty());
+    for (index, card) in state.deck.iter().enumerate() {
+        let land = data.cards.get(&card.card_id).unwrap().is_land();
+        // No card of the pool is mythic, so a rare has nothing above it.
+        let expected = !land && rarity(&card.card_id) != Rarity::Rare;
+        assert_eq!(picks.contains(&index), expected, "{}", card.card_id);
+    }
+    assert_eq!(
+        apply_run_action(&mut state, take(0, None)),
+        Err(RunError::IllegalAction(take(0, None)))
+    );
+
+    let pick = *picks
+        .iter()
+        .find(|pick| rarity(&state.deck[**pick].card_id) == Rarity::Common)
+        .unwrap();
+    let old = state.deck[pick].card_id.clone();
+    let copies = deck_count(&state, old.as_str());
+    let size = state.deck.len();
+    let twin = state.clone();
+    let events = act(&mut state, take(0, Some(pick)));
+    let [
+        RunEvent::CardRemoved { card: removed },
+        RunEvent::CardAdded { card: new },
+    ] = events.as_slice()
+    else {
+        panic!("unexpected {events:?}");
+    };
+    assert_eq!(*removed, old);
+    assert_eq!(rarity(new), Rarity::Uncommon);
+    let def = data.cards.get(new).unwrap();
+    assert!(!def.is_land() && !def.is_legendary() && !def.token);
+    assert!(!def.colors.is_empty());
+    assert!(def.colors.iter().all(|c| [Color::G, Color::W].contains(c)));
+    assert_eq!(state.deck.len(), size);
+    assert_eq!(deck_count(&state, old.as_str()), copies - 1);
+    assert_eq!(state.deck.last().unwrap().card_id, *new);
+    assert_eq!(state.phase, Phase::Map);
+
+    // The same run gets the same card.
+    let mut again = twin;
+    act(&mut again, take(0, Some(pick)));
+    assert_eq!(again, state);
+}
+
+#[test]
+fn all_or_nothing_adds_all_three_cards_or_none() {
+    let data = data::embedded().unwrap();
+    let mut state = at_event("all_or_nothing");
+    let Phase::Event { relics, cards, .. } = state.phase.clone() else {
+        panic!("expected an event");
+    };
+    assert!(relics.is_empty());
+    assert_eq!(cards.len(), 3);
+    for (index, id) in cards.iter().enumerate() {
+        let card = data.cards.get(id).unwrap();
+        assert!(!card.is_land() && !card.is_legendary() && !card.token);
+        assert!(!cards[..index].contains(id), "{id} is shown twice");
+    }
+    assert_eq!(run_legal_actions(&state), [take(0, None), RunAction::Leave]);
+    let size = state.deck.len();
+    let events = act(&mut state, take(0, None));
+    let added: Vec<RunEvent> = cards
+        .iter()
+        .map(|card| RunEvent::CardAdded { card: card.clone() })
+        .collect();
+    assert_eq!(events, added);
+    assert_eq!(state.deck.len(), size + 3);
+    let tail: Vec<&CardDefId> = state.deck[size..].iter().map(|c| &c.card_id).collect();
+    assert_eq!(tail, cards.iter().collect::<Vec<_>>());
+    assert_eq!(state.phase, Phase::Map);
+}
+
+#[test]
+fn the_rivals_wager_pays_now_and_costs_life_in_the_next_duel_only() {
+    let wound = ModifierId("rivals_wager_wound".to_string());
+    let mut state = at_event("rivals_wager");
+    assert_eq!(run_legal_actions(&state), [take(0, None), RunAction::Leave]);
+    let gold = state.gold;
+    let events = act(&mut state, take(0, None));
+    assert_eq!(
+        events,
+        [
+            RunEvent::GoldChanged {
+                change: 50,
+                gold: gold + 50,
+                reason: GoldReason::Event
+            },
+            RunEvent::NextDuelModified {
+                modifier: wound.clone()
+            }
+        ]
+    );
+    assert_eq!(state.next_duel, std::slice::from_ref(&wound));
+    assert_eq!(run_view(&state).unwrap().next_duel, [wound]);
+
+    // It waits through nodes that aren't duels, and is spent on the first
+    // duel there is.
+    let mut duels = 0;
+    for _ in 0..12 {
+        match state.phase.clone() {
+            Phase::Map => {
+                let node = travels(&state)[0];
+                act(&mut state, RunAction::Travel { node });
+            }
+            Phase::Duel { .. } => {
+                duels += 1;
+                let duel = state.duel.as_ref().unwrap();
+                let expected = if duels == 1 { 15 } else { 20 };
+                assert_eq!(duel.player(PLAYER).life, expected);
+                assert_eq!(duel.player(ENEMY).life, 20);
+                assert!(state.next_duel.is_empty());
+                if duels == 2 {
+                    return;
+                }
+                finish(&mut state, win());
+            }
+            Phase::Reward { .. } => {
+                act(&mut state, RunAction::SkipReward);
+            }
+            Phase::Boons { .. } => {
+                // The one duel on the way has used it up.
+                assert_eq!(duels, 1);
+                act(&mut state, RunAction::StartBoss);
+                assert_eq!(state.duel.as_ref().unwrap().player(PLAYER).life, 20);
+                return;
+            }
+            _ => {
+                assert_eq!(state.next_duel.len(), usize::from(duels == 0));
+                let leave = run_legal_actions(&state).pop().unwrap();
+                act(&mut state, leave);
+            }
+        }
+    }
+    panic!("no duel followed the wager");
+}
+
+#[test]
+fn events_turn_up_on_the_sixth_row() {
+    let mut events = 0;
+    for seed in 0..60 {
+        let state = run("warden", seed);
+        for node in &state.map.nodes {
+            if node.kind == NodeKind::Event {
+                assert_eq!(node.row, 5, "seed {seed}");
+                events += 1;
+            }
+        }
+    }
+    assert!(events > 20, "{events} events on 60 maps");
+}
+
 // ---- The relics, in a duel of the run's ----
 
 /// The duel a run with these relics starts, taken out of the run: both
@@ -1614,6 +1980,13 @@ fn the_view_and_the_content_serialise() {
     assert_eq!(serde_json::from_str::<RunView>(&json).unwrap(), treasure);
     assert!(json.contains(r#""phase":{"type":"treasure","relics":["#));
     assert!(json.contains(r#"{"type":"take_gold"}"#));
+
+    let event = run_view(&at_event("devils_bargain")).unwrap();
+    let json = serde_json::to_string(&event).unwrap();
+    assert_eq!(serde_json::from_str::<RunView>(&json).unwrap(), event);
+    assert!(json.contains(r#""phase":{"type":"event","event":"devils_bargain","relics":["#));
+    assert!(json.contains(r#"{"type":"take_event","option":0,"pick":1}"#));
+    assert_eq!(run_content().unwrap().events.len(), 5);
 
     let content = run_content().unwrap();
     assert_eq!(content.planeswalkers.len(), 2);

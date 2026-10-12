@@ -58,7 +58,7 @@
         { "draft": 1, "duel_tier": "normal" },
         { "duel": 2, "rest": 1, "shop": 2, "treasure": 2, "duel_tier": "normal" },
         { "duel": 1, "elite": 1, "duel_tier": "normal" },
-        { "duel": 2, "rest": 1, "shop": 2, "draft": 2, "duel_tier": "normal" },
+        { "duel": 2, "rest": 1, "shop": 2, "draft": 2, "event": 3, "duel_tier": "normal" },
         { "duel": 1, "elite": 1, "duel_tier": "normal" },
         { "rest": 1, "duel_tier": "normal" }
       ]
@@ -85,6 +85,9 @@
     "treasure": {
       "relics": 2,
       "gold": 40
+    },
+    "event": {
+      "card_weights": { "common": 60, "uncommon": 32, "rare": 8, "mythic": 0 }
     },
     "shop": {
       "cards": 3,

@@ -42,6 +42,8 @@ interface Seen {
   duels: number
   /** Duels in which the enemy showed a commander. */
   enemyCommanders: number
+  /** The names of the events met. */
+  events: string[]
 }
 
 /** Does one thing on the run screen. Returns false once the run is over. */
@@ -95,6 +97,40 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       await expect(page.getByTestId('news')).toContainText(`You gain a relic: ${name}.`)
       return true
     }
+    case 'event': {
+      // The first thing the event offers that can be had; if there is
+      // nothing, the way on.
+      const name = await page.getByTestId('run-title').innerText()
+      seen.events.push(name)
+      await expect(page.getByTestId('event-text')).not.toBeEmpty()
+      await expect(page.getByTestId('leave')).toBeEnabled()
+      const option = page.locator('[data-testid="event-option"]:enabled').first()
+      if (!(await option.isVisible())) {
+        await page.getByTestId('leave').click()
+        await expect(run(page)).toHaveAttribute('data-phase', 'map')
+        return true
+      }
+      const relics = await page.getByTestId('relic').count()
+      const hearts = await page.getByTestId('hearts').innerText()
+      await option.click()
+      if (name === 'The Wandering Smith') {
+        // A card of the deck is given up for another.
+        const deck = page.getByRole('dialog', { name: 'Choose a card' })
+        await deck.getByRole('button').first().click()
+        await expect(deck).toBeHidden()
+        await expect(page.getByTestId('news')).toContainText('leaves your deck.')
+        await expect(page.getByTestId('news')).toContainText('joins your deck.')
+      }
+      if (name === "The Devil's Bargain") {
+        // One of the two relics, for a heart.
+        await expect(page.getByTestId('relic')).toHaveCount(relics + 1)
+        await expect(page.getByTestId('hearts')).not.toHaveText(hearts)
+        await expect(page.getByTestId('news')).toContainText('You lose 1 heart')
+      }
+      await expect(run(page)).toHaveAttribute('data-phase', 'map')
+      await expect(page.getByTestId('news')).not.toBeEmpty()
+      return true
+    }
     case 'rest': {
       const heal = page.getByTestId('rest-heal')
       if (await heal.isEnabled()) {
@@ -137,7 +173,7 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
 
 /** Clicks through the run on screen until it is over. */
 async function playRun(page: Page, well: boolean): Promise<Seen> {
-  const seen: Seen = { phases: new Set(), nodes: new Set(), duels: 0, enemyCommanders: 0 }
+  const seen: Seen = { phases: new Set(), nodes: new Set(), duels: 0, enemyCommanders: 0, events: [] }
   for (let step = 0; step < 200; step += 1) {
     await expect(run(page).or(duel(page))).toBeVisible()
     if (await duel(page).isVisible()) {
@@ -289,17 +325,22 @@ test('a run played badly ends when the hearts run out', async ({ page }) => {
 
 // Whole acts, played as well as the engine's own AI plays: every row of the
 // map, the boons and the boss.
-const ACTS: [string, number][] = process.env.ACTS
+// A shop, a treasure and an event share two rows of the map, so no one act
+// passes every kind of node: each seed is listed with the phases it has to
+// show, and between them they show them all. Two of them meet the events
+// that have a screen of their own, for choosing a relic or a card.
+const ACTS: [string, number, string[], string?][] = process.env.ACTS
   ? process.env.ACTS.split(',').map((act) => {
       const [planeswalker, seed] = act.split(':')
-      return [planeswalker, Number(seed)]
+      return [planeswalker, Number(seed), []]
     })
   : [
-      ['warden', 14],
-      ['firebrand', 40],
+      ['warden', 14, ['draft', 'treasure', 'shop', 'rest']],
+      ['firebrand', 12, ['draft', 'shop', 'event', 'rest'], "The Devil's Bargain"],
+      ['warden', 33, ['draft', 'treasure', 'event', 'rest'], 'The Wandering Smith'],
     ]
 
-for (const [planeswalker, seed] of ACTS) {
+for (const [planeswalker, seed, phases, event] of ACTS) {
   test(`a whole act as ${planeswalker} (seed ${seed}) can be clicked through to the boss`, async ({
     page,
   }) => {
@@ -311,17 +352,18 @@ for (const [planeswalker, seed] of ACTS) {
     const title = await page.getByTestId('run-title').innerText()
     console.log(
       `${planeswalker} seed ${seed}: ${seen.duels} duels, phases ${[...seen.phases].join(' ')}, ` +
-        `nodes ${[...seen.nodes].join(' ')}, ${title}`,
+        `nodes ${[...seen.nodes].join(' ')}, events ${seen.events.join(', ') || 'none'}, ${title}`,
     )
     await expect(page.getByTestId('run-result')).not.toBeEmpty()
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(errors).toEqual([])
     if (process.env.ACTS) return
-    // These seeds lead through every kind of node. If a change to the game's
-    // data moves them, ACTS=warden:1,warden:2,... finds seeds that do.
+    // If a change to the game's data moves these seeds,
+    // ACTS=warden:1,warden:2,... prints what other seeds lead through.
     expect([...seen.phases]).toEqual(
-      expect.arrayContaining(['map', 'reward', 'draft', 'treasure', 'shop', 'rest', 'boons', 'over']),
+      expect.arrayContaining(['map', 'reward', ...phases, 'boons', 'over']),
     )
+    if (event) expect(seen.events).toContain(event)
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
     // The elite and the boss each brought a commander.
     expect(seen.enemyCommanders).toBeGreaterThanOrEqual(2)

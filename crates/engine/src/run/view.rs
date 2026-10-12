@@ -11,7 +11,7 @@ use crate::data;
 use crate::decks::DeckEntry;
 use crate::duel::CardInstance;
 
-use super::defs::{EnemyDef, ModifierDef, ModifierId, PlaneswalkerDef, PlaneswalkerId};
+use super::defs::{EnemyDef, EventDef, ModifierDef, ModifierId, PlaneswalkerDef, PlaneswalkerId};
 use super::flow::run_legal_actions;
 use super::lands::basic_lands;
 use super::state::{NodeId, Phase, RunAction, RunError, RunMap, RunState};
@@ -34,6 +34,8 @@ pub struct RunView {
     pub relics: Vec<ModifierId>,
     /// Boons bought for the boss duel.
     pub boons: Vec<ModifierId>,
+    /// Modifiers from events, for the next duel only.
+    pub next_duel: Vec<ModifierId>,
     pub map: RunMap,
     /// The nodes visited, in order. The last is where the player is.
     pub path: Vec<NodeId>,
@@ -65,6 +67,7 @@ pub fn run_view(state: &RunState) -> Result<RunView, RunError> {
         basic_lands,
         relics: state.relics.clone(),
         boons: state.boons.clone(),
+        next_duel: state.next_duel.clone(),
         map: state.map.clone(),
         path: state.path.clone(),
         phase: state.phase.clone(),
@@ -82,6 +85,7 @@ pub struct RunContent {
     pub relics: Vec<ModifierDef>,
     pub boons: Vec<ModifierDef>,
     pub enemies: Vec<EnemyDef>,
+    pub events: Vec<EventDef>,
     /// The cards a card reward or a shop can offer.
     pub reward_cards: Vec<CardDefId>,
 }
@@ -94,6 +98,7 @@ pub fn run_content() -> Result<RunContent, RunError> {
         relics: data.run.relics.clone(),
         boons: data.balance.run.boons.clone(),
         enemies: data.run.enemies.clone(),
+        events: data.run.events.clone(),
         reward_cards: data
             .cards
             .iter()

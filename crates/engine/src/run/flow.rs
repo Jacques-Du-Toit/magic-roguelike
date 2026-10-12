@@ -8,12 +8,14 @@ use crate::duel::{
 };
 
 use super::defs::{
-    EnemyDef, EnemyId, EnemyTier, ModifierDef, ModifierEffect, ModifierId, PlaneswalkerDef,
+    EnemyDef, EnemyId, EnemyTier, EventDef, EventEffect, EventOptionDef, ModifierDef,
+    ModifierEffect, ModifierId, PlaneswalkerDef,
 };
 use super::loadout::{Loadout, duel_config, starting_deck};
 use super::map::generate_map;
 use super::rewards::{
-    card_reward, discounted, draft_pack, list_price, random_relic, shop_stock, treasure_relics,
+    card_reward, discounted, draft_pack, event_cards, list_price, pick_one, random_relic,
+    relic_offer, shop_stock, transmutations, treasure_relics,
 };
 use super::state::{
     DuelKind, DuelOutcome, GoldReason, NodeId, NodeKind, PLAYER, Phase, RunAction, RunConfig,
@@ -49,8 +51,53 @@ pub fn new_run(config: RunConfig, seed: u64) -> Result<RunState, RunError> {
         phase: Phase::Map,
         duel: None,
         fought: Vec::new(),
+        events_met: Vec::new(),
+        next_duel: Vec::new(),
         rng,
     })
+}
+
+/// The ways an option of an event can be taken right now: one for each
+/// thing the player may pick for it, or a single `None` when it asks for no
+/// pick. Empty while one of its costs can't be paid or one of its gains
+/// can't be had.
+fn event_picks(
+    state: &RunState,
+    data: &GameData,
+    option: &EventOptionDef,
+    relics: &[ModifierId],
+    cards: &[CardDefId],
+) -> Result<Vec<Option<usize>>, InternalError> {
+    let mut picks = vec![None];
+    for effect in &option.effects {
+        let possible = match effect {
+            // Never the last heart: an event doesn't end a run.
+            EventEffect::LoseHearts { amount } => state.hearts > *amount,
+            EventEffect::RestoreHearts { .. } => state.hearts < state.max_hearts,
+            EventEffect::PayGold { amount } => state.gold >= *amount,
+            EventEffect::GainRelic {} => {
+                picks = (0..relics.len()).map(Some).collect();
+                !relics.is_empty()
+            }
+            EventEffect::GainCards {} => !cards.is_empty(),
+            EventEffect::Transmute {} => {
+                let colors = &planeswalker(state, data)?.colors;
+                picks = state
+                    .deck
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, card)| !transmutations(data, colors, &card.card_id).is_empty())
+                    .map(|(index, _)| Some(index))
+                    .collect();
+                !picks.is_empty()
+            }
+            EventEffect::GainGold { .. } | EventEffect::NextDuel { .. } => true,
+        };
+        if !possible {
+            return Ok(Vec::new());
+        }
+    }
+    Ok(picks)
 }
 
 fn planeswalker<'a>(
@@ -159,6 +206,22 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
             actions.push(RunAction::TakeGold);
             actions
         }
+        // An event can always be walked away from.
+        Phase::Event {
+            event,
+            relics,
+            cards,
+        } => {
+            let mut actions = Vec::new();
+            let options = data.run.event(event).map(|def| def.options.as_slice());
+            for (option, def) in options.unwrap_or_default().iter().enumerate() {
+                for pick in event_picks(state, data, def, relics, cards)? {
+                    actions.push(RunAction::TakeEvent { option, pick });
+                }
+            }
+            actions.push(RunAction::Leave);
+            actions
+        }
         Phase::Boons { picks_left } => {
             let mut actions = Vec::new();
             if *picks_left > 0 {
@@ -224,7 +287,8 @@ fn end_run(state: &mut RunState, events: &mut Vec<RunEvent>, won: bool) {
 }
 
 /// The modifiers the player takes into a duel: the starting emblem, relics,
-/// and the boons too if it is the boss.
+/// whatever an event left for the next duel, and the boons too if it is
+/// the boss.
 fn player_modifiers<'a>(
     state: &RunState,
     data: &'a GameData,
@@ -240,6 +304,13 @@ fn player_modifiers<'a>(
             data.run
                 .relic(id)
                 .ok_or_else(|| InternalError::new(format!("no relic `{id}`")))?,
+        );
+    }
+    for id in &state.next_duel {
+        modifiers.push(
+            data.run
+                .next_duel_modifier(id)
+                .ok_or_else(|| InternalError::new(format!("no event modifier `{id}`")))?,
         );
     }
     if kind == DuelKind::Boss {
@@ -297,6 +368,8 @@ fn start_duel(
     let config = duel_config(player, Loadout::enemy(enemy, &data.cards)?, &data.balance);
     let seed = state.rng.next_seed();
     state.duel = Some(new_duel(config, seed)?);
+    // What an event left for the next duel has now been used.
+    state.next_duel.clear();
     state.phase = Phase::Duel {
         enemy: enemy.id.clone(),
         kind,
@@ -359,6 +432,23 @@ fn travel(
                 gold: balance.treasure.gold,
             };
         }
+        NodeKind::Event => match pick_event(state, data) {
+            Some(event) => {
+                let colors = &planeswalker(state, data)?.colors;
+                let relics = relic_offer(&mut state.rng, data, &state.relics, event.relics);
+                let cards = event_cards(&mut state.rng, data, colors, event.cards);
+                if !state.events_met.contains(&event.id) {
+                    state.events_met.push(event.id.clone());
+                }
+                state.phase = Phase::Event {
+                    event: event.id.clone(),
+                    relics,
+                    cards,
+                };
+            }
+            // With no events in the data the node is passed.
+            None => state.phase = Phase::Map,
+        },
         NodeKind::Draft => {
             let colors = &planeswalker(state, data)?.colors;
             let choices = draft_pack(&mut state.rng, data, colors);
@@ -379,6 +469,33 @@ fn travel(
         }
     }
     Ok(())
+}
+
+/// Picks an event, one not met before in this run if possible.
+fn pick_event<'a>(state: &mut RunState, data: &'a GameData) -> Option<&'a EventDef> {
+    let all: Vec<&EventDef> = data.run.events.iter().collect();
+    let fresh: Vec<&EventDef> = all
+        .iter()
+        .copied()
+        .filter(|event| !state.events_met.contains(&event.id))
+        .collect();
+    let pool = if fresh.is_empty() { all } else { fresh };
+    if pool.is_empty() {
+        return None;
+    }
+    let pick = state
+        .rng
+        .below(u32::try_from(pool.len()).unwrap_or(u32::MAX)) as usize;
+    pool.get(pick).copied()
+}
+
+fn restore_hearts(state: &mut RunState, events: &mut Vec<RunEvent>, amount: u8) {
+    let restored = amount.min(state.max_hearts - state.hearts);
+    state.hearts += restored;
+    events.push(RunEvent::HeartsChanged {
+        change: i8::try_from(restored).unwrap_or(i8::MAX),
+        hearts: state.hearts,
+    });
 }
 
 /// What the player's relics do to the run itself.
@@ -568,17 +685,7 @@ fn perform(
         }
         (RunAction::SkipReward, Phase::Reward { .. }) => state.phase = Phase::Map,
         (RunAction::RestHeal, Phase::Rest) => {
-            let restored = data
-                .balance
-                .run
-                .rest
-                .hearts_restored
-                .min(state.max_hearts - state.hearts);
-            state.hearts += restored;
-            events.push(RunEvent::HeartsChanged {
-                change: i8::try_from(restored).unwrap_or(i8::MAX),
-                hearts: state.hearts,
-            });
+            restore_hearts(state, events, data.balance.run.rest.hearts_restored);
             state.phase = Phase::Map;
         }
         (RunAction::RemoveCard { card }, Phase::Rest) => {
@@ -663,7 +770,69 @@ fn perform(
                 }
             };
         }
-        (RunAction::Leave, Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. }) => {
+        (
+            RunAction::TakeEvent { option, pick },
+            Phase::Event {
+                event,
+                relics,
+                cards,
+            },
+        ) => {
+            let option = data
+                .run
+                .event(&event)
+                .and_then(|def| def.options.get(*option))
+                .ok_or_else(mismatch)?;
+            state.phase = Phase::Map;
+            for effect in &option.effects {
+                match effect {
+                    EventEffect::LoseHearts { amount } => {
+                        state.hearts = state.hearts.saturating_sub(*amount);
+                        events.push(RunEvent::HeartsChanged {
+                            change: -i8::try_from(*amount).unwrap_or(i8::MAX),
+                            hearts: state.hearts,
+                        });
+                    }
+                    EventEffect::RestoreHearts { amount } => {
+                        restore_hearts(state, events, *amount);
+                    }
+                    EventEffect::GainGold { amount } => {
+                        change_gold(state, events, i64::from(*amount), GoldReason::Event);
+                    }
+                    EventEffect::PayGold { amount } => {
+                        change_gold(state, events, -i64::from(*amount), GoldReason::Event);
+                    }
+                    EventEffect::GainRelic {} => {
+                        let relic = pick.and_then(|pick| relics.get(pick));
+                        gain_relic(state, events, relic.ok_or_else(mismatch)?.clone());
+                    }
+                    EventEffect::GainCards {} => {
+                        for card in &cards {
+                            add_card(state, events, card.clone());
+                        }
+                    }
+                    EventEffect::Transmute {} => {
+                        let index = pick.ok_or_else(mismatch)?;
+                        let old = state.deck.get(index).ok_or_else(mismatch)?;
+                        let colors = &planeswalker(state, data)?.colors;
+                        let candidates = transmutations(data, colors, &old.card_id);
+                        let new = pick_one(&mut state.rng, &candidates).ok_or_else(mismatch)?;
+                        remove_card(state, events, index)?;
+                        add_card(state, events, new);
+                    }
+                    EventEffect::NextDuel { modifier } => {
+                        state.next_duel.push(modifier.id.clone());
+                        events.push(RunEvent::NextDuelModified {
+                            modifier: modifier.id.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        (
+            RunAction::Leave,
+            Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. } | Phase::Event { .. },
+        ) => {
             state.phase = Phase::Map;
         }
         (RunAction::TakeBoon { boon }, Phase::Boons { picks_left }) => {

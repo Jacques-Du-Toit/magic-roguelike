@@ -14,7 +14,7 @@ use thiserror::Error;
 use crate::balance::{self, Balance, BalanceError};
 use crate::cards::{self, CardDef, CardDefId, CardError};
 use crate::decks::{self, DeckDef, DeckError, DeckId};
-use crate::run::{self, EnemyDef, ModifierDef, PlaneswalkerDef, RunData, RunDataError};
+use crate::run::{self, EnemyDef, EventDef, ModifierDef, PlaneswalkerDef, RunData, RunDataError};
 
 static DATA_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../data");
 
@@ -84,6 +84,7 @@ pub struct RunFiles<'a> {
     pub emblems: &'a str,
     pub relics: &'a str,
     pub enemies: &'a str,
+    pub events: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -185,11 +186,13 @@ impl GameData {
         let emblems: Vec<ModifierDef> = parse("run/emblems.json", files.run.emblems)?;
         let relics: Vec<ModifierDef> = parse("run/relics.json", files.run.relics)?;
         let enemies: Vec<EnemyDef> = parse("run/enemies.json", files.run.enemies)?;
+        let events: Vec<EventDef> = parse("run/events.json", files.run.events)?;
         let run = RunData {
             planeswalkers,
             emblems,
             relics,
             enemies,
+            events,
         };
         run::validate(&run, &cards)?;
 
@@ -247,6 +250,7 @@ fn embedded_files() -> Result<DataFiles<'static>, DataError> {
             emblems: run_file("emblems")?,
             relics: run_file("relics")?,
             enemies: run_file("enemies")?,
+            events: run_file("events")?,
         },
     })
 }
@@ -293,6 +297,7 @@ mod tests {
     const EMBLEMS: &str = r#"[{ "id": "ranger_passive", "name": "Vigour", "text": "More life.",
         "effects": [{ "type": "starting_life", "who": "owner", "change": 1 }] }]"#;
     const RELICS: &str = "[]";
+    const EVENTS: &str = "[]";
     const ENEMIES: &str = r#"[
         { "id": "cubs", "name": "Cubs", "tier": "easy", "cards": [{ "card": "forest", "count": 2 }] },
         { "id": "bears", "name": "Bears", "tier": "normal", "cards": [{ "card": "forest", "count": 2 }] },
@@ -304,6 +309,7 @@ mod tests {
         emblems: EMBLEMS,
         relics: RELICS,
         enemies: ENEMIES,
+        events: EVENTS,
     };
     fn files<'a>(cards: &[(&'a str, &'a str)], deck: &'a str, balance: &'a str) -> DataFiles<'a> {
         DataFiles {
@@ -971,6 +977,7 @@ mod tests {
         let run = &data().run;
         assert_eq!(run.planeswalkers.len(), 2);
         assert_eq!(run.relics.len(), 12);
+        assert_eq!(run.events.len(), 5);
         assert_eq!(data().balance.run.boons.len(), 4);
         let count = |tier| run.enemies_of(tier).count();
         assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 7));
@@ -1102,6 +1109,7 @@ mod tests {
                 emblems,
                 relics,
                 enemies,
+                ..RUN
             };
             GameData::load(&files).map(|_| ())
         };
@@ -1276,6 +1284,92 @@ mod tests {
             Err(DataError::Parse { file, .. }) if file == "run/relics.json"
         ));
     }
+    #[test]
+    fn rejects_bad_events() {
+        let load = |events: &str| {
+            let mut files = files(&CARDS, DECK, BALANCE);
+            files.run = RunFiles { events, ..RUN };
+            GameData::load(&files).map(|_| ())
+        };
+        let event = |shown: &str, options: &str| {
+            format!(
+                r#"[{{ "id": "fork", "name": "A Fork", "text": "Two roads."{shown},
+                "options": {options} }}]"#
+            )
+        };
+        let option =
+            |effects: &str| format!(r#"[{{ "text": "Go left.", "effects": [{effects}] }}]"#);
+        let wound = |effect: &str| {
+            format!(
+                r#"{{ "type": "next_duel", "modifier": {{ "id": "wound", "name": "Wound",
+                "text": "Ouch.", "effects": [{effect}] }} }}"#
+            )
+        };
+        let life = r#"{ "type": "starting_life", "who": "owner", "change": -5 }"#;
+        let run = |error: RunDataError| Err(DataError::Run(error));
+        let fork = || "fork".to_string();
+
+        let gold = r#"{ "type": "gain_gold", "amount": 5 }"#;
+        assert_eq!(load(&event("", &option(gold))), Ok(()));
+        assert_eq!(
+            load(&event(
+                r#", "relics": 2"#,
+                &option(r#"{ "type": "gain_relic" }"#)
+            )),
+            Ok(())
+        );
+        assert_eq!(load(&event("", &option(&wound(life)))), Ok(()));
+
+        assert_eq!(load(&event("", "[]")), run(RunDataError::NoOptions(fork())));
+        assert_eq!(
+            load(&event("", &option(""))),
+            run(RunDataError::NoOptions(fork()))
+        );
+        assert_eq!(
+            load(&event(
+                "",
+                &option(r#"{ "type": "lose_hearts", "amount": 0 }"#)
+            )),
+            run(RunDataError::ZeroChange(fork()))
+        );
+        // A relic or cards to give have to be shown first.
+        assert_eq!(
+            load(&event("", &option(r#"{ "type": "gain_relic" }"#))),
+            run(RunDataError::NothingShown(fork()))
+        );
+        assert_eq!(
+            load(&event("", &option(r#"{ "type": "gain_cards" }"#))),
+            run(RunDataError::NothingShown(fork()))
+        );
+        assert_eq!(
+            load(&event(
+                r#", "relics": 2"#,
+                &option(r#"{ "type": "gain_relic" }, { "type": "transmute" }"#)
+            )),
+            run(RunDataError::TwoPicks(fork()))
+        );
+        // What it leaves for the next duel is a modifier like any other,
+        // and can't reach into the run.
+        assert_eq!(
+            load(&event(
+                "",
+                &option(&wound(r#"{ "type": "gold_per_win", "amount": 5 }"#))
+            )),
+            run(RunDataError::RunEffectOnNonRelic("wound".to_string()))
+        );
+        assert_eq!(
+            load(&event(
+                "",
+                &option(&format!("{}, {}", wound(life), wound(life)))
+            )),
+            run(RunDataError::DuplicateId("wound".to_string()))
+        );
+        assert!(matches!(
+            load("{"),
+            Err(DataError::Parse { file, .. }) if file == "run/events.json"
+        ));
+    }
+
     #[test]
     fn balance_has_the_duel_numbers() {
         let duel = &data().balance.duel;

@@ -156,6 +156,51 @@ pub(crate) fn draft_pack(rng: &mut DuelRng, data: &GameData, colors: &[Color]) -
     )
 }
 
+/// The cards an event shows: different spells in the player's colours.
+pub(crate) fn event_cards(
+    rng: &mut DuelRng,
+    data: &GameData,
+    colors: &[Color],
+    count: u8,
+) -> Vec<CardDefId> {
+    let weights = &data.balance.run.event.card_weights;
+    spell_offer(rng, &data.cards, colors, weights, count, count)
+}
+
+/// The cards a card of the deck could be reforged into: the spells of the
+/// next rarity up in the player's colours. Empty for a land, and for a
+/// card of the highest rarity that has any.
+pub(crate) fn transmutations<'a>(
+    data: &'a GameData,
+    colors: &[Color],
+    card: &CardDefId,
+) -> Vec<&'a CardDef> {
+    let Some(from) = data.cards.get(card).filter(|def| !def.is_land()) else {
+        return Vec::new();
+    };
+    let Some(next) = RARITIES
+        .iter()
+        .position(|rarity| *rarity == from.rarity)
+        .and_then(|index| RARITIES.get(index + 1))
+    else {
+        return Vec::new();
+    };
+    data.cards
+        .iter()
+        .filter(|def| !def.is_land() && !def.token && !def.is_legendary())
+        .filter(|def| def.rarity == *next && in_colors(def, colors))
+        .collect()
+}
+
+/// One of `candidates`, each as likely as the next.
+pub(crate) fn pick_one(rng: &mut DuelRng, candidates: &[&CardDef]) -> Option<CardDefId> {
+    if candidates.is_empty() {
+        return None;
+    }
+    let pick = rng.below(bound(candidates.len())) as usize;
+    candidates.get(pick).map(|card| card.id.clone())
+}
+
 /// A relic the player doesn't have yet, if there is one.
 pub(crate) fn random_relic(
     rng: &mut DuelRng,
@@ -183,9 +228,19 @@ pub(crate) fn treasure_relics(
     data: &GameData,
     owned: &[ModifierId],
 ) -> Vec<ModifierId> {
+    relic_offer(rng, data, owned, data.balance.run.treasure.relics)
+}
+
+/// Up to `count` different relics the player doesn't have.
+pub(crate) fn relic_offer(
+    rng: &mut DuelRng,
+    data: &GameData,
+    owned: &[ModifierId],
+    count: u8,
+) -> Vec<ModifierId> {
     let mut taken = owned.to_vec();
     let mut offered = Vec::new();
-    for _ in 0..data.balance.run.treasure.relics {
+    for _ in 0..count {
         let Some(relic) = random_relic(rng, data, &taken) else {
             break;
         };

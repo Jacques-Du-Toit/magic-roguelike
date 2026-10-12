@@ -1097,6 +1097,15 @@ input[type='text'] {
   background: #3a3216;
 }
 
+.map-node-event {
+  background: #33243a;
+}
+
+.event-text {
+  width: min(100%, 520px);
+  font-style: italic;
+}
+
 .map-legend {
   list-style: none;
   margin: 0;

@@ -214,6 +214,7 @@ pub struct RunBalance {
     pub rewards: RewardBalance,
     pub draft: DraftBalance,
     pub treasure: TreasureBalance,
+    pub event: EventBalance,
     pub shop: ShopBalance,
     pub rest: RestBalance,
     /// What a remaining heart can buy before the boss.
@@ -257,6 +258,8 @@ pub struct MapRowBalance {
     pub draft: u32,
     #[serde(default)]
     pub treasure: u32,
+    #[serde(default)]
+    pub event: u32,
     pub duel_tier: EnemyTier,
 }
 
@@ -300,6 +303,14 @@ pub struct DraftBalance {
 pub struct TreasureBalance {
     pub relics: u8,
     pub gold: u32,
+}
+
+/// Event nodes. What each event offers and costs is beside its text in
+/// `data/run/events.json`; `card_weights` pick the cards an event shows.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventBalance {
+    pub card_weights: RarityWeights,
 }
 
 /// Relative weights of the rarities when a card is picked at random.
@@ -360,7 +371,16 @@ fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
         return Err(BalanceError::MapShape);
     }
     for (index, row) in run.map.rows.iter().enumerate() {
-        if row.duel + row.elite + row.rest + row.shop + row.draft + row.treasure == 0 {
+        let weights = [
+            row.duel,
+            row.elite,
+            row.rest,
+            row.shop,
+            row.draft,
+            row.treasure,
+            row.event,
+        ];
+        if weights.iter().sum::<u32>() == 0 {
             return Err(BalanceError::MapRowWeights(index));
         }
     }
@@ -372,6 +392,7 @@ fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
     }
     for (name, weights) in [
         ("draft", &run.draft.weights),
+        ("event", &run.event.card_weights),
         ("duel", &run.rewards.duel),
         ("elite", &run.rewards.elite),
         ("shop", &run.shop.card_weights),

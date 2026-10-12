@@ -28,7 +28,11 @@ basic_lands: Array<DeckEntry>, relics: Array<ModifierId>,
 /**
  * Boons bought for the boss duel.
  */
-boons: Array<ModifierId>, map: RunMap, 
+boons: Array<ModifierId>, 
+/**
+ * Modifiers from events, for the next duel only.
+ */
+next_duel: Array<ModifierId>, map: RunMap, 
 /**
  * The nodes visited, in order. The last is where the player is.
  */
