@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M4** (M4a is done: the owner played a whole run on 2026-10-12. The commander prototype is built and waiting to be played; then M4b, the better AI)
+**Active milestone: M4** (M4a is done: the owner played a whole run on 2026-10-12. The commander prototype and M4b, the better AI, are built and waiting to be played)
 
 ---
 
@@ -190,11 +190,113 @@ What the commanders did to the sim, with the v1 AI on both sides (`--games 400`,
 
 Later idea, not for M4b: the AI gets more competent as the run goes on (weaker search for early enemies). For now every enemy plays at one strength and difficulty comes from decks, commanders and emblems.
 
+**M4b status (2026-10-12):** built, to be played by the owner. How it works is in `ARCHITECTURE.md` §7; what was settled is `DECISIONS.md` #47 to #52.
+
+- The game's opponent is now the searching AI ("new"), everywhere: runs, practice duels and the end-to-end tests' hints. v1 ("old") stays as the player inside its imagined games and as the baseline.
+- What it does that v1 doesn't, each with a test on a position where the right play is known: double-blocks; doesn't attack into creatures that would gang up on it; divides damage to kill the better blocker; keeps mana up for a counterspell and uses it; keeps removal for something better than a token; casts Raise Dead.
+- Checks: 499 engine tests, 12 wasm-crate tests, 26 sim tests, 69 web tests and 22 end-to-end tests pass; 136 cards match Scryfall. `cargo test` takes about 63 s (22 s before M4b; 35 s of it is the wasm crate's tests playing whole runs against the new AI in an unoptimised build). The end-to-end tests take 53 s (48 s before).
+
+Report 1: how much better the new AI is. New against old on the same decks, each pairing both ways round, mirrors included (`sim --versus --games 100`, and `--versus --enemies --games 60`).
+
+| Decks | Games | New wins | 95% margin |
+|---|---|---|---|
+| The eight test decks, every pairing | 7200 | 70.2% | +/- 1.1 |
+| The two starting decks against the 17 enemy decks | 4080 | 70.8% | +/- 1.4 |
+
+The same test deck, piloted by each AI against the other (900 games a deck, +/- 3):
+
+| Deck | With the new AI | With the old AI | Gain |
+|---|---|---|---|
+| A (green-white creatures) | 78.7% | 36.3% | +42 |
+| B (blue-black control) | 74.1% | 31.2% | +43 |
+| C (red burn) | 64.4% | 21.4% | +43 |
+| D (blue-black tempo) | 76.1% | 35.0% | +41 |
+| E (white-black drain) | 75.2% | 32.0% | +43 |
+| F (green-white tokens) | 78.8% | 47.9% | +31 |
+| G (black-red sacrifice) | 65.4% | 21.7% | +44 |
+| H (black-green graveyard) | 49.2% | 12.4% | +37 |
+
+By slice, on the test decks (3600 games each, +/- 1.5): spells and abilities only 56.7%; with attacks and blocks 67.5%; with holding mana and card values 68.1%. Holding mana barely moves the win rate, so it was counted directly: over 30 games with deck B the old AI cast 18 counterspells and the new one 37.
+
+Report 2: which decks change when both sides play the new AI. The starting decks' win rate against each enemy, both sides old (400 games a cell, +/- 5) and both sides new (150 games a cell, +/- 8), from `sim --enemies`.
+
+| Enemy (tier after M4b) | Warden: old | new | change | Firebrand: old | new | change |
+|---|---|---|---|---|---|---|
+| Forest Pack (easy) | 98 | 100 | +2 | 80 | 95 | +15 |
+| Grave Robbers (easy) | 99 | 100 | +1 | 74 | 93 | +19 |
+| Rot Farmers (easy, was normal) | 98 | 99 | +2 | 78 | 91 | +14 |
+| Sky Patrol (easy) | 89 | 95 | +6 | 77 | 89 | +11 |
+| Storm Scholars (easy) | 97 | 95 | -2 | 89 | 88 | -1 |
+| Goblin Raid (normal) | 95 | 98 | +3 | 55 | 83 | +28 |
+| Border Legion (normal) | 95 | 98 | +3 | 63 | 80 | +17 |
+| Fire Giants (normal) | 94 | 97 | +4 | 69 | 77 | +9 |
+| Tide Weavers (normal, was easy) | 95 | 85 | -10 | 77 | 82 | +5 |
+| Blood Cult (normal) | 94 | 89 | -4 | 57 | 61 | +4 |
+| Wild Hunt (normal) | 66 | 81 | +15 | 52 | 44 | -8 |
+| Primal Stampede (normal) | 76 | 59 | -17 | 63 | 52 | -11 |
+| Grove Wardens (elite) | 39 | 49 | +10 | 42 | 15 | -27 |
+| Angelic Host (elite) | 31 | 20 | -11 | 40 | 45 | +4 |
+| Plague Court (elite) | 12 | 10 | -2 | 33 | 18 | -15 |
+| Town Militia (elite) | 25 | 11 | -14 | 8 | 5 | -3 |
+| The Pyre Tyrant (boss) | 24 | 25 | 0 | 24 | 15 | -9 |
+
+- Much better for the player with both sides new: the Firebrand against the weak creature decks (Goblin Raid +28, Grave Robbers +19, Border Legion +17, Forest Pack +15, Rot Farmers +14), and the Warden against Wild Hunt (+15). The Firebrand's deck needs its attacks and removal played well, and v1 played them badly.
+- Much worse for the player: the elites and the decks with a plan. Grove Wardens against the Firebrand (-27), Primal Stampede (-17 and -11), Plague Court against the Firebrand (-15), Town Militia against the Warden (-14), Angelic Host against the Warden (-11), Tide Weavers against the Warden (-10). Those decks reward good blocking and timing, which the enemy now has.
+- The blue spell decks: Tide Weavers got harder for the Warden; Storm Scholars did not. Both are still beaten most of the time, so they are weak decks, not badly played ones. That is for M4d.
+- Re-tiered (`DECISIONS.md` #52): Rot Farmers to easy, Tide Weavers to normal. Nothing else moved by more than the margin across its tier's edge.
+
+Whole runs (`sim --runs`, after the re-tiering; old 400 runs, +/- 5; new 300 runs, +/- 6):
+
+| | Warden: old | new | Firebrand: old | new |
+|---|---|---|---|---|
+| Won the act | 43.5% | 55.0% | 32.3% | 39.7% |
+| Reached the boss | 96.8% | 97.3% | 78.5% | 87.3% |
+| Beat the boss, of those | 45.0% | 56.5% | 41.1% | 45.4% |
+| Normal duels won | 88.4% | 91.2% | 66.6% | 77.5% |
+| Elite duels won | 30.5% | 25.5% | 24.0% | 20.4% |
+
+So the act got easier for an AI-piloted player, more for the Warden, and the elites got harder. The Warden is inside the 50 to 60% the owner set as the target; the Firebrand is below it. Balance is M4d.
+
+Knowing the opponent's decklist against guessing it, head to head: 50.1% +/- 1.5 over 4320 games on the test decks, 50.7% +/- 1.9 over 2720 on the run's decks. It is off (`DECISIONS.md` #49). Reports 1 and the per-slice numbers were measured with it on; report 2 and the runs with it off.
+
+Timing, native, release build, 16 threads:
+
+| | Old AI | New AI |
+|---|---|---|
+| Average time per decision | 0.03 ms | 0.75 ms |
+| Slowest decision | 67 to 119 ms | 292 to 468 ms, on a crowded board around turn 33 |
+| Thinking per side of a game | 6 to 7 ms | 190 to 250 ms |
+| `sim --enemies`, per game on one core | 16 ms | 382 ms |
+| `sim --enemies` | 400 games a cell in 18 s | 150 games a cell in 162 s |
+| `sim --runs` | 400 runs each in 7 s | 300 runs each in 94 s |
+| `sim --versus --games 100` (7200 games, new against old) | | 132 s |
+
+Most decisions are forced passes, which is why the averages are so low. v1 itself is about four times faster than before M4b, with every move unchanged (the sim's v1 reports were compared byte for byte): before, `sim --enemies --games 400` took 67 s.
+
+In WebAssembly (`node tools/ai-timing.mjs 6`: six whole runs, 31 duels, the new AI on both sides):
+
+| | Count | Average | Median | 90% | 99% | Slowest |
+|---|---|---|---|---|---|---|
+| Every decision | 16386 | 0.5 ms | 0.0 ms | 0.8 ms | 9.8 ms | 49.5 ms |
+| Decisions that take thought | 3194 | 2.5 ms | 1.0 ms | 7.3 ms | 19.0 ms | 49.5 ms |
+
+That is far under the 0.1 to 0.3 s allowed per move. Thinking harder bought no strength (`DECISIONS.md` #51), so it stays quick. Not measured: the rare crowded late-game board in a browser; natively the slowest such decision was about 0.3 to 0.5 s, so a pause of up to a second is possible there.
+
+What the new AI still plays badly:
+
+- It looks one turn cycle ahead and no further, so it has no long plan: it doesn't race, set up a lethal turn two turns away, or hold a creature back as a blocker for later.
+- It only finds plays that differ from v1's by one step, since v1 plays the rest of each imagined game. Two-step plays (bounce a blocker, then attack) are found only when v1 would make the second step.
+- It keeps mana up only for instants and flash creatures in its hand, and only decides that in its own main phases. It doesn't bluff, and it acts only where a human is asked, so never in an upkeep or at the beginning of combat.
+- It doesn't remember what it has seen: a card it scried to the top, or one bounced to the opponent's hand, is forgotten in its guesses.
+- Mulligans, scrying and discards are still v1's rules of thumb.
+- Its imagined opponent is v1, which never bluffs or holds mana on purpose, so it can walk into a counterspell or a trick more often than a person would.
+- Self-mill decks (Rot Farmers, deck H) still deck themselves: it doesn't count its library.
+
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
 - [ ] Draft node, Event node, Treasure node, card upgrades.
 - [ ] 3 acts, 3 bosses, ~20 relics, 4+ planeswalkers.
-- [ ] Better AI (search/rollouts), able to play control decks properly.
+- [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.
 
 ## M5 — Polish and sharing

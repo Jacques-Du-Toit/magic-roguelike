@@ -27,7 +27,7 @@
       "rollout_lookahead": 0,
       "rollout_gang_blocks": true,
       "win_value": 150,
-      "knows_decklist": true
+      "knows_decklist": false
     }
   },
   "sim": {

@@ -170,7 +170,7 @@
   {
     "id": "tide_weavers",
     "name": "Tide Weavers",
-    "tier": "easy",
+    "tier": "normal",
     "cards": [
       {"card":"man_o_war","count":2},
       {"card":"frost_lynx","count":1},
@@ -234,7 +234,7 @@
   {
     "id": "rot_farmers",
     "name": "Rot Farmers",
-    "tier": "normal",
+    "tier": "easy",
     "cards": [
       {"card":"stitchers_supplier","count":2},
       {"card":"mire_triton","count":2},
