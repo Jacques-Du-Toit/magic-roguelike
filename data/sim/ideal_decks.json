@@ -1,0 +1,107 @@
+[
+  {
+    "id": "wide",
+    "name": "Go wide",
+    "spells": [
+      { "card": "raise_the_alarm", "count": 2 },
+      { "card": "attended_knight", "count": 2 },
+      { "card": "captains_call", "count": 2 },
+      { "card": "call_of_the_conclave", "count": 1 },
+      { "card": "sworn_companions", "count": 1 },
+      { "card": "bestial_menace", "count": 1 },
+      { "card": "trostanis_summoner", "count": 1 },
+      { "card": "intangible_virtue", "count": 2 },
+      { "card": "woodland_champion", "count": 1 },
+      { "card": "good_fortune_unicorn", "count": 1 },
+      { "card": "glorious_anthem", "count": 1 },
+      { "card": "inspired_charge", "count": 1 },
+      { "card": "overrun", "count": 1 },
+      { "card": "collective_blessing", "count": 1 }
+    ]
+  },
+  {
+    "id": "counters",
+    "name": "+1/+1 counters",
+    "spells": [
+      { "card": "ironshell_beetle", "count": 1 },
+      { "card": "pridemalkin", "count": 1 },
+      { "card": "lightwalker", "count": 2 },
+      { "card": "snakeskin_veil", "count": 1 },
+      { "card": "crowned_ceratok", "count": 1 },
+      { "card": "conclave_mentor", "count": 2 },
+      { "card": "good_fortune_unicorn", "count": 1 },
+      { "card": "basris_solidarity", "count": 2 },
+      { "card": "invigorating_surge", "count": 1 },
+      { "card": "ridgescale_tusker", "count": 1 },
+      { "card": "armorcraft_judge", "count": 1 },
+      { "card": "iridescent_hornbeetle", "count": 1 },
+      { "card": "luminarch_aspirant", "count": 1 },
+      { "card": "kalonian_hydra", "count": 1 },
+      { "card": "cathars_crusade", "count": 1 }
+    ]
+  },
+  {
+    "id": "lifegain",
+    "name": "Lifegain",
+    "spells": [
+      { "card": "soulmender", "count": 1 },
+      { "card": "healers_hawk", "count": 2 },
+      { "card": "impassioned_orator", "count": 1 },
+      { "card": "celestial_unicorn", "count": 2 },
+      { "card": "ajanis_pridemate", "count": 2 },
+      { "card": "centaur_healer", "count": 1 },
+      { "card": "nyx_fleece_ram", "count": 1 },
+      { "card": "griffin_aerie", "count": 1 },
+      { "card": "twinblade_paladin", "count": 1 },
+      { "card": "aerial_responder", "count": 1 },
+      { "card": "unflinching_courage", "count": 1 },
+      { "card": "angelic_chorus", "count": 1 },
+      { "card": "speaker_of_the_heavens", "count": 1 },
+      { "card": "resplendent_angel", "count": 1 },
+      { "card": "archangel_of_thune", "count": 1 }
+    ]
+  },
+  {
+    "id": "big",
+    "name": "Big creatures",
+    "spells": [
+      { "card": "llanowar_elves", "count": 2 },
+      { "card": "druid_of_the_cowl", "count": 1 },
+      { "card": "rampant_growth", "count": 1 },
+      { "card": "nessian_hornbeetle", "count": 1 },
+      { "card": "garruks_uprising", "count": 1 },
+      { "card": "rumbling_baloth", "count": 1 },
+      { "card": "sentinel_spider", "count": 1 },
+      { "card": "ridgescale_tusker", "count": 1 },
+      { "card": "sight_of_the_scalelords", "count": 1 },
+      { "card": "honey_mammoth", "count": 1 },
+      { "card": "colossal_dreadmaw", "count": 1 },
+      { "card": "pelakka_wurm", "count": 1 },
+      { "card": "thragtusk", "count": 1 },
+      { "card": "steel_leaf_champion", "count": 1 },
+      { "card": "terra_stomper", "count": 1 },
+      { "card": "armada_wurm", "count": 1 },
+      { "card": "gigantosaurus", "count": 1 }
+    ]
+  },
+  {
+    "id": "auras",
+    "name": "Auras and enchantments",
+    "spells": [
+      { "card": "gladecover_scout", "count": 2 },
+      { "card": "setessan_training", "count": 1 },
+      { "card": "cartouche_of_solidarity", "count": 2 },
+      { "card": "divine_favor", "count": 1 },
+      { "card": "knightly_valor", "count": 1 },
+      { "card": "oakheart_dryads", "count": 1 },
+      { "card": "ethereal_armor", "count": 2 },
+      { "card": "ancestral_mask", "count": 1 },
+      { "card": "satyr_enchanter", "count": 2 },
+      { "card": "rancor", "count": 1 },
+      { "card": "unflinching_courage", "count": 1 },
+      { "card": "setessan_champion", "count": 1 },
+      { "card": "sigil_of_the_empty_throne", "count": 1 },
+      { "card": "mantle_of_the_wolf", "count": 1 }
+    ]
+  }
+]

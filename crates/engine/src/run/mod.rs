@@ -31,6 +31,7 @@ pub use flow::{
 pub use lands::{basic_land, basic_lands, color_weights, main_color};
 pub use loadout::{Loadout, duel_config, library_with_lands, starting_deck};
 pub use map::generate_map;
+pub use rewards::{is_offered, offered_spells};
 pub use state::{
     DuelKind, DuelOutcome, ENEMY, GoldReason, MapNode, NodeId, NodeKind, PLAYER, Phase, RunAction,
     RunConfig, RunError, RunEvent, RunMap, RunState, ShopItem, Ware,

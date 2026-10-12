@@ -679,7 +679,7 @@ mod tests {
         }
         let report = serde_json::json!({
             "planeswalker": "warden",
-            "emblem": "emblem_welcome",
+            "emblem": "",
             "seed": "4",
             "error": null,
             "inputs": inputs,

@@ -89,6 +89,21 @@ fn land_pool<'a>(cards: &'a CardDatabase, colors: &[Color]) -> Vec<&'a CardDef> 
     if fitting.is_empty() { all } else { fitting }
 }
 
+/// Whether a reward, a draft, a shop or an event may show the card at all:
+/// a spell that is not a token, not legendary (a legendary card is a
+/// commander, never something in a deck) and not held back.
+pub fn is_offered(card: &CardDef) -> bool {
+    !card.is_land() && !card.token && !card.is_legendary() && !card.reserved
+}
+
+/// Every spell a character of these colours can be offered, in id order.
+pub fn offered_spells<'a>(cards: &'a CardDatabase, colors: &[Color]) -> Vec<&'a CardDef> {
+    cards
+        .iter()
+        .filter(|card| is_offered(card) && in_colors(card, colors))
+        .collect()
+}
+
 /// `count` different spells: the first `own` from the player's colours, the
 /// rest from any colour.
 fn spell_offer(
@@ -103,8 +118,7 @@ fn spell_offer(
     for slot in 0..count {
         let candidates: Vec<&CardDef> = cards
             .iter()
-            // A legendary card is a commander, never something in a deck.
-            .filter(|card| !card.is_land() && !card.token && !card.is_legendary())
+            .filter(|card| is_offered(card))
             .filter(|card| !chosen.contains(&card.id))
             .filter(|card| slot >= own || in_colors(card, colors))
             .collect();
@@ -188,7 +202,7 @@ pub(crate) fn transmutations<'a>(
     };
     data.cards
         .iter()
-        .filter(|def| !def.is_land() && !def.token && !def.is_legendary())
+        .filter(|def| is_offered(def))
         .filter(|def| def.rarity == *next && in_colors(def, colors))
         .collect()
 }

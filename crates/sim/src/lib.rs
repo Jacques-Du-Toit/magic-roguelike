@@ -1,22 +1,26 @@
 //! Headless simulation: AI-vs-AI games across every pairing of the decks in
 //! `data/decks/`, for finding engine errors and measuring balance.
 
+pub mod datadir;
 pub mod explain;
 pub mod game;
+pub mod lab;
 pub mod report;
 pub mod runs;
 pub mod timing;
 pub mod versus;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Instant;
 
 use engine::AiKind;
+use engine::cards::CardDefId;
 use engine::data;
 use engine::decks::{DeckDef, DeckId};
 use engine::duel::{DuelConfig, PlayerId};
-use engine::run::{Loadout, duel_config, starting_deck};
+use engine::run::{Loadout, ModifierId, duel_config, starting_deck};
 
 use game::{GameRecord, play_game_with};
 use report::{PairingStats, format_report};
@@ -30,6 +34,11 @@ Usage: sim [--games N] [--seed S] [--decks A,B,...] [--ai AI]
        sim --runs [--games N] [--seed S] [--ai AI]
        sim --replay P1_DECK P2_DECK [--seed S] [--ai AI] [--against AI]
        sim --explain FILE [--last N]
+       sim --lift [--games N] [--field F,...] [--extra N] [--relics N]
+       sim --ideal [--games N] [--field F,...] [--decks IDEAL,...]
+       sim --leave-out IDEAL [--games N] [--field F,...] [--filler CARD]
+       sim --act [--games N] [--decks IDEAL,...]
+       any of them: [--data DIR] [--threads N]
 
 Plays N AI-vs-AI games (default 100) for every pairing of the decks in
 data/decks, mirror matches included, and prints a report. Game i of each
@@ -69,7 +78,28 @@ Every report ends with how long the AIs took to decide.
 --explain replays a bug report copied from the game (Copy bug report, on
 the duel or run screen, saved to FILE; `-` reads it from standard input)
 and prints the AI's last N decisions (default 3) in that duel: the
-position, what it chose, and everything it weighed with its score.";
+position, what it chose, and everything it weighed with its score.
+
+The balance lab (the Warden only). --field names the enemies to play: tiers
+(easy, normal, elite, boss), enemy ids or both; without it, every enemy that
+is not easy.
+--lift plays N single duels of random decks, the starting deck with --extra
+(default 9) random cards of the pool, and gives each card's lift: the win
+rate of the decks that held it less that of those that didn't. With
+--relics N each deck has N random relics too, measured the same way.
+--ideal plays each ideal deck of data/sim/ideal_decks.json (and `start`,
+the starting deck) N times against each enemy of the field, without relics.
+--leave-out plays one ideal deck whole, then with each of its cards in turn
+swapped for --filler (default grizzly_bears), to show which cards carry it.
+--act plays each ideal deck through N whole acts, taking no card and no
+relic on the way.
+--runs takes --decks to name the planeswalkers, and for the Warden's runs
+--no-cards, --no-relics, --with-relic ID and --with-card ID (each may be
+given more than once) to change what the run is played with.
+
+--data DIR reads the game's data from DIR, a folder laid out like data/,
+in place of what the build has in it. --threads N sets how many games are
+played at once (default: three quarters of the machine's cores).";
 
 /// The name an AI goes by on the command line and in the reports.
 pub fn ai_name(ai: AiKind) -> &'static str {
@@ -118,6 +148,32 @@ pub struct Options {
     pub explain: Option<String>,
     /// How many of the AI's last decisions `explain` shows.
     pub last: usize,
+    /// The lab: each pool card's lift over random decks.
+    pub lift: bool,
+    /// The lab: the ideal decks against the field.
+    pub ideal: bool,
+    /// The lab: the ideal deck to play with each card in turn left out.
+    pub leave_out: Option<String>,
+    /// The lab: the ideal decks through whole acts.
+    pub act: bool,
+    /// The lab's enemies: tiers, enemy ids or both; empty for the default.
+    pub field: Vec<String>,
+    /// How many random pool cards a `lift` deck adds to the starting deck.
+    pub extra: u32,
+    /// How many random relics a `lift` deck has.
+    pub relics: u32,
+    /// The card `leave_out` puts in a left-out card's place.
+    pub filler: String,
+    /// Whole runs: take no cards, own no relics but those given.
+    pub no_cards: bool,
+    pub no_relics: bool,
+    /// Whole runs: relics and cards the run starts with.
+    pub with_relics: Vec<String>,
+    pub with_cards: Vec<String>,
+    /// A folder to read the game's data from in place of the build's.
+    pub data: Option<String>,
+    /// How many games are played at once; `None` for the default.
+    pub threads: Option<usize>,
 }
 
 impl Default for Options {
@@ -134,6 +190,20 @@ impl Default for Options {
             decks: Vec::new(),
             explain: None,
             last: 3,
+            lift: false,
+            ideal: false,
+            leave_out: None,
+            act: false,
+            field: Vec::new(),
+            extra: 9,
+            relics: 0,
+            filler: "grizzly_bears".to_string(),
+            no_cards: false,
+            no_relics: false,
+            with_relics: Vec::new(),
+            with_cards: Vec::new(),
+            data: None,
+            threads: None,
         }
     }
 }
@@ -175,6 +245,44 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
                     .collect();
             }
             "--explain" => options.explain = Some(value("--explain")?.to_string()),
+            "--lift" => options.lift = true,
+            "--ideal" => options.ideal = true,
+            "--act" => options.act = true,
+            "--leave-out" => options.leave_out = Some(value("--leave-out")?.to_string()),
+            "--field" => {
+                options.field = value("--field")?
+                    .split(',')
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_string)
+                    .collect();
+            }
+            "--extra" => {
+                let text = value("--extra")?;
+                options.extra = text
+                    .parse()
+                    .map_err(|_| format!("--extra: `{text}` is not a whole number"))?;
+            }
+            "--relics" => {
+                let text = value("--relics")?;
+                options.relics = text
+                    .parse()
+                    .map_err(|_| format!("--relics: `{text}` is not a whole number"))?;
+            }
+            "--filler" => options.filler = value("--filler")?.to_string(),
+            "--no-cards" => options.no_cards = true,
+            "--no-relics" => options.no_relics = true,
+            "--with-relic" => options.with_relics.push(value("--with-relic")?.to_string()),
+            "--with-card" => options.with_cards.push(value("--with-card")?.to_string()),
+            "--data" => options.data = Some(value("--data")?.to_string()),
+            "--threads" => {
+                let text = value("--threads")?;
+                options.threads = Some(
+                    text.parse()
+                        .ok()
+                        .filter(|&threads: &usize| threads > 0)
+                        .ok_or_else(|| format!("--threads: `{text}` is not a number above 0"))?,
+                );
+            }
             "--last" => {
                 let text = value("--last")?;
                 options.last = text
@@ -192,13 +300,24 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
     Ok(Some(options))
 }
 
+/// `--threads`, or 0 for the default.
+static THREADS: AtomicUsize = AtomicUsize::new(0);
+
+/// How many games are played at once: what `--threads` asked for, or three
+/// quarters of the machine's cores, which leaves it usable meanwhile.
 fn threads() -> usize {
-    thread::available_parallelism().map_or(1, |cores| cores.get())
+    match THREADS.load(Ordering::Relaxed) {
+        0 => {
+            let cores = thread::available_parallelism().map_or(1, |cores| cores.get());
+            (cores * 3 / 4).max(1)
+        }
+        asked => asked,
+    }
 }
 
 /// Runs `count` jobs across the machine's cores and returns their results
 /// in job order, so the output doesn't depend on timing.
-fn in_parallel<T: Send>(count: u32, job: impl Fn(u32) -> T + Sync) -> Vec<Option<T>> {
+pub(crate) fn in_parallel<T: Send>(count: u32, job: impl Fn(u32) -> T + Sync) -> Vec<Option<T>> {
     let workers = threads();
     let job = &job;
     let mut results: Vec<Option<T>> = (0..count).map(|_| None).collect();
@@ -229,7 +348,7 @@ fn in_parallel<T: Send>(count: u32, job: impl Fn(u32) -> T + Sync) -> Vec<Option
 
 /// Plays one game, turning a panic into an error message. The second part
 /// is how long the AIs took.
-fn play_safely(
+pub(crate) fn play_safely(
     config: DuelConfig,
     seed: u64,
     ais: [AiKind; 2],
@@ -517,6 +636,12 @@ pub fn run_report(options: &Options) -> Result<(String, bool), String> {
 
 /// Runs the simulation (or the one replayed game).
 pub fn run_output(options: &Options) -> Result<Output, String> {
+    if let Some(threads) = options.threads {
+        THREADS.store(threads, Ordering::Relaxed);
+    }
+    if let Some(dir) = &options.data {
+        datadir::install(dir)?;
+    }
     if let Some(file) = &options.explain {
         let report = if file == "-" {
             std::io::read_to_string(std::io::stdin())
@@ -549,7 +674,15 @@ pub fn run_output(options: &Options) -> Result<Output, String> {
     }
     let started = Instant::now();
     let mut timing = Timing::default();
-    let (report, failed) = if options.runs {
+    let (report, failed) = if options.lift {
+        lab::lift(options, &mut timing)?
+    } else if options.ideal {
+        lab::ideal(options, &mut timing)?
+    } else if let Some(deck) = &options.leave_out {
+        lab::leave_out(deck, options, &mut timing)?
+    } else if options.act {
+        lab::act(options, &mut timing)?
+    } else if options.runs {
         run_runs(options, &mut timing)?
     } else if options.versus {
         let stats = versus_timed(options, &mut timing)?;
@@ -584,13 +717,43 @@ fn run_runs(options: &Options, timing: &mut Timing) -> Result<(String, bool), St
         options.seed + u64::from(options.games.saturating_sub(1))
     );
     let mut failed = false;
+    let policy = runs::Policy {
+        deck: None,
+        extra_cards: options.with_cards.iter().cloned().map(CardDefId).collect(),
+        start_relics: options
+            .with_relics
+            .iter()
+            .cloned()
+            .map(ModifierId)
+            .collect(),
+        no_cards: options.no_cards,
+        no_relics: options.no_relics,
+    };
+    lab::check_relics(&policy.start_relics)?;
+    if let Some(unknown) = policy
+        .extra_cards
+        .iter()
+        .find(|card| data.cards.get(card).is_none())
+    {
+        return Err(format!("--with-card: no card `{unknown}`"));
+    }
+    let ids: Vec<&str> = data
+        .run
+        .planeswalkers
+        .iter()
+        .map(|planeswalker| planeswalker.id.as_str())
+        .collect();
+    check_deck_names(options, &ids)?;
     for planeswalker in &data.run.planeswalkers {
         let id = planeswalker.id.as_str();
+        if !wanted(options, id, &ids) {
+            continue;
+        }
         let played = in_parallel(options.games, |game| {
             let seed = options.seed + u64::from(game);
             let mut took = Timing::default();
             let result = match catch_unwind(AssertUnwindSafe(|| {
-                runs::play_run_with(id, seed, [options.ai; 2], &mut took)
+                runs::play_run_with(id, seed, [options.ai; 2], &policy, &mut took)
             })) {
                 Ok(result) => result,
                 Err(_) => Err("panic".to_string()),

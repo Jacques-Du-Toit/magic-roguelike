@@ -5,7 +5,7 @@
 //! and in wasm and the engine does no file IO.
 
 use std::collections::BTreeMap;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, OnceLock};
 
 use include_dir::{Dir, include_dir};
 use serde::de::DeserializeOwned;
@@ -22,9 +22,25 @@ static DATA_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../data");
 static EMBEDDED: LazyLock<Result<GameData, DataError>> =
     LazyLock::new(|| GameData::load(&embedded_files()?));
 
-/// The game data embedded in this build.
+/// Data loaded by the caller to be used in place of the embedded data.
+static REPLACEMENT: OnceLock<GameData> = OnceLock::new();
+
+/// The game data embedded in this build, or what `replace_embedded` put in
+/// its place.
 pub fn embedded() -> Result<&'static GameData, DataError> {
-    EMBEDDED.as_ref().map_err(Clone::clone)
+    match REPLACEMENT.get() {
+        Some(data) => Ok(data),
+        None => EMBEDDED.as_ref().map_err(Clone::clone),
+    }
+}
+
+/// Uses `data` in place of the embedded data from now on, so that the sim
+/// can try changed data files without a rebuild. It is for the start of a
+/// program, before anything has read the data: it can be done once, and
+/// `false` means it had been done already. The engine still does no file
+/// IO: the caller reads the files.
+pub fn replace_embedded(data: GameData) -> bool {
+    REPLACEMENT.set(data).is_ok()
 }
 
 /// All card definitions, by id.

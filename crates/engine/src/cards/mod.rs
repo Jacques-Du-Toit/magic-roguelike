@@ -82,6 +82,10 @@ pub struct CardDef {
     /// whatever the file says.
     #[serde(default)]
     pub token: bool,
+    /// Never offered to the player: no reward, draft, shop or event shows
+    /// it. For a card that only enemies play, or one kept back for later.
+    #[serde(default)]
+    pub reserved: bool,
     /// A permanent its controller is better off without, like a wound. It
     /// changes no rule: the AI counts it against whoever controls it.
     #[serde(default)]

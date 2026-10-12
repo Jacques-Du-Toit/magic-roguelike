@@ -6,15 +6,33 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::time::Instant;
 
+use engine::cards::CardDefId;
 use engine::data;
-use engine::duel::{DuelRng, GameResult};
+use engine::duel::{CardInstance, DuelRng, GameResult};
 use engine::run::{
-    DuelKind, DuelOutcome, NodeKind, PLAYER, Phase, PlaneswalkerId, RunAction, RunConfig, RunEvent,
-    RunState, apply_duel_action, apply_run_action, new_run, run_legal_actions,
+    DuelKind, DuelOutcome, ModifierId, NodeKind, PLAYER, Phase, PlaneswalkerId, RunAction,
+    RunConfig, RunEvent, RunState, apply_duel_action, apply_run_action, new_run, run_legal_actions,
 };
 use engine::{AiKind, ai_choose_action_with};
 
 use crate::timing::Timing;
+
+/// How a run is played differently from the usual, for the balance lab.
+/// The default changes nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Policy {
+    /// The spells the run is played with, in place of the starting deck.
+    pub deck: Option<Vec<CardDefId>>,
+    /// Cards added to the deck the run starts with.
+    pub extra_cards: Vec<CardDefId>,
+    /// Relics owned from the start.
+    pub start_relics: Vec<ModifierId>,
+    /// Take no card anywhere: rewards, drafts, shops and events are left.
+    pub no_cards: bool,
+    /// Own no relic but the ones the run starts with: a treasure's gold is
+    /// taken, and a relic that comes anyway (an elite's) is dropped.
+    pub no_relics: bool,
+}
 
 /// What happened in one run.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -23,6 +41,8 @@ pub struct RunRecord {
     pub reached_boss: bool,
     /// Wounds carried on arriving at the boss.
     pub wounds_at_boss: u32,
+    /// Duels lost that left a wound, healed since or not.
+    pub wounds_taken: u32,
     /// `[normal, elite, boss]`: duels played and duels won.
     pub duels: [u32; 3],
     pub wins: [u32; 3],
@@ -42,8 +62,24 @@ pub struct RunRecord {
 /// heal at a rest site, buy what can be afforded, take a treasure's first
 /// relic, and take from an event what leaves no wound. `choices` breaks
 /// ties between map nodes.
-fn choose(state: &RunState, actions: &[RunAction], choices: &mut DuelRng) -> RunAction {
+fn choose(
+    state: &RunState,
+    actions: &[RunAction],
+    choices: &mut DuelRng,
+    policy: &Policy,
+) -> RunAction {
     let first = |wanted: fn(&RunAction) -> bool| actions.iter().find(|action| wanted(action));
+    // The last action on offer always moves on: leave, skip, or the gold.
+    let leaves = match &state.phase {
+        Phase::Reward { .. } | Phase::Draft { .. } | Phase::Shop { .. } | Phase::Event { .. } => {
+            policy.no_cards
+        }
+        Phase::Treasure { .. } => policy.no_relics,
+        _ => false,
+    };
+    if leaves {
+        return actions.last().cloned().unwrap_or(RunAction::Leave);
+    }
     let pick = match &state.phase {
         Phase::Map => {
             let kind = |action: &RunAction| match action {
@@ -97,6 +133,7 @@ pub fn play_run(planeswalker: &str, seed: u64) -> Result<RunRecord, String> {
         planeswalker,
         seed,
         [AiKind::Heuristic; 2],
+        &Policy::default(),
         &mut Timing::default(),
     )
 }
@@ -107,10 +144,11 @@ pub fn play_run_with(
     planeswalker: &str,
     seed: u64,
     ais: [AiKind; 2],
+    policy: &Policy,
     timing: &mut Timing,
 ) -> Result<RunRecord, String> {
     let started = Instant::now();
-    let result = play(planeswalker, seed, ais, timing);
+    let result = play(planeswalker, seed, ais, policy, timing);
     timing.played(started.elapsed());
     result
 }
@@ -136,6 +174,7 @@ fn play(
     planeswalker: &str,
     seed: u64,
     ais: [AiKind; 2],
+    policy: &Policy,
     timing: &mut Timing,
 ) -> Result<RunRecord, String> {
     let config = RunConfig {
@@ -143,6 +182,13 @@ fn play(
         emblem: None,
     };
     let mut state = new_run(config, seed).map_err(|error| error.to_string())?;
+    if let Some(deck) = &policy.deck {
+        state.deck = deck.iter().cloned().map(CardInstance::new).collect();
+    }
+    state
+        .deck
+        .extend(policy.extra_cards.iter().cloned().map(CardInstance::new));
+    state.relics = policy.start_relics.clone();
     // The policy's own dice, so they don't disturb the run's.
     let mut choices = DuelRng::from_seed(seed ^ 0x5EED);
     let mut record = RunRecord::default();
@@ -174,7 +220,7 @@ fn play(
         if actions.is_empty() {
             return Err(format!("nothing to do in {:?}", state.phase));
         }
-        let action = choose(&state, &actions, &mut choices);
+        let action = choose(&state, &actions, &mut choices, policy);
         // A duel won, the boss's aside: what it would have scored on every
         // feat, read before the run takes the duel away.
         let won = matches!(
@@ -192,6 +238,9 @@ fn play(
             note_feats_met(&state, &mut record)?;
         }
         let events = apply_run_action(&mut state, action).map_err(|error| error.to_string())?;
+        if policy.no_relics {
+            state.relics.clone_from(&policy.start_relics);
+        }
         for event in events {
             match event {
                 RunEvent::DuelStarted {
@@ -210,6 +259,8 @@ fn play(
                     timing.game(ais);
                     record.duels[index] += 1;
                     record.wins[index] += u32::from(outcome == DuelOutcome::Won);
+                    record.wounds_taken +=
+                        u32::from(outcome == DuelOutcome::Lost && kind != DuelKind::Boss);
                 }
                 RunEvent::FeatsScored { points, .. } => record.feat_points += points,
                 RunEvent::CardAdded { .. } => record.cards_added += 1,
@@ -234,6 +285,14 @@ fn average(total: u32, count: u32) -> String {
     }
     let tenths = (u64::from(total) * 10 + u64::from(count) / 2) / u64::from(count);
     format!("{}.{}", tenths / 10, tenths % 10)
+}
+
+fn average_hundredths(total: u32, count: u32) -> String {
+    if count == 0 {
+        return "-".to_string();
+    }
+    let hundredths = (u64::from(total) * 100 + u64::from(count) / 2) / u64::from(count);
+    format!("{}.{:02}", hundredths / 100, hundredths % 100)
 }
 
 /// The report for one planeswalker's runs. `results` has one entry per
@@ -263,6 +322,23 @@ pub fn format_runs(planeswalker: &str, results: &[(u64, Result<RunRecord, String
         "  Reached the boss     {:>5}%   with {} wounds on average",
         percent(at_boss, runs),
         average(sum(|record| record.wounds_at_boss), at_boss)
+    );
+    let _ = writeln!(
+        out,
+        "    with 0 / 1 / 2 wounds: {}% / {}% / {}% of all runs; {} wounds taken per run",
+        percent(
+            count(|record| record.reached_boss && record.wounds_at_boss == 0),
+            runs
+        ),
+        percent(
+            count(|record| record.reached_boss && record.wounds_at_boss == 1),
+            runs
+        ),
+        percent(
+            count(|record| record.reached_boss && record.wounds_at_boss >= 2),
+            runs
+        ),
+        average_hundredths(sum(|record| record.wounds_taken), runs)
     );
     let _ = writeln!(
         out,
@@ -397,6 +473,7 @@ mod tests {
             won: true,
             reached_boss: true,
             wounds_at_boss: 2,
+            wounds_taken: 3,
             duels: [4, 1, 1],
             wins: [3, 1, 1],
             cards_added: 5,
@@ -417,6 +494,10 @@ mod tests {
         assert!(report.contains("warden: 2 runs"), "{report}");
         assert!(report.contains("Won the act           50.0%"), "{report}");
         assert!(report.contains("with 2.0 wounds on average"), "{report}");
+        assert!(
+            report.contains("with 0 / 1 / 2 wounds: 0.0% / 0.0% / 50.0% of all runs; 1.50 wounds"),
+            "{report}"
+        );
         assert!(report.contains("Beat the boss        100.0%"), "{report}");
         assert!(report.contains("Normal duels          42.9%"), "{report}");
         assert!(report.contains("3.5 played per run"), "{report}");
