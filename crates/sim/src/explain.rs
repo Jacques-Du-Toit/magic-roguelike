@@ -18,7 +18,7 @@ use engine::run::{
     ModifierId, PlaneswalkerId, RunAction, RunConfig, RunState, apply_duel_action,
     apply_run_action, new_run,
 };
-use engine::{AiKind, Explanation, ai_explain};
+use engine::{AiKind, Explanation, Held, ai_explain};
 use serde::Deserialize;
 
 /// The human's seat in the web app; the AI has the other.
@@ -164,7 +164,12 @@ fn action_name(state: &DuelState, cards: &CardDatabase, action: &Action) -> Stri
 }
 
 /// A whole play in words: one action, or an attack or set of blocks.
-fn play_name(state: &DuelState, cards: &CardDatabase, play: &[Action], holding: bool) -> String {
+fn play_name(
+    state: &DuelState,
+    cards: &CardDatabase,
+    play: &[Action],
+    holding: Option<Held>,
+) -> String {
     // A whole attack or set of blocks ends in its confirmation, which goes
     // without saying.
     let confirms =
@@ -179,8 +184,10 @@ fn play_name(state: &DuelState, cards: &CardDatabase, play: &[Action], holding: 
         (Some(Action::ConfirmBlockers), true) => "no blocks".to_string(),
         _ => steps.join(", "),
     };
-    if holding {
-        text.push_str(", keeping mana up for your turn");
+    match holding {
+        Some(Held::ForOpponentsTurn) => text.push_str(", keeping mana up for your turn"),
+        Some(Held::ForCombat) => text.push_str(", keeping mana up for after blocks"),
+        None => {}
     }
     text
 }

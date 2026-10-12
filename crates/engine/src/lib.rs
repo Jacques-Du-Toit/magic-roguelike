@@ -19,7 +19,7 @@ pub mod duel;
 pub mod run;
 
 pub use ai::{
-    AiKind, Considered, Explanation, ai_choose_action, ai_choose_action_with, ai_explain,
+    AiKind, Considered, Explanation, Held, ai_choose_action, ai_choose_action_with, ai_explain,
 };
 pub use duel::{
     apply_action, has_meaningful_action, legal_actions, new_duel, player_view, redact_events,

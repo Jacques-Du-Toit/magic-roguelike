@@ -71,6 +71,10 @@ pub struct AiSearchBalance {
     /// attack, everything, nothing, then changes of one creature to the
     /// best so far.
     pub attack_plans: u32,
+    /// How many attacks are tried, in its first main phase, for passing
+    /// with an instant kept for after blocks: v1's attack, that with one
+    /// creature more, everything. 0 never weighs keeping one for combat.
+    pub hold_attacks: u32,
     /// How many whole sets of blocks are tried when it declares blockers.
     pub block_plans: u32,
     /// How far each imagined game is played: to the start of the turn this

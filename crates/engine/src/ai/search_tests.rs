@@ -410,6 +410,70 @@ fn it_does_not_keep_mana_up_with_nothing_to_spend_it_on() {
     assert_eq!(new(&state, me), cast(merfolk));
 }
 
+/// The AI's first main phase with a 2/2 and two Forests, holding a Titanic
+/// Growth (+4/+4) and a Llanowar Elves, against an untapped 2/4 Giant
+/// Spider. Returns the 2/2, the Growth and the Spider.
+fn growth_against_a_spider() -> (DuelState, PlayerId, ObjectId, ObjectId, ObjectId) {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 2);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let growth = put_in_hand(&mut state, me, "titanic_growth");
+    put_in_hand(&mut state, me, "llanowar_elves");
+    let spider = put_on_battlefield(&mut state, opponent, "giant_spider");
+    (state, me, bears, growth, spider)
+}
+
+#[test]
+fn it_keeps_a_pump_spell_for_after_blocks() {
+    // From the owner's playtest of the green-white cube: it cast Titanic
+    // Growth on its 2/2 before attacking, so the Spider simply didn't block.
+    let (mut state, me, bears, growth, spider) = growth_against_a_spider();
+    let at_bears = cast_at(growth, Target::Object { object: bears });
+    assert!(legal_actions(&state, me).contains(&at_bears));
+    let explanation = ai_explain(&state, me, AiKind::Search).unwrap();
+    assert_eq!(explanation.chosen, Action::PassPriority);
+    // What won was passing to attack with the Growth in hand.
+    let best = explanation
+        .considered
+        .iter()
+        .max_by_key(|considered| considered.total)
+        .unwrap();
+    assert_eq!(best.holding, Some(Held::ForCombat));
+
+    // It attacks into the Spider, and says nothing until blocks.
+    apply_action(&mut state, me, Action::PassPriority).unwrap();
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let attacking = Decision::DeclareAttackers { player: me };
+    assert_eq!(state.decision, Some(attacking));
+    let_it_declare(&mut state, me, attacking);
+    assert_eq!(combat::declared_attackers(&state), [bears]);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), Action::PassPriority);
+
+    // The Spider blocks, and dies to a 6/6.
+    crate::duel::test_support::block(&mut state, &[(spider, bears)]);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), at_bears);
+    apply_action(&mut state, me, at_bears).unwrap();
+    crate::duel::test_support::finish_combat(&mut state);
+    assert!(!state.is_on_battlefield(spider));
+    assert!(state.is_on_battlefield(bears));
+}
+
+#[test]
+fn it_does_not_hold_a_spell_for_a_combat_it_cannot_have() {
+    // With nothing able to attack, holding for combat isn't weighed.
+    let (mut state, me, bears, _, _) = growth_against_a_spider();
+    state.objects.get_mut(&bears).unwrap().tapped = true;
+    let explanation = ai_explain(&state, me, AiKind::Search).unwrap();
+    assert!(
+        explanation
+            .considered
+            .iter()
+            .all(|considered| considered.holding != Some(Held::ForCombat))
+    );
+}
+
 // ---- What a card in hand is worth ----
 
 #[test]
@@ -484,7 +548,7 @@ fn it_waits_with_an_instant_that_does_as_well_later() {
         explanation
             .considered
             .iter()
-            .find(|considered| considered.play == [action.clone()] && !considered.holding)
+            .find(|considered| considered.play == [action.clone()] && considered.holding.is_none())
             .unwrap()
             .total
     };
@@ -545,6 +609,35 @@ fn it_keeps_a_flash_creature_back_until_the_attack_is_declared() {
         apply_action(&mut state, opponent, Action::PassPriority).unwrap();
     }
     assert_eq!(state.step, Step::DeclareAttackers);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), cast(viper));
+}
+
+#[test]
+fn it_keeps_a_flash_creature_for_the_opponents_turn_when_that_costs_nothing() {
+    // From the owner's playtest of the green-white cube: on its second turn,
+    // against an empty board, it cast Ambush Viper in its own main phase.
+    // The imagined games can't tell that from casting it in the opponent's
+    // end step, and waiting shows the opponent nothing.
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 2);
+    put_lands(&mut state, opponent, "plains", 1);
+    let viper = put_in_hand(&mut state, me, "ambush_viper");
+    put_in_hand(&mut state, me, "elvish_visionary");
+    assert_eq!(old(&state, me), cast(viper));
+    let explanation = ai_explain(&state, me, AiKind::Search).unwrap();
+    assert_eq!(explanation.chosen, Action::PassPriority);
+    assert!(explanation.note.unwrap().contains("keeps its mana up"));
+
+    // It still passes in its second main phase, and casts the Viper in the
+    // opponent's end step.
+    pass_until(&mut state, 1, Step::PostcombatMain);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), Action::PassPriority);
+    pass_until(&mut state, 2, Step::End);
+    if state.decision == Some(Decision::Priority { player: opponent }) {
+        apply_action(&mut state, opponent, Action::PassPriority).unwrap();
+    }
     assert_eq!(state.decision, Some(Decision::Priority { player: me }));
     assert_eq!(new(&state, me), cast(viper));
 }

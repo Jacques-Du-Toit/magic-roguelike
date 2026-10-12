@@ -274,7 +274,7 @@ fn attack_plan(
     };
     let imagined = Imagined::new(before, player, settings)?;
     let score = |plan: &[ObjectId]| {
-        let total = imagined.total(player, settings, false, |game| {
+        let total = imagined.total(player, settings, None, |game| {
             for &creature in plan {
                 apply_trusted(game, player, &Action::Attack { creature })?;
             }
@@ -285,7 +285,7 @@ fn attack_plan(
             .map(|&creature| Action::Attack { creature })
             .collect();
         play.push(Action::ConfirmAttackers);
-        consider(play, false, total);
+        consider(play, None, total);
         Ok::<i64, InternalError>(total)
     };
 
@@ -423,7 +423,7 @@ fn block_plan(
     };
     let imagined = Imagined::new(before, player, settings)?;
     let score = |plan: &[(ObjectId, ObjectId)]| {
-        let total = imagined.total(player, settings, false, |game| {
+        let total = imagined.total(player, settings, None, |game| {
             declare_blocks(game, player, plan)?;
             apply_trusted(game, player, &Action::ConfirmBlockers).map(|_| ())
         })?;
@@ -432,7 +432,7 @@ fn block_plan(
             .map(|&(blocker, attacker)| Action::Block { blocker, attacker })
             .collect();
         play.push(Action::ConfirmBlockers);
-        consider(play, false, total);
+        consider(play, None, total);
         Ok::<i64, InternalError>(total)
     };
 

@@ -81,15 +81,26 @@ pub enum AiKind {
     SearchGuessing,
 }
 
+/// What the searching AI keeps mana up for when it passes in its own main
+/// phase holding an instant or a card with flash.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Held {
+    /// The opponent's turn: it casts nothing more in its main phases.
+    ForOpponentsTurn,
+    /// This turn's combat: it casts nothing until blocks are declared.
+    ForCombat,
+}
+
 /// Something the searching AI tried in its imagined games.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Considered {
     /// What it would do: one action, or a whole attack or set of blocks
     /// ending in its confirmation.
     pub play: Vec<Action>,
-    /// Passing with the intention of keeping mana up for the opponent's
-    /// turn.
-    pub holding: bool,
+    /// What it would be keeping mana up for, when the play is to pass and
+    /// keep it. Kept for combat, the play goes on to say which attack it
+    /// imagined making.
+    pub holding: Option<Held>,
     /// How it did, added up over the imagined games: higher is better for
     /// the AI. Divide by `Explanation::worlds` for the average, on a scale
     /// where a creature is worth about 5 to 15 and winning `win_value`.
