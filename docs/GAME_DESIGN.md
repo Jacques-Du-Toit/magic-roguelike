@@ -92,7 +92,7 @@ These are original characters (or generic archetypes) — not MTG's named planes
 | **Duel** | Normal opponent. Win: pick 1 of 3 cards (rarity-weighted) + gold. |
 | **Elite** | Stronger deck. Win: relic + card pick. Loss: −1 heart, nothing. |
 | **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. |
-| **Draft** | Open a booster-style pack from the cube, pick one card. Very Magic. |
+| **Draft** | Open a pack of five cards in your colours and keep up to two. Built (`DECISIONS.md` #57). |
 | **Shop** | Buy cards, lands (incl. duals), relics. Pay to remove a card. |
 | **Rest** | Choose: upgrade a card, or remove a card. (Healing isn't needed with hearts; possibly "restore 1 heart" as a third option — playtest.) |
 | **Event** | Short text event with a trade-off choice (e.g. "add a powerful card with a drawback", "sacrifice a relic for two cards"). |
@@ -151,6 +151,7 @@ Examples:
 | GU | +1/+1 counters / ramp |
 
 - **Colours are locked** (`DECISIONS.md` #35): a character is only ever offered cards in its colours. The variety is meant to come from inside the pool, as in Slay the Spire: each colour pair should hold three or four overlapping packages of 8–12 cards (for black-red, say: sacrifice, vampires, burn, discard), with cards that belong to two of them, so that the pick is rarely obvious. Starting decks stay generic.
+- The first pool built this way is green-white, for a commander about creatures in general (`DECISIONS.md` #56, #58). Its five packages: go wide (tokens), +1/+1 counters, lifegain, big creatures (ramp), Auras and enchantments.
 - Archetypes the owner wants in time, beyond the ten above: discard, vampires, counterspells, spellslinger, walls and defenders, Eldrazi. Released Commander decks are a source of ideas. Walls (damage from toughness) and Eldrazi (colourless mana and their keywords) each need a rule that is not in scope yet.
 - Every card must fit inside `RULES_SCOPE.md`.
 - Rarity distribution and reward weighting tuned in playtesting.

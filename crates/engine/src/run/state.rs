@@ -39,6 +39,7 @@ pub enum NodeKind {
     Elite,
     Rest,
     Shop,
+    Draft,
     Boss,
 }
 
@@ -99,6 +100,12 @@ pub enum Phase {
         items: Vec<ShopItem>,
         removal_price: u32,
         removals_left: u8,
+    },
+    /// A pack is open: take up to `picks_left` more of the cards still in
+    /// it. A card taken leaves `choices`.
+    Draft {
+        choices: Vec<CardDefId>,
+        picks_left: u8,
     },
     /// Before the boss: each remaining heart buys one boon.
     Boons {
@@ -193,7 +200,11 @@ pub enum RunAction {
     Buy {
         item: usize,
     },
-    /// Leave a rest site or a shop.
+    /// At a draft: add `choices[choice]` of the pack to the deck.
+    TakeDraft {
+        choice: usize,
+    },
+    /// Leave a rest site, a shop or a draft.
     Leave,
     /// Before the boss: spend a pick on a boon.
     TakeBoon {

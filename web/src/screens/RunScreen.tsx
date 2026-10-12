@@ -177,7 +177,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         <>
           <RunMap view={view} onTravel={(node) => send({ type: 'travel', node })} />
           <ul className="map-legend">
-            {(['duel', 'elite', 'rest', 'shop', 'boss'] as const).map((kind) => (
+            {(['duel', 'elite', 'draft', 'rest', 'shop', 'boss'] as const).map((kind) => (
               <li key={kind}>
                 <span aria-hidden="true">{NODE_LABEL[kind].symbol}</span>{' '}
                 <strong>{NODE_LABEL[kind].name}</strong> {NODE_LABEL[kind].about}
@@ -204,6 +204,33 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
           <div className="button-row">
             <button type="button" onClick={() => send({ type: 'skip_reward' })} data-testid="skip">
               Take none
+            </button>
+          </div>
+        </>
+      )
+      break
+    case 'draft':
+      title =
+        phase.picks_left === 1 ? 'Draft: choose one more card' : `Draft: choose ${phase.picks_left} cards`
+      body = (
+        <>
+          <p className="muted">
+            Picks left: <strong data-testid="draft-picks">{phase.picks_left}</strong>. The cards
+            you leave are gone.
+          </p>
+          <div className="card-grid choice-row" data-testid="draft">
+            {phase.choices.map((card, choice) => (
+              <RunCard
+                key={card}
+                def={cards.get(card)}
+                onPick={() => send({ type: 'take_draft', choice })}
+                testId="draft-card"
+              />
+            ))}
+          </div>
+          <div className="button-row">
+            <button type="button" onClick={() => send({ type: 'leave' })} data-testid="leave">
+              Take no more
             </button>
           </div>
         </>

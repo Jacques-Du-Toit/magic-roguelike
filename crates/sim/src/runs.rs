@@ -56,6 +56,7 @@ fn choose(state: &RunState, actions: &[RunAction], choices: &mut DuelRng) -> Run
             pool.get(index).copied()
         }
         Phase::Reward { .. } => first(|action| matches!(action, RunAction::TakeReward { .. })),
+        Phase::Draft { .. } => first(|action| matches!(action, RunAction::TakeDraft { .. })),
         Phase::Rest => first(|action| matches!(action, RunAction::RestHeal)),
         Phase::Shop { .. } => first(|action| matches!(action, RunAction::Buy { .. })),
         Phase::Boons { .. } => first(|action| matches!(action, RunAction::TakeBoon { .. })),

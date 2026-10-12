@@ -68,6 +68,20 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       await expect(page.getByTestId('reward-card')).toHaveCount(3)
       await page.getByTestId('reward-card').first().getByRole('button').click()
       return true
+    case 'draft': {
+      // Five cards, of which two are kept; the pack shrinks as they go.
+      const deck = page.getByTestId('open-deck')
+      const before = await deck.innerText()
+      await expect(page.getByTestId('draft-card')).toHaveCount(5)
+      await expect(page.getByTestId('draft-picks')).toHaveText('2')
+      await page.getByTestId('draft-card').first().getByRole('button').click()
+      await expect(page.getByTestId('draft-card')).toHaveCount(4)
+      await expect(page.getByTestId('draft-picks')).toHaveText('1')
+      await page.getByTestId('draft-card').last().getByRole('button').click()
+      await expect(run(page)).toHaveAttribute('data-phase', 'map')
+      await expect(deck).not.toHaveText(before)
+      return true
+    }
     case 'rest': {
       const heal = page.getByTestId('rest-heal')
       if (await heal.isEnabled()) {
@@ -293,7 +307,7 @@ for (const [planeswalker, seed] of ACTS) {
     // These seeds lead through every kind of node. If a change to the game's
     // data moves them, ACTS=warden:1,warden:2,... finds seeds that do.
     expect([...seen.phases]).toEqual(
-      expect.arrayContaining(['map', 'reward', 'shop', 'rest', 'boons', 'over']),
+      expect.arrayContaining(['map', 'reward', 'draft', 'shop', 'rest', 'boons', 'over']),
     )
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
     // The elite and the boss each brought a commander.

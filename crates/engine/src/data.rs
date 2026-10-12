@@ -958,7 +958,13 @@ mod tests {
         assert_eq!(count(EnemyTier::Boss), 1);
         for planeswalker in &run.planeswalkers {
             let spells: u32 = planeswalker.spells.iter().map(|entry| entry.count).sum();
-            assert_eq!(spells, 15, "{}", planeswalker.id);
+            // The Warden starts lean, to be shaped by drafts.
+            let expected = if planeswalker.id.as_str() == "warden" {
+                12
+            } else {
+                15
+            };
+            assert_eq!(spells, expected, "{}", planeswalker.id);
             assert_eq!(planeswalker.colors.len(), 2, "{}", planeswalker.id);
         }
         for enemy in &run.enemies {

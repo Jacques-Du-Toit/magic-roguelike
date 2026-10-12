@@ -143,6 +143,19 @@ pub(crate) fn card_reward(
     choices
 }
 
+/// The pack a draft node opens: different spells in the player's colours.
+pub(crate) fn draft_pack(rng: &mut DuelRng, data: &GameData, colors: &[Color]) -> Vec<CardDefId> {
+    let draft = &data.balance.run.draft;
+    spell_offer(
+        rng,
+        &data.cards,
+        colors,
+        &draft.weights,
+        draft.cards,
+        draft.cards,
+    )
+}
+
 /// A relic the player doesn't have yet, if there is one.
 pub(crate) fn random_relic(
     rng: &mut DuelRng,

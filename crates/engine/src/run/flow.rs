@@ -10,7 +10,7 @@ use crate::duel::{
 use super::defs::{EnemyDef, EnemyId, EnemyTier, ModifierDef, ModifierEffect, PlaneswalkerDef};
 use super::loadout::{Loadout, duel_config, starting_deck};
 use super::map::generate_map;
-use super::rewards::{card_reward, random_relic, shop_stock};
+use super::rewards::{card_reward, draft_pack, random_relic, shop_stock};
 use super::state::{
     DuelKind, DuelOutcome, GoldReason, NodeId, NodeKind, PLAYER, Phase, RunAction, RunConfig,
     RunError, RunEvent, RunState, Ware,
@@ -136,6 +136,13 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
             if *removals_left > 0 && *removal_price <= state.gold {
                 actions.extend(removals());
             }
+            actions.push(RunAction::Leave);
+            actions
+        }
+        Phase::Draft { choices, .. } => {
+            let mut actions: Vec<RunAction> = (0..choices.len())
+                .map(|choice| RunAction::TakeDraft { choice })
+                .collect();
             actions.push(RunAction::Leave);
             actions
         }
@@ -329,6 +336,19 @@ fn travel(
                 items,
                 removal_price: balance.shop.prices.removal,
                 removals_left: balance.shop.removals,
+            };
+        }
+        NodeKind::Draft => {
+            let colors = &planeswalker(state, data)?.colors;
+            let choices = draft_pack(&mut state.rng, data, colors);
+            // An empty pack has nothing to choose from: the node is passed.
+            state.phase = if choices.is_empty() {
+                Phase::Map
+            } else {
+                Phase::Draft {
+                    choices,
+                    picks_left: balance.draft.picks,
+                }
             };
         }
         NodeKind::Boss => {
@@ -550,7 +570,30 @@ fn perform(
                 removals_left,
             };
         }
-        (RunAction::Leave, Phase::Rest | Phase::Shop { .. }) => state.phase = Phase::Map,
+        (
+            RunAction::TakeDraft { choice },
+            Phase::Draft {
+                mut choices,
+                picks_left,
+            },
+        ) => {
+            if *choice >= choices.len() {
+                return Err(mismatch().into());
+            }
+            add_card(state, events, choices.remove(*choice));
+            let picks_left = picks_left.saturating_sub(1);
+            state.phase = if picks_left == 0 || choices.is_empty() {
+                Phase::Map
+            } else {
+                Phase::Draft {
+                    choices,
+                    picks_left,
+                }
+            };
+        }
+        (RunAction::Leave, Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. }) => {
+            state.phase = Phase::Map;
+        }
         (RunAction::TakeBoon { boon }, Phase::Boons { picks_left }) => {
             state.boons.push(boon.clone());
             events.push(RunEvent::BoonTaken { boon: boon.clone() });

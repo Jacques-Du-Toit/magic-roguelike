@@ -156,6 +156,8 @@ pub enum BalanceError {
     MapRowWeights(usize),
     #[error("`run.rewards` needs at least one choice, and no more own-colour choices than choices")]
     RewardChoices,
+    #[error("`run.draft` needs at least one pick, and no more picks than cards")]
+    DraftPicks,
     #[error("`run.rewards.{0}` gives no rarity a weight")]
     RarityWeights(&'static str),
     #[error("`run.boons`: {0}")]
@@ -206,6 +208,7 @@ pub struct RunBalance {
     pub map: MapBalance,
     pub gold: GoldBalance,
     pub rewards: RewardBalance,
+    pub draft: DraftBalance,
     pub shop: ShopBalance,
     pub rest: RestBalance,
     /// What a remaining heart can buy before the boss.
@@ -245,6 +248,8 @@ pub struct MapRowBalance {
     pub rest: u32,
     #[serde(default)]
     pub shop: u32,
+    #[serde(default)]
+    pub draft: u32,
     pub duel_tier: EnemyTier,
 }
 
@@ -269,6 +274,16 @@ pub struct RewardBalance {
     pub land_percent: u32,
     pub duel: RarityWeights,
     pub elite: RarityWeights,
+}
+
+/// A draft node: a pack of `cards` different cards in the planeswalker's
+/// colours, of which up to `picks` are taken.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DraftBalance {
+    pub cards: u8,
+    pub picks: u8,
+    pub weights: RarityWeights,
 }
 
 /// Relative weights of the rarities when a card is picked at random.
@@ -329,14 +344,18 @@ fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
         return Err(BalanceError::MapShape);
     }
     for (index, row) in run.map.rows.iter().enumerate() {
-        if row.duel + row.elite + row.rest + row.shop == 0 {
+        if row.duel + row.elite + row.rest + row.shop + row.draft == 0 {
             return Err(BalanceError::MapRowWeights(index));
         }
     }
     if run.rewards.choices == 0 || run.rewards.own_color_choices > run.rewards.choices {
         return Err(BalanceError::RewardChoices);
     }
+    if run.draft.picks == 0 || run.draft.picks > run.draft.cards {
+        return Err(BalanceError::DraftPicks);
+    }
     for (name, weights) in [
+        ("draft", &run.draft.weights),
         ("duel", &run.rewards.duel),
         ("elite", &run.rewards.elite),
         ("shop", &run.shop.card_weights),
@@ -421,6 +440,14 @@ mod tests {
                 (row.duel, row.elite, row.rest, row.shop) = (0, 0, 0, 0);
             }),
             Err(BalanceError::MapRowWeights(1))
+        );
+        assert_eq!(
+            check(|b| b.run.draft.picks = b.run.draft.cards + 1),
+            Err(BalanceError::DraftPicks)
+        );
+        assert_eq!(
+            check(|b| b.run.draft.picks = 0),
+            Err(BalanceError::DraftPicks)
         );
         assert_eq!(
             check(|b| b.run.rewards.own_color_choices = b.run.rewards.choices + 1),

@@ -145,6 +145,8 @@ Built in four parts, each ending in something to play:
 
 **Reordered on 2026-10-12 (`DECISIONS.md` #55, #56).** Commanders stay. The cube now comes before the rest of M4c, one character at a time, starting with a green-white commander built around creatures and a pool of overlapping archetype packages for it. The first act is made better with it (the new nodes, upgrades and so on, as they are decided); three acts are built last. Balance waits for the card pool.
 
+**The green-white cube, slice 1 (2026-10-12): the Draft node.** A pack of 5 cards, keep up to 2 (`DECISIONS.md` #57). The map is 8 rows: every path passes a draft after the two easy duels, and the second row of rests and shops may hold another. The Warden starts with 12 spells. Checks: 507 engine tests, 12 wasm-crate tests, 29 sim tests, 69 web tests and 22 end-to-end tests pass (the end-to-end tests take about 66 s, 55 s before). `sim --runs --games 300`, +/- 6: the Warden wins the act in 61.3% of runs (55.0% before) and the Firebrand in 40.7% (39.7%); about 7 cards are added per run. That table took 191 s where it took 94 s before; not yet looked into. Next: the five packages (`DECISIONS.md` #58), a package at a time.
+
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 **M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
@@ -304,7 +306,7 @@ What the new AI still plays badly:
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
-- [ ] Draft node, Event node, Treasure node, card upgrades.
+- [ ] Draft node (built), Event node, Treasure node, card upgrades.
 - [ ] 3 acts, 3 bosses, ~20 relics, 4+ planeswalkers.
 - [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.

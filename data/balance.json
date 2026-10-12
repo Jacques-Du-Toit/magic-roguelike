@@ -54,9 +54,10 @@
       "rows": [
         { "duel": 1, "duel_tier": "easy" },
         { "duel": 1, "duel_tier": "easy" },
+        { "draft": 1, "duel_tier": "normal" },
         { "duel": 2, "rest": 1, "shop": 2, "duel_tier": "normal" },
         { "duel": 1, "elite": 1, "duel_tier": "normal" },
-        { "duel": 2, "rest": 1, "shop": 2, "duel_tier": "normal" },
+        { "duel": 2, "rest": 1, "shop": 2, "draft": 2, "duel_tier": "normal" },
         { "duel": 1, "elite": 1, "duel_tier": "normal" },
         { "rest": 1, "duel_tier": "normal" }
       ]
@@ -74,6 +75,11 @@
       "land_percent": 15,
       "duel": { "common": 75, "uncommon": 22, "rare": 3, "mythic": 0 },
       "elite": { "common": 40, "uncommon": 45, "rare": 15, "mythic": 0 }
+    },
+    "draft": {
+      "cards": 5,
+      "picks": 2,
+      "weights": { "common": 60, "uncommon": 32, "rare": 8, "mythic": 0 }
     },
     "shop": {
       "cards": 3,

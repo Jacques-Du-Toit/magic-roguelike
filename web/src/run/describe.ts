@@ -39,6 +39,7 @@ export const NODE_LABEL: Record<NodeKind, { name: string; symbol: string; about:
   },
   rest: { name: 'Rest', symbol: '⛺', about: 'Restore a heart or remove a card.' },
   shop: { name: 'Shop', symbol: '◈', about: 'Buy cards, a land or a relic, or pay to remove a card.' },
+  draft: { name: 'Draft', symbol: '❖', about: 'Open a pack of five cards and keep up to two.' },
   boss: { name: 'Boss', symbol: '♛', about: 'Beat the boss to win the act.' },
 }
 

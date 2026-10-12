@@ -100,7 +100,7 @@ fn travel_to(state: &mut RunState, stop_at: NodeKind) -> bool {
             Phase::Reward { .. } => {
                 act(state, RunAction::SkipReward);
             }
-            Phase::Rest | Phase::Shop { .. } => {
+            Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. } => {
                 act(state, RunAction::Leave);
             }
             Phase::Boons { .. } | Phase::Over { .. } => return false,
@@ -138,7 +138,7 @@ fn a_new_run_has_the_starting_deck_hearts_and_gold() {
     assert_eq!(state.hearts, balance.hearts);
     assert_eq!(state.max_hearts, balance.hearts);
     assert_eq!(state.gold, balance.starting_gold);
-    assert_eq!(state.deck.len(), 15);
+    assert_eq!(state.deck.len(), 12);
     assert!(state.relics.is_empty() && state.boons.is_empty());
     assert_eq!(state.phase, Phase::Map);
     assert_eq!(state.position(), None);
@@ -147,7 +147,7 @@ fn a_new_run_has_the_starting_deck_hearts_and_gold() {
     let view = run_view(&state).unwrap();
     assert_eq!(view.seed, "1");
     let lands: u32 = view.basic_lands.iter().map(|entry| entry.count).sum();
-    assert_eq!(lands, 10);
+    assert_eq!(lands, 8);
     assert_eq!(view.actions, run_legal_actions(&state));
     assert_eq!(view.actions.len(), 3);
 }
@@ -265,10 +265,10 @@ fn a_duel_node_starts_a_duel_set_up_from_the_run() {
     assert_eq!(current_enemy(&state), Some(&enemy.id));
 
     let duel = state.duel.as_ref().unwrap();
-    // The player's 15 spells and 10 lands, the starting emblem, and the
+    // The player's 12 spells and 8 lands, the starting emblem, and the
     // commander waiting in the command zone.
     let player = duel.player(PLAYER);
-    assert_eq!(player.hand.len() + player.library.len(), 25);
+    assert_eq!(player.hand.len() + player.library.len(), 20);
     assert_eq!(duel.emblems.len(), 1);
     assert_eq!(duel.emblems[0].controller, PLAYER);
     assert_eq!(duel.emblems[0].def.name, "Warm Welcome");
@@ -383,14 +383,14 @@ fn taking_a_reward_adds_the_card_and_the_lands_follow() {
             card: choices[1].clone()
         }]
     );
-    assert_eq!(state.deck.len(), 16);
-    assert_eq!(state.deck[15].card_id, choices[1]);
+    assert_eq!(state.deck.len(), 13);
+    assert_eq!(state.deck[12].card_id, choices[1]);
     assert_eq!(state.phase, Phase::Map);
 
-    // 16 spells want 11 lands.
+    // 13 spells want 9 lands.
     let view = run_view(&state).unwrap();
     let lands: u32 = view.basic_lands.iter().map(|entry| entry.count).sum();
-    assert_eq!(lands, 11);
+    assert_eq!(lands, 9);
 
     // Skipping leaves the deck alone.
     let mut other = run("warden", 3);
@@ -398,7 +398,7 @@ fn taking_a_reward_adds_the_card_and_the_lands_follow() {
     act(&mut other, RunAction::Travel { node });
     finish(&mut other, win());
     assert_eq!(act(&mut other, RunAction::SkipReward), []);
-    assert_eq!(other.deck.len(), 15);
+    assert_eq!(other.deck.len(), 12);
 }
 
 #[test]
@@ -584,8 +584,8 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
     // At full hearts there is nothing to restore.
     assert!(!run_legal_actions(&arrived).contains(&RunAction::RestHeal));
     assert!(run_legal_actions(&arrived).contains(&RunAction::Leave));
-    assert!(run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 14 }));
-    assert!(!run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 15 }));
+    assert!(run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 11 }));
+    assert!(!run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 12 }));
     arrived.hearts = 1;
 
     let mut healed = arrived.clone();
@@ -610,7 +610,7 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
             card: removed.clone()
         }]
     );
-    assert_eq!(trimmed.deck.len(), 14);
+    assert_eq!(trimmed.deck.len(), 11);
     assert_eq!(deck_count(&trimmed, removed.as_str()), copies - 1);
     // Only one thing may be done.
     assert_eq!(trimmed.phase, Phase::Map);
@@ -619,7 +619,7 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
     let mut left = arrived.clone();
     assert_eq!(act(&mut left, RunAction::Leave), []);
     assert_eq!(left.phase, Phase::Map);
-    assert_eq!((left.hearts, left.deck.len()), (1, 15));
+    assert_eq!((left.hearts, left.deck.len()), (1, 12));
 }
 
 #[test]
@@ -745,6 +745,107 @@ fn a_shop_sells_a_land_and_a_relic_and_removes_one_card() {
     assert!(matches!(state.phase, Phase::Shop { .. }));
     act(&mut state, RunAction::Leave);
     assert_eq!(state.phase, Phase::Map);
+}
+
+// ---- Drafts ----
+
+#[test]
+fn a_draft_opens_a_pack_in_the_players_colours_and_two_cards_are_taken() {
+    let data = data::embedded().unwrap();
+    let draft = &data.balance.run.draft;
+    let mut state = run_at("warden", NodeKind::Draft);
+    let Phase::Draft {
+        choices,
+        picks_left,
+    } = state.phase.clone()
+    else {
+        panic!("expected a draft, got {:?}", state.phase);
+    };
+    assert_eq!((choices.len(), picks_left), (5, 2));
+    assert_eq!(
+        (choices.len(), picks_left),
+        (usize::from(draft.cards), draft.picks)
+    );
+    for (index, id) in choices.iter().enumerate() {
+        let card = data.cards.get(id).unwrap();
+        assert!(!card.is_land() && !card.is_legendary() && !card.token);
+        assert!(!card.colors.is_empty());
+        assert!(
+            card.colors
+                .iter()
+                .all(|color| [crate::cards::Color::G, crate::cards::Color::W].contains(color)),
+            "{id}"
+        );
+        assert!(!choices[..index].contains(id), "{id} is in the pack twice");
+    }
+    let mut expected: Vec<RunAction> = (0..5)
+        .map(|choice| RunAction::TakeDraft { choice })
+        .collect();
+    expected.push(RunAction::Leave);
+    assert_eq!(run_legal_actions(&state), expected);
+
+    let cards = state.deck.len();
+    let events = act(&mut state, RunAction::TakeDraft { choice: 3 });
+    assert_eq!(
+        events,
+        [RunEvent::CardAdded {
+            card: choices[3].clone()
+        }]
+    );
+    // The card taken has left the pack, and one pick is left.
+    let mut rest = choices.clone();
+    rest.remove(3);
+    assert_eq!(
+        state.phase,
+        Phase::Draft {
+            choices: rest.clone(),
+            picks_left: 1
+        }
+    );
+    let gone = RunAction::TakeDraft { choice: 4 };
+    assert_eq!(
+        apply_run_action(&mut state, gone.clone()),
+        Err(RunError::IllegalAction(gone))
+    );
+
+    act(&mut state, RunAction::TakeDraft { choice: 0 });
+    assert_eq!(state.phase, Phase::Map);
+    assert_eq!(state.deck.len(), cards + 2);
+    assert_eq!(state.deck[cards].card_id, choices[3]);
+    assert_eq!(state.deck[cards + 1].card_id, rest[0]);
+}
+
+#[test]
+fn a_draft_can_be_left_with_one_card_or_none() {
+    let arrived = run_at("firebrand", NodeKind::Draft);
+    let cards = arrived.deck.len();
+
+    let mut none = arrived.clone();
+    assert_eq!(act(&mut none, RunAction::Leave), []);
+    assert_eq!(none.phase, Phase::Map);
+    assert_eq!(none.deck.len(), cards);
+
+    let mut one = arrived.clone();
+    act(&mut one, RunAction::TakeDraft { choice: 0 });
+    act(&mut one, RunAction::Leave);
+    assert_eq!(one.phase, Phase::Map);
+    assert_eq!(one.deck.len(), cards + 1);
+}
+
+#[test]
+fn every_path_passes_a_draft() {
+    for seed in 0..50 {
+        let state = run("warden", seed);
+        let row: Vec<NodeKind> = state
+            .map
+            .nodes
+            .iter()
+            .filter(|node| node.row == 2)
+            .map(|node| node.kind)
+            .collect();
+        assert!(!row.is_empty());
+        assert!(row.iter().all(|kind| *kind == NodeKind::Draft), "{row:?}");
+    }
 }
 
 // ---- Boons and the boss ----

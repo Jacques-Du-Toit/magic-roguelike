@@ -7,11 +7,12 @@ use crate::duel::DuelRng;
 
 use super::state::{MapNode, NodeId, NodeKind, RunMap};
 
-const KINDS: [NodeKind; 4] = [
+const KINDS: [NodeKind; 5] = [
     NodeKind::Duel,
     NodeKind::Elite,
     NodeKind::Rest,
     NodeKind::Shop,
+    NodeKind::Draft,
 ];
 
 fn weight(row: &MapRowBalance, kind: NodeKind) -> u32 {
@@ -20,6 +21,7 @@ fn weight(row: &MapRowBalance, kind: NodeKind) -> u32 {
         NodeKind::Elite => row.elite,
         NodeKind::Rest => row.rest,
         NodeKind::Shop => row.shop,
+        NodeKind::Draft => row.draft,
         NodeKind::Boss => 0,
     }
 }

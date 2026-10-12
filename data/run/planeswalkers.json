@@ -11,12 +11,12 @@
         { "card": "glory_seeker", "count": 1 },
         { "card": "youthful_knight", "count": 2 },
         { "card": "pacifism", "count": 2 },
-        { "card": "grizzly_bears", "count": 2 },
+        { "card": "grizzly_bears", "count": 1 },
         { "card": "elvish_visionary", "count": 1 },
-        { "card": "centaur_courser", "count": 2 },
+        { "card": "centaur_courser", "count": 1 },
         { "card": "giant_spider", "count": 1 },
         { "card": "rumbling_baloth", "count": 1 },
-        { "card": "giant_growth", "count": 2 }
+        { "card": "giant_growth", "count": 1 }
     ]
   },
   {
