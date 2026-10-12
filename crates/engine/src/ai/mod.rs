@@ -44,11 +44,26 @@ struct Thinking {
     lookahead: u8,
     /// Whether two creatures block one attacker to kill it.
     gang_blocks: bool,
+    /// Whether a card in hand is worth more the more it costs (and a
+    /// commander in the command zone something), as the searching AI
+    /// judges, so that a spell isn't spent on something worth less than
+    /// the card. Version 1 counts every card in hand the same.
+    card_values: bool,
 }
 
 const VERSION_1: Thinking = Thinking {
     lookahead: LOOKAHEAD,
     gang_blocks: false,
+    card_values: false,
+};
+
+/// Version 1 with the searching AI's idea of what a card is worth: what
+/// the search glances ahead with, and what it does when the imagined games
+/// can't separate two plays.
+const SEARCH_GLANCE: Thinking = Thinking {
+    lookahead: LOOKAHEAD,
+    gang_blocks: false,
+    card_values: true,
 };
 
 /// Which of the engine's AIs makes a decision.
@@ -119,7 +134,6 @@ fn heuristic(
     actions: &[Action],
     how: Thinking,
 ) -> Result<Action, InternalError> {
-    let lookahead = how.lookahead;
     Ok(match decision {
         Decision::Mulligan { .. } => mulligan(state, player, actions)?,
         Decision::BottomCards { .. } => Action::BottomCard {
@@ -128,7 +142,7 @@ fn heuristic(
         Decision::Discard { .. } => Action::Discard {
             card: least_wanted_card(state, player)?,
         },
-        Decision::Priority { .. } => priority(state, player, actions, lookahead)?,
+        Decision::Priority { .. } => priority(state, player, actions, how)?,
         Decision::DeclareAttackers { .. } => combat::declare_attackers(state, player, actions)?,
         Decision::DeclareBlockers { .. } => {
             combat::declare_blockers(state, player, actions, how.gang_blocks)?
@@ -136,7 +150,7 @@ fn heuristic(
         // The division on offer is the automatic one, which kills as many
         // blockers as the damage allows.
         Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,
-        Decision::ChooseTargets { .. } => best_choice(state, player, actions, lookahead)?,
+        Decision::ChooseTargets { .. } => best_choice(state, player, actions, how)?,
         Decision::Scry { kept, surveil, .. } => scry(state, player, kept, surveil)?,
     })
 }
@@ -209,7 +223,7 @@ fn priority(
     state: &DuelState,
     player: PlayerId,
     actions: &[Action],
-    lookahead: u8,
+    how: Thinking,
 ) -> Result<Action, InternalError> {
     if let Some(land) = best_land(state, player, actions)? {
         return Ok(Action::PlayLand { card: land });
@@ -224,7 +238,7 @@ fn priority(
         return Ok(Action::PassPriority);
     }
 
-    let baseline = outcome(state, player, None, lookahead)?;
+    let baseline = outcome(state, player, None, how)?;
     let mut best: Option<(&Action, i32)> = None;
     for action in distinct::distinct(state, actions)? {
         if !matches!(
@@ -233,7 +247,7 @@ fn priority(
         ) {
             continue;
         }
-        let gain = outcome(state, player, Some(action), lookahead)? - baseline;
+        let gain = outcome(state, player, Some(action), how)? - baseline;
         if gain > 0 && best.is_none_or(|(_, best_gain)| gain > best_gain) {
             best = Some((action, gain));
         }
@@ -247,11 +261,11 @@ fn best_choice(
     state: &DuelState,
     player: PlayerId,
     actions: &[Action],
-    lookahead: u8,
+    how: Thinking,
 ) -> Result<Action, InternalError> {
     let mut best: Option<(&Action, i32)> = None;
     for action in distinct::distinct(state, actions)? {
-        let score = outcome(state, player, Some(action), lookahead)?;
+        let score = outcome(state, player, Some(action), how)?;
         if best.is_none_or(|(_, best_score)| score > best_score) {
             best = Some((action, score));
         }
@@ -293,17 +307,17 @@ fn outcome(
     state: &DuelState,
     player: PlayerId,
     action: Option<&Action>,
-    lookahead: u8,
+    how: Thinking,
 ) -> Result<i32, InternalError> {
     let mut copy = state.clone();
     let settled = (|| {
         if let Some(action) = action {
             apply_trusted(&mut copy, player, action)?;
         }
-        settle(&mut copy, lookahead)
+        settle(&mut copy, how)
     })();
     match settled {
-        Ok(()) => evaluate::position(&copy, player),
+        Ok(()) => evaluate::judged(&copy, player, how.card_values),
         Err(ActionError::Internal(error)) => Err(error),
         Err(error) => Err(InternalError::new(error.to_string())),
     }
@@ -316,16 +330,16 @@ fn outcome(
 /// Passing needs no hidden information, so this stays within what the
 /// player may know. A triggered ability that needs targets on the way gets
 /// the ones that suit its controller best, `lookahead` times at most.
-fn settle(state: &mut DuelState, lookahead: u8) -> Result<(), ActionError> {
-    let mut lookahead = lookahead;
+fn settle(state: &mut DuelState, how: Thinking) -> Result<(), ActionError> {
+    let mut how = how;
     // Far more passes than any stack and combat can need.
     for _ in 0..200 {
         let player = match state.decision {
             Some(Decision::Priority { player }) => player,
-            Some(Decision::ChooseTargets { player, .. }) if lookahead > 0 => {
-                lookahead -= 1;
+            Some(Decision::ChooseTargets { player, .. }) if how.lookahead > 0 => {
+                how.lookahead -= 1;
                 let actions = legal_actions(state, player);
-                let choice = best_choice(state, player, &actions, lookahead)?;
+                let choice = best_choice(state, player, &actions, how)?;
                 apply_trusted(state, player, &choice)?;
                 continue;
             }

@@ -20,9 +20,11 @@ use std::collections::BTreeSet;
 
 use super::battle;
 use super::distinct::distinct;
-use super::{LOOKAHEAD, Thinking, VERSION_1, best_land, evaluate, heuristic, land_color, outcome};
+use super::{
+    SEARCH_GLANCE, Thinking, VERSION_1, best_land, evaluate, heuristic, land_color, outcome,
+};
 use crate::balance::AiSearchBalance;
-use crate::cards::{CardDef, Color, Supertype};
+use crate::cards::{CardDef, CardType, Color, Keyword, Supertype};
 use crate::data;
 use crate::duel::{
     Action, Decision, DuelRng, DuelState, InternalError, ObjectId, PlayerId, Zone, apply_trusted,
@@ -39,9 +41,12 @@ pub(super) fn choose(
     match decision {
         Decision::Priority { .. } => priority(state, player, decision, actions, settings),
         Decision::ChooseTargets { .. } if actions.len() > 1 => {
-            let preferred = heuristic(state, player, decision, actions, VERSION_1)?;
+            let preferred = heuristic(state, player, decision, actions, SEARCH_GLANCE)?;
             let ranked = ranked_by_glance(state, player, actions, None)?;
-            let candidates = pick_candidates(&ranked, settings);
+            let candidates: Vec<Candidate> = pick_candidates(&ranked, settings)
+                .into_iter()
+                .map(Candidate::doing)
+                .collect();
             best_in_rollouts(state, player, &candidates, &preferred, settings)
         }
         Decision::DeclareAttackers { .. } => {
@@ -71,15 +76,62 @@ fn priority(
     if let Some(land) = best_land(state, player, actions)? {
         return Ok(Action::PlayLand { card: land });
     }
-    let baseline = outcome(state, player, None, LOOKAHEAD)?;
+    let baseline = outcome(state, player, None, SEARCH_GLANCE)?;
     let ranked = ranked_by_glance(state, player, actions, Some(baseline))?;
     if ranked.is_empty() {
         return Ok(Action::PassPriority);
     }
-    let preferred = heuristic(state, player, decision, actions, VERSION_1)?;
-    let mut candidates = vec![Action::PassPriority];
-    candidates.extend(pick_candidates(&ranked, settings));
+    let preferred = heuristic(state, player, decision, actions, SEARCH_GLANCE)?;
+    let mut candidates = vec![Candidate::doing(Action::PassPriority)];
+    if could_hold_mana(state, player)? {
+        candidates.push(Candidate {
+            action: Action::PassPriority,
+            holding: true,
+        });
+    }
+    candidates.extend(
+        pick_candidates(&ranked, settings)
+            .into_iter()
+            .map(Candidate::doing),
+    );
     best_in_rollouts(state, player, &candidates, &preferred, settings)
+}
+
+/// Something the AI might do, as the imagined games try it.
+struct Candidate {
+    action: Action,
+    /// Passing with the intention of keeping mana up: in the imagined
+    /// games the player casts nothing more in the main phases of this turn
+    /// of theirs, so that what they hold for the opponent's turn (a
+    /// counterspell, an instant, a creature with flash) can still be paid
+    /// for. Plain passing doesn't say that: the imagined player would pass
+    /// now and cast its creature a moment later.
+    holding: bool,
+}
+
+impl Candidate {
+    fn doing(action: Action) -> Candidate {
+        Candidate {
+            action,
+            holding: false,
+        }
+    }
+}
+
+/// Whether keeping mana up is worth weighing: it is the player's own main
+/// phase with nothing on the stack, and they hold something they could
+/// cast in the opponent's turn.
+fn could_hold_mana(state: &DuelState, player: PlayerId) -> Result<bool, InternalError> {
+    if state.active_player != player || !state.step.is_main() || !state.stack.is_empty() {
+        return Ok(false);
+    }
+    for &card in &state.player(player).hand {
+        let def = state.def(card)?;
+        if def.types.contains(&CardType::Instant) || def.has_keyword(Keyword::Flash) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// The spells, abilities and target choices among `actions`, best first by
@@ -101,7 +153,7 @@ fn ranked_by_glance<'a>(
         ) {
             continue;
         }
-        let gain = outcome(state, player, Some(action), LOOKAHEAD)? - baseline.unwrap_or(0);
+        let gain = outcome(state, player, Some(action), SEARCH_GLANCE)? - baseline.unwrap_or(0);
         ranked.push((gain, action));
     }
     // A stable sort: equals stay in the order the engine listed them.
@@ -144,33 +196,34 @@ fn pick_candidates(ranked: &[(i32, &Action)], settings: &AiSearchBalance) -> Vec
 fn best_in_rollouts(
     state: &DuelState,
     player: PlayerId,
-    candidates: &[Action],
+    candidates: &[Candidate],
     preferred: &Action,
     settings: &AiSearchBalance,
 ) -> Result<Action, InternalError> {
     if let [only] = candidates {
-        return Ok(only.clone());
+        return Ok(only.action.clone());
     }
     let imagined = Imagined::new(state, player, settings)?;
     let mut totals = Vec::with_capacity(candidates.len());
     for candidate in candidates {
-        totals.push(imagined.total(player, settings, |game| {
-            apply_trusted(game, player, candidate).map(|_| ())
+        totals.push(imagined.total(player, settings, candidate.holding, |game| {
+            apply_trusted(game, player, &candidate.action).map(|_| ())
         })?);
     }
-    let mut best: Option<(&Action, i64)> = None;
+    let mut best: Option<(&Candidate, i64)> = None;
     for (candidate, total) in candidates.iter().zip(totals) {
         let better = match best {
             None => true,
             Some((_, best_total)) => {
-                total > best_total || (total == best_total && candidate == preferred)
+                total > best_total
+                    || (total == best_total && !candidate.holding && candidate.action == *preferred)
             }
         };
         if better {
             best = Some((candidate, total));
         }
     }
-    best.map(|(candidate, _)| candidate.clone())
+    best.map(|(candidate, _)| candidate.action.clone())
         .ok_or_else(|| InternalError::new("the AI has nothing to choose from"))
 }
 
@@ -179,6 +232,7 @@ fn best_in_rollouts(
 /// against something else is tried in all of them.
 pub(super) struct Imagined {
     worlds: Vec<DuelState>,
+    turn: u32,
     until_turn: u32,
 }
 
@@ -200,23 +254,28 @@ impl Imagined {
         }
         Ok(Imagined {
             worlds,
+            turn: state.turn,
             until_turn: state.turn.saturating_add(settings.turns),
         })
     }
 
     /// How well `player` does, added up over the worlds, by making `play`
-    /// in each and letting version 1 play both sides on from there.
+    /// in each and letting version 1 play both sides on from there. With
+    /// `holding`, the player casts nothing more in the main phases of the
+    /// turn the imagining began in (see `Candidate`).
     pub(super) fn total(
         &self,
         player: PlayerId,
         settings: &AiSearchBalance,
+        holding: bool,
         play: impl Fn(&mut DuelState) -> Result<(), InternalError>,
     ) -> Result<i64, InternalError> {
         let mut total = 0;
         for world in &self.worlds {
             let mut game = world.clone();
             play(&mut game)?;
-            play_out(&mut game, self.until_turn, settings)?;
+            let holding = holding.then_some((player, self.turn));
+            play_out(&mut game, self.until_turn, holding, settings)?;
             total += i64::from(evaluate::bounded(&game, player, settings.win_value)?);
         }
         Ok(total)
@@ -225,9 +284,13 @@ impl Imagined {
 
 /// Plays an imagined game on with version 1 on both sides, until the turn
 /// numbered `until_turn` begins, the game ends, or `max_actions` are taken.
+///
+/// `holding` names a player who is keeping mana up in the turn with that
+/// number: in its main phases they only pass.
 fn play_out(
     game: &mut DuelState,
     until_turn: u32,
+    holding: Option<(PlayerId, u32)>,
     settings: &AiSearchBalance,
 ) -> Result<(), InternalError> {
     for _ in 0..settings.max_actions {
@@ -238,10 +301,20 @@ fn play_out(
             break;
         };
         let player = decision.player();
+        if holding == Some((player, game.turn))
+            && decision == (Decision::Priority { player })
+            && game.active_player == player
+            && game.step.is_main()
+            && game.stack.is_empty()
+        {
+            apply_trusted(game, player, &Action::PassPriority)?;
+            continue;
+        }
         let actions = legal_actions(game, player);
         let how = Thinking {
             lookahead: settings.rollout_lookahead,
             gang_blocks: settings.rollout_gang_blocks,
+            card_values: true,
         };
         let action = heuristic(game, player, decision, &actions, how)?;
         apply_trusted(game, player, &action)?;

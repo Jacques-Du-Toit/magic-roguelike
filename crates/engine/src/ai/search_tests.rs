@@ -351,3 +351,79 @@ fn every_step_of_a_declaration_heads_for_the_same_plan() {
     assert!(!steps.contains(&Action::ResetDeclaration), "{steps:?}");
     assert!(steps.len() >= 3, "{steps:?}");
 }
+
+// ---- Holding mana ----
+
+/// The blue-black deck against the green-white creature deck, at the blue
+/// player's first main phase: three Islands, and a hand of Cancel and a
+/// Coral Merfolk. The opponent has five lands and a full hand.
+fn cancel_or_merfolk() -> (DuelState, PlayerId, PlayerId, ObjectId, ObjectId) {
+    let seed = (0..20)
+        .find(|&seed| {
+            new_duel(config("deck_b", "deck_a"), seed)
+                .unwrap()
+                .starting_player
+                == PlayerId::P1
+        })
+        .unwrap();
+    let (mut state, me, opponent) =
+        crate::duel::test_support::in_main_phase("deck_b", "deck_a", seed);
+    empty_hand(&mut state, me);
+    put_lands(&mut state, me, "island", 3);
+    put_lands(&mut state, opponent, "forest", 3);
+    put_lands(&mut state, opponent, "plains", 2);
+    let cancel = put_in_hand(&mut state, me, "cancel");
+    let merfolk = put_in_hand(&mut state, me, "coral_merfolk");
+    (state, me, opponent, cancel, merfolk)
+}
+
+#[test]
+fn it_keeps_mana_up_for_a_counterspell_and_then_uses_it() {
+    let (mut state, me, opponent, cancel, merfolk) = cancel_or_merfolk();
+    // Version 1 taps out for the 2/1.
+    assert_eq!(old(&state, me), cast(merfolk));
+    assert_eq!(new(&state, me), Action::PassPriority);
+
+    // The opponent's turn: they cast a Serra Angel into three open Islands.
+    pass_until(&mut state, 2, Step::PrecombatMain);
+    let angel = put_in_hand(&mut state, opponent, "serra_angel");
+    apply_action(&mut state, opponent, cast(angel)).unwrap();
+    apply_action(&mut state, opponent, Action::PassPriority).unwrap();
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    let angel_spell = state.stack.last().unwrap().id;
+    assert_eq!(
+        new(&state, me),
+        cast_at(
+            cancel,
+            Target::Object {
+                object: angel_spell
+            }
+        )
+    );
+}
+
+#[test]
+fn it_does_not_keep_mana_up_with_nothing_to_spend_it_on() {
+    let (mut state, me, _, cancel, merfolk) = cancel_or_merfolk();
+    // Without the Cancel there is nothing to wait for.
+    state.move_object(cancel, Zone::Library).unwrap();
+    assert_eq!(new(&state, me), cast(merfolk));
+}
+
+// ---- What a card in hand is worth ----
+
+#[test]
+fn it_keeps_removal_for_something_better_than_a_token() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "swamp", 3);
+    let murder = put_in_hand(&mut state, me, "murder");
+    let token = put_on_battlefield(&mut state, opponent, "goblin_token");
+    let at = |object: ObjectId| Target::Object { object };
+    // Version 1 kills whatever is there.
+    assert_eq!(old(&state, me), cast_at(murder, at(token)));
+    assert_eq!(new(&state, me), Action::PassPriority);
+
+    // With a real threat beside the token, that is what it kills.
+    let baloth = put_on_battlefield(&mut state, opponent, "rumbling_baloth");
+    assert_eq!(new(&state, me), cast_at(murder, at(baloth)));
+}

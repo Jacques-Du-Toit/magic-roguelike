@@ -17,7 +17,7 @@ use super::combat;
 use super::distinct;
 use super::evaluate;
 use super::search::{Imagined, fnv1a};
-use super::{LOOKAHEAD, settle};
+use super::{VERSION_1, settle};
 use crate::balance::AiSearchBalance;
 use crate::duel::{
     Action, ActionError, Decision, DuelState, InternalError, ObjectId, PlayerId, Target,
@@ -116,7 +116,7 @@ pub(super) fn assign_damage(
             }
             apply_trusted(&mut game, player, &Action::ConfirmDamage)?;
         }
-        let settled = match settle(&mut game, LOOKAHEAD) {
+        let settled = match settle(&mut game, VERSION_1) {
             Ok(()) => evaluate::position(&game, player)?,
             Err(ActionError::Internal(error)) => return Err(error),
             Err(error) => return Err(InternalError::new(error.to_string())),
@@ -271,7 +271,7 @@ fn attack_plan(
     };
     let imagined = Imagined::new(before, player, settings)?;
     let score = |plan: &[ObjectId]| {
-        imagined.total(player, settings, |game| {
+        imagined.total(player, settings, false, |game| {
             for &creature in plan {
                 apply_trusted(game, player, &Action::Attack { creature })?;
             }
@@ -413,7 +413,7 @@ fn block_plan(
     };
     let imagined = Imagined::new(before, player, settings)?;
     let score = |plan: &[(ObjectId, ObjectId)]| {
-        imagined.total(player, settings, |game| {
+        imagined.total(player, settings, false, |game| {
             declare_blocks(game, player, plan)?;
             apply_trusted(game, player, &Action::ConfirmBlockers).map(|_| ())
         })

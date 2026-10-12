@@ -1,7 +1,7 @@
 //! How the AI judges a position and a creature. These numbers are the AI's
 //! taste, not game balance; they only decide which legal action it picks.
 
-use crate::cards::{AbilityDef, Keyword, Restricted};
+use crate::cards::{AbilityDef, CardDef, Keyword, Restricted};
 use crate::duel::{DuelState, GameResult, InternalError, ObjectId, PlayerId};
 
 /// What a card in hand is worth, in the same units as a creature's value.
@@ -105,6 +105,65 @@ pub(super) fn position(state: &DuelState, player: PlayerId) -> Result<i32, Inter
     Ok(side(player)? - side(player.opponent())?)
 }
 
+/// What a card in hand is worth to the searching AI. An instant or a
+/// sorcery is worth more the more it costs, so that it is not spent on
+/// something worth less than the card: Murder is not for a 1/1 token.
+/// Everything else is worth what version 1 says. (A premium on permanents
+/// too made a cheap creature look not worth casting.)
+fn card_in_hand_value(def: &CardDef) -> i32 {
+    if !def.is_instant_or_sorcery() {
+        return CARD_IN_HAND;
+    }
+    let cost = i32::try_from(def.mana_cost.mana_value()).unwrap_or(i32::MAX);
+    CARD_IN_HAND + (cost.saturating_add(1) / 2).min(4)
+}
+
+/// The position as the searching AI judges it at the end of an imagined
+/// game. It is version 1's judgement with two differences: a card in hand
+/// is worth what `card_in_hand_value` says, and a commander waiting in the
+/// command zone is worth a third of what it would be on the battlefield,
+/// since it can be cast again.
+fn searched_position(state: &DuelState, player: PlayerId) -> Result<i32, InternalError> {
+    let side = |who: PlayerId| -> Result<i32, InternalError> {
+        let player_state = state.player(who);
+        let mut total = life_value(player_state.life);
+        for &card in &player_state.hand {
+            total += card_in_hand_value(state.def(card)?);
+        }
+        for &card in &player_state.command {
+            let def = state.def(card)?;
+            total +=
+                (1 + 2 * def.power.unwrap_or(0).max(0) + def.toughness.unwrap_or(0).max(0)) / 3;
+        }
+        for creature in state.creatures_of(who)? {
+            total += creature_value(state, creature)?;
+        }
+        for permanent in state.permanents_of(who) {
+            let def = state.def(permanent.id)?;
+            if !def.is_creature() && !def.is_land() && !def.is_aura() {
+                total += LASTING_PERMANENT;
+            }
+        }
+        Ok(total)
+    };
+    Ok(side(player)? - side(player.opponent())?)
+}
+
+/// The position from `player`'s side: version 1's judgement, or with
+/// `card_values` the searching AI's. A game that is over is worth the
+/// same huge number either way.
+pub(super) fn judged(
+    state: &DuelState,
+    player: PlayerId,
+    card_values: bool,
+) -> Result<i32, InternalError> {
+    if card_values && state.result.is_none() {
+        searched_position(state, player)
+    } else {
+        position(state, player)
+    }
+}
+
 /// The position from `player`'s side on a scale that ends at `win_value`:
 /// a won game is worth that, a lost one its opposite, and a game still
 /// going is kept just inside the two. Scores of this kind can be averaged
@@ -118,7 +177,7 @@ pub(super) fn bounded(
         Some(GameResult::Win { player: winner, .. }) if winner == player => win_value,
         Some(GameResult::Win { .. }) => -win_value,
         Some(GameResult::Draw) => -win_value / 2,
-        None => position(state, player)?.clamp(1 - win_value, win_value - 1),
+        None => searched_position(state, player)?.clamp(1 - win_value, win_value - 1),
     })
 }
 
