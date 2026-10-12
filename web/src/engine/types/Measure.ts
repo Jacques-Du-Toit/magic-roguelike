@@ -3,4 +3,4 @@
 /**
  * What a feat counts. Each is a number about the player's duel so far.
  */
-export type Measure = "lowest_life" | "turns_taken" | "creatures_lost" | "greatest_power" | "power_lead" | "most_creatures" | "most_counters" | "most_enchantments";
+export type Measure = "lowest_life" | "turns_taken" | "creatures_lost" | "greatest_power" | "power_lead" | "most_creatures" | "most_counters" | "most_enchantments" | "most_damage_in_a_turn";

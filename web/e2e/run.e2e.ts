@@ -88,7 +88,7 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       return true
     }
     case 'feats': {
-      // Five of the Warden's eight; the Firebrand has the five shared ones.
+      // Five of the Warden's nine, or of the six shared ones for the Firebrand.
       await expect(page.getByTestId('feat')).toHaveCount(5)
       await expect(page.getByTestId('feat-rewards').locator('li')).toHaveCount(4)
       await pickFeats(page)
@@ -420,7 +420,7 @@ const ACTS: [string, number, string?][] = process.env.ACTS
     })
   : [
       ['warden', 17, "The Devil's Bargain"],
-      ['firebrand', 12, 'The Wandering Smith'],
+      ['firebrand', 26, 'The Wandering Smith'],
     ]
 
 for (const [planeswalker, seed, event] of ACTS) {

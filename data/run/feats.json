@@ -36,6 +36,13 @@
     "tiers": [6, 10, 15]
   },
   {
+    "id": "decisive",
+    "name": "Decisive",
+    "text": "Deal {n} damage to the enemy in one turn.",
+    "measure": "most_damage_in_a_turn",
+    "tiers": [6, 9, 12]
+  },
+  {
     "id": "legion",
     "name": "Legion",
     "text": "Control {n} creatures at once.",

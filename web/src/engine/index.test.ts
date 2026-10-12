@@ -155,7 +155,7 @@ describe('Run', () => {
       'firebrand',
     ])
     expect(content.wounds.map((wound) => wound.id)).toEqual(['festering_wound'])
-    expect(content.feats).toHaveLength(8)
+    expect(content.feats).toHaveLength(9)
     expect(content.feat_rewards[0]).toMatchObject({ points: 0, choices: 2 })
     expect(content.emblems.map((emblem) => emblem.id)).toEqual(['emblem_welcome', 'emblem_fury'])
     expect(content.planeswalkers.map((planeswalker) => planeswalker.commander)).toEqual([

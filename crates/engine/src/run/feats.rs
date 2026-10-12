@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::cards::CardType;
-use crate::duel::{DuelState, GameEvent, InternalError, PlayerId};
+use crate::duel::{DuelState, GameEvent, InternalError, PlayerId, Target};
 
 use super::defs::{FeatId, PlaneswalkerId};
 
@@ -55,6 +55,9 @@ pub enum Measure {
     MostCounters,
     /// The most enchantments the player has controlled at once.
     MostEnchantments,
+    /// The most damage dealt to the enemy player in one turn, either
+    /// player's. Whatever dealt it counts; life lost another way doesn't.
+    MostDamageInATurn,
 }
 
 impl Measure {
@@ -81,6 +84,8 @@ pub struct HighPoints {
     pub creatures: i32,
     pub counters: i32,
     pub enchantments: i32,
+    /// The most damage the enemy player was dealt in one turn.
+    pub damage_in_a_turn: i32,
 }
 
 /// What a duel has been like for one player so far: everything a feat can
@@ -92,6 +97,8 @@ pub struct DuelStats {
     pub turns: u32,
     pub lowest_life: i32,
     pub creatures_lost: u32,
+    /// Damage dealt to the enemy player in the turn being played.
+    pub damage_this_turn: i32,
     /// `high_points[n]` is from the player's turn `n` beginning until their
     /// next one does; `high_points[0]` is before their first turn.
     pub high_points: Vec<HighPoints>,
@@ -109,10 +116,20 @@ impl DuelStats {
             turns: 0,
             lowest_life: duel.player(player).life,
             creatures_lost: 0,
+            damage_this_turn: 0,
             high_points: Vec::new(),
         };
         stats.observe(duel, &[])?;
         Ok(stats)
+    }
+
+    /// The high points of the stretch being played.
+    fn stretch(&mut self) -> &mut HighPoints {
+        let turn = self.turns as usize;
+        if self.high_points.len() <= turn {
+            self.high_points.resize(turn + 1, HighPoints::default());
+        }
+        &mut self.high_points[turn]
     }
 
     /// Takes in what just happened: `events` are those of the action just
@@ -120,9 +137,24 @@ impl DuelStats {
     /// once per action, so a high point that came and went inside one
     /// action is not seen.
     pub fn observe(&mut self, duel: &DuelState, events: &[GameEvent]) -> Result<(), InternalError> {
+        let enemy = Target::Player {
+            player: self.player.opponent(),
+        };
         for event in events {
             match event {
-                GameEvent::TurnBegan { player, .. } if *player == self.player => self.turns += 1,
+                GameEvent::TurnBegan { player, .. } => {
+                    self.damage_this_turn = 0;
+                    if *player == self.player {
+                        self.turns += 1;
+                    }
+                }
+                // Noted as it happens: the turn may end within these events.
+                GameEvent::DamageDealt { target, amount, .. } if *target == enemy => {
+                    self.damage_this_turn = self.damage_this_turn.saturating_add(*amount);
+                    let damage = self.damage_this_turn;
+                    let stretch = self.stretch();
+                    stretch.damage_in_a_turn = stretch.damage_in_a_turn.max(damage);
+                }
                 GameEvent::LifeChanged { player, life, .. } if *player == self.player => {
                     self.lowest_life = self.lowest_life.min(*life);
                 }
@@ -155,11 +187,7 @@ impl DuelStats {
             }
         }
 
-        let turn = self.turns as usize;
-        if self.high_points.len() <= turn {
-            self.high_points.resize(turn + 1, HighPoints::default());
-        }
-        let stretch = &mut self.high_points[turn];
+        let stretch = self.stretch();
         stretch.greatest_power = stretch.greatest_power.max(now.greatest_power);
         stretch.power_lead = stretch.power_lead.max(now.power_lead);
         stretch.creatures = stretch.creatures.max(now.creatures);
@@ -191,6 +219,7 @@ impl DuelStats {
             Measure::MostCreatures => high_point(|stretch| stretch.creatures),
             Measure::MostCounters => high_point(|stretch| stretch.counters),
             Measure::MostEnchantments => high_point(|stretch| stretch.enchantments),
+            Measure::MostDamageInATurn => high_point(|stretch| stretch.damage_in_a_turn),
         }
     }
 }
@@ -261,6 +290,7 @@ mod tests {
             turns: 5,
             lowest_life: 20,
             creatures_lost: 0,
+            damage_this_turn: 0,
             high_points: vec![HighPoints::default(); 6],
         };
         change(&mut stats);
@@ -387,6 +417,45 @@ mod tests {
         assert_eq!(stats.value(Measure::GreatestPower, None), 8);
         assert_eq!(stats.value(Measure::GreatestPower, Some(0)), 8);
         assert_eq!(stats.high_points[1].greatest_power, 4);
+    }
+
+    #[test]
+    fn damage_to_the_enemy_is_added_up_a_turn_at_a_time() {
+        // Decisive: 6 / 9 / 12 damage to the enemy in one turn.
+        let decisive = feat("decisive");
+        for (damage, score) in [(5, 0), (6, 1), (9, 2), (12, 3)] {
+            assert_eq!(
+                decisive.score(&stats(|s| s.high_points[3].damage_in_a_turn = damage)),
+                score,
+                "{damage}"
+            );
+        }
+
+        let (mut duel, me, opponent) = empty_board(1);
+        put_lands(&mut duel, me, "mountain", 4);
+        let mut stats = DuelStats::new(&duel, me).unwrap();
+        let their_face = Target::Player { player: opponent };
+        // Two burn spells in one turn add up; damage to me is not counted.
+        cast_and_observe(&mut duel, &mut stats, me, "shock", their_face);
+        cast_and_observe(&mut duel, &mut stats, me, "lightning_strike", their_face);
+        cast_and_observe(
+            &mut duel,
+            &mut stats,
+            me,
+            "shock",
+            Target::Player { player: me },
+        );
+        assert_eq!(stats.damage_this_turn, 5);
+        assert_eq!(stats.value(Measure::MostDamageInATurn, None), 5);
+
+        // The next turn starts from nothing, and a smaller one changes nothing.
+        let events = pass_until(&mut duel, 3, Step::PrecombatMain);
+        stats.observe(&duel, &events).unwrap();
+        assert_eq!(stats.damage_this_turn, 0);
+        cast_and_observe(&mut duel, &mut stats, me, "shock", their_face);
+        assert_eq!(stats.damage_this_turn, 2);
+        assert_eq!(stats.value(Measure::MostDamageInATurn, None), 5);
+        assert_eq!(duel.player(opponent).life, 13);
     }
 
     #[test]

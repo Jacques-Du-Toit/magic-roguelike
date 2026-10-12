@@ -472,7 +472,7 @@ fn a_duel_offers_five_feats_of_the_characters_and_two_are_picked() {
         places.windows(2).all(|pair| pair[0] < pair[1]),
         "{places:?}"
     );
-    assert_eq!(data.run.feats_for(&state.planeswalker).count(), 8);
+    assert_eq!(data.run.feats_for(&state.planeswalker).count(), 9);
 
     // Every pair, and nothing else: the duel can't be put off or dodged.
     let actions = run_legal_actions(&state);
@@ -521,8 +521,10 @@ fn a_character_without_feats_of_its_own_is_offered_the_shared_ones() {
         .filter(|def| def.planeswalkers.is_empty())
         .map(|def| def.id.clone())
         .collect();
-    assert_eq!(offered, shared);
+    // Five of the six.
+    assert_eq!(shared.len(), 6);
     assert_eq!(offered.len(), 5);
+    assert!(offered.iter().all(|id| shared.contains(id)));
 }
 
 /// Wins the duel in progress having picked `feats`, with the stats set by

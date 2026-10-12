@@ -382,7 +382,7 @@ mod tests {
         // tier is never met more often than the one below it.
         let won = record.wins[0] + record.wins[1];
         assert!(won >= 1, "{record:?}");
-        assert_eq!(record.feats_met.len(), 8);
+        assert_eq!(record.feats_met.len(), 9);
         for tiers in record.feats_met.values() {
             assert!(tiers[0] <= won && tiers[1] <= tiers[0] && tiers[2] <= tiers[1]);
         }
