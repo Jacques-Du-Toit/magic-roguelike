@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M4** (part M4a is built and waiting on the owner playing it; M4b, the better AI, is next)
+**Active milestone: M4** (M4a is done: the owner played a whole run on 2026-10-12. Next: the commander prototype, then M4b, the better AI)
 
 ---
 
@@ -145,7 +145,7 @@ Built in four parts, each ending in something to play:
 
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
-**M4a status (2026-10-12):** built; waiting on the owner playing it.
+**M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
 
 - Rules added, each with its cards and tests: flash, defender, hexproof, double strike, indestructible, prowess; targets with conditions; triggered abilities with targets; effects that stop for a choice (discard, scry, surveil); bounce, tap, keywords until end of turn; triggers on dying, attacking, damaging an opponent, life gained, a spell cast, a sacrifice and an upkeep; anthems and Auras that change power and toughness; creature tokens; +1/+1 counters; activated abilities with mana, tap and sacrifice costs; targets in a graveyard, mill, and "you may" abilities.
 - 129 cards (114 spells, 5 basic lands, 10 Guildgates) and 7 tokens. Every card matches Scryfall (`node tools/scryfall.mjs check`).
