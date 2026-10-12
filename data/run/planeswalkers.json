@@ -5,7 +5,6 @@
     "description": "Green-white creatures. A steady army that outlasts its enemies.",
     "colors": ["G", "W"],
     "commander": "jasmine_boreal",
-    "emblem": "emblem_welcome",
     "spells": [
         { "card": "savannah_lions", "count": 1 },
         { "card": "glory_seeker", "count": 1 },
@@ -25,7 +24,6 @@
     "description": "Black-red aggression. Fast creatures, burn and removal.",
     "colors": ["B", "R"],
     "commander": "boris_devilboon",
-    "emblem": "emblem_fury",
     "spells": [
         { "card": "raging_goblin", "count": 2 },
         { "card": "goblin_piker", "count": 2 },

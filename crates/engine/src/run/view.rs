@@ -24,8 +24,8 @@ pub struct RunView {
     /// A `u64` in decimal.
     pub seed: String,
     pub planeswalker: PlaneswalkerId,
-    /// The starting emblem chosen for the run.
-    pub emblem: ModifierId,
+    /// The starting emblem the run was begun with, if any.
+    pub emblem: Option<ModifierId>,
     /// The wounds carried, oldest first. `RunAction::HealWound` indexes it.
     pub wounds: Vec<ModifierId>,
     /// The wound that would end the run.

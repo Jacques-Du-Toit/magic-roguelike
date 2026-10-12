@@ -24,7 +24,8 @@ pub const ENEMY: PlayerId = PlayerId::P2;
 #[ts(export)]
 pub struct RunConfig {
     pub planeswalker: PlaneswalkerId,
-    /// The starting emblem to take; `None` for the planeswalker's usual one.
+    /// The starting emblem to take; `None` for the planeswalker's usual one,
+    /// if it has one.
     pub emblem: Option<ModifierId>,
 }
 
@@ -162,8 +163,8 @@ pub enum Ware {
 pub struct RunState {
     pub seed: u64,
     pub planeswalker: PlaneswalkerId,
-    /// The starting emblem chosen for the run.
-    pub emblem: ModifierId,
+    /// The starting emblem the run was begun with, if any.
+    pub emblem: Option<ModifierId>,
     /// The wounds carried, oldest first: one for each duel lost and not
     /// healed since. Each is a modifier the player takes into every duel.
     /// The run ends when there are `run.max_wounds` of them.

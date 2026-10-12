@@ -30,9 +30,9 @@ pub fn new_run(config: RunConfig, seed: u64) -> Result<RunState, RunError> {
         .run
         .planeswalker(&config.planeswalker)
         .ok_or_else(|| RunError::UnknownPlaneswalker(config.planeswalker.clone()))?;
-    let emblem = config.emblem.unwrap_or_else(|| planeswalker.emblem.clone());
-    if data.run.emblem(&emblem).is_none() {
-        return Err(RunError::UnknownEmblem(emblem));
+    let emblem = config.emblem.or_else(|| planeswalker.emblem.clone());
+    if let Some(unknown) = emblem.as_ref().filter(|id| data.run.emblem(id).is_none()) {
+        return Err(RunError::UnknownEmblem(unknown.clone()));
     }
     let balance = &data.balance.run;
     let mut rng = DuelRng::from_seed(seed);
@@ -309,17 +309,20 @@ fn end_run(state: &mut RunState, events: &mut Vec<RunEvent>, won: bool) {
     events.push(RunEvent::RunEnded { won });
 }
 
-/// The modifiers the player takes into a duel: the starting emblem, relics,
+/// The modifiers the player takes into a duel: a starting emblem, relics,
 /// wounds, and whatever an event left for the next duel.
 fn player_modifiers<'a>(
     state: &RunState,
     data: &'a GameData,
 ) -> Result<Vec<&'a ModifierDef>, InternalError> {
-    let emblem = data
-        .run
-        .emblem(&state.emblem)
-        .ok_or_else(|| InternalError::new(format!("no starting emblem `{}`", state.emblem)))?;
-    let mut modifiers = vec![emblem];
+    let mut modifiers = Vec::new();
+    if let Some(id) = &state.emblem {
+        modifiers.push(
+            data.run
+                .emblem(id)
+                .ok_or_else(|| InternalError::new(format!("no starting emblem `{id}`")))?,
+        );
+    }
     for id in &state.relics {
         modifiers.push(
             data.run

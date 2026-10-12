@@ -1020,7 +1020,7 @@ mod tests {
         assert_eq!(boss.modifiers.len(), 2);
         // Commanders: every character, elite and boss has one, and nobody
         // else does.
-        assert_eq!(run.emblems.len(), 2);
+        assert!(run.emblems.is_empty());
         assert!(run.planeswalkers.iter().all(|def| def.commander.is_some()));
         for enemy in &run.enemies {
             let leads = matches!(enemy.tier, EnemyTier::Elite | EnemyTier::Boss);
@@ -1128,9 +1128,15 @@ mod tests {
         let load = |planeswalkers: &str, relics: &str, enemies: &str| {
             load_with(planeswalkers, EMBLEMS, relics, enemies)
         };
+        // A character need not have a starting emblem, and there need be none.
         assert_eq!(
-            load_with(PLANESWALKERS, "[]", RELICS, ENEMIES),
-            Err(DataError::Run(RunDataError::NoEmblems))
+            load_with(
+                &PLANESWALKERS.replace("\"emblem\": \"ranger_passive\"", "\"commander\": null"),
+                "[]",
+                RELICS,
+                ENEMIES
+            ),
+            Ok(())
         );
         assert_eq!(
             load(

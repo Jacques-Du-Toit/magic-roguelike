@@ -412,15 +412,15 @@ fn enemy_pairings(options: &Options) -> Result<Vec<Pairing>, String> {
             {
                 continue;
             }
-            let emblem = data
-                .run
-                .emblem(&planeswalker.emblem)
-                .ok_or_else(|| format!("no starting emblem `{}`", planeswalker.emblem))?;
+            let emblem = planeswalker
+                .emblem
+                .as_ref()
+                .and_then(|emblem| data.run.emblem(emblem));
             let player = Loadout::player(
                 &starting_deck(planeswalker),
                 &planeswalker.colors,
                 planeswalker.commander.as_ref(),
-                vec![emblem],
+                emblem.into_iter().collect(),
                 &data.cards,
                 &data.balance,
             )

@@ -15,24 +15,9 @@
   "power": 3,
   "toughness": 3,
   "rarity": "uncommon",
-  "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.\nAs long as you have at least 5 life more than your starting life total, this creature has double strike. (It deals both first-strike and regular combat damage.)",
+  "oracle_text": "As long as you have at least 5 life more than your starting life total, this creature has double strike. (It deals both first-strike and regular combat damage.)",
   "altered": true,
   "abilities": [
-    {
-      "kind": "triggered",
-      "trigger": {
-        "type": "gain_life"
-      },
-      "effects": [
-        {
-          "type": "add_counters",
-          "target": {
-            "this": {}
-          },
-          "amount": 1
-        }
-      ]
-    },
     {
       "kind": "static",
       "type": "grant_keyword",

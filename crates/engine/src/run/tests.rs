@@ -229,24 +229,21 @@ fn an_unknown_planeswalker_is_an_error() {
 }
 
 #[test]
-fn a_run_takes_the_chosen_starting_emblem_or_the_characters_usual_one() {
-    assert_eq!(run("warden", 1).emblem.as_str(), "emblem_welcome");
-    assert_eq!(run("firebrand", 1).emblem.as_str(), "emblem_fury");
+fn a_run_starts_with_no_emblem_and_an_unknown_one_is_refused() {
+    // There are no starting emblems for now, so nobody has a usual one.
+    assert!(data::embedded().unwrap().run.emblems.is_empty());
+    let mut state = run("warden", 3);
+    assert_eq!(state.emblem, None);
+    assert_eq!(run("firebrand", 1).emblem, None);
+    assert_eq!(run_view(&state).unwrap().emblem, None);
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    assert!(state.duel.as_ref().unwrap().emblems.is_empty());
 
-    // Any emblem goes with any character.
-    let fury = ModifierId("emblem_fury".to_string());
     let config = |emblem: &ModifierId| RunConfig {
         planeswalker: PlaneswalkerId("warden".to_string()),
         emblem: Some(emblem.clone()),
     };
-    let mut state = new_run(config(&fury), 3).unwrap();
-    assert_eq!(state.emblem, fury);
-    assert_eq!(run_view(&state).unwrap().emblem, fury);
-    let node = travels(&state)[0];
-    act(&mut state, RunAction::Travel { node });
-    let duel = state.duel.as_ref().unwrap();
-    assert_eq!(duel.emblems[0].def.name, "Battle Fury");
-
     let nothing = ModifierId("nothing".to_string());
     assert_eq!(
         new_run(config(&nothing), 3),
@@ -334,13 +331,11 @@ fn a_duel_node_starts_a_duel_set_up_from_the_run() {
     assert_eq!(current_enemy(&state), Some(&enemy.id));
 
     let duel = state.duel.as_ref().unwrap();
-    // The player's 10 spells and 7 lands, the starting emblem, and the
-    // commander waiting in the command zone.
+    // The player's 10 spells and 7 lands, no emblem, and the commander
+    // waiting in the command zone.
     let player = duel.player(PLAYER);
     assert_eq!(player.hand.len() + player.library.len(), 17);
-    assert_eq!(duel.emblems.len(), 1);
-    assert_eq!(duel.emblems[0].controller, PLAYER);
-    assert_eq!(duel.emblems[0].def.name, "Warm Welcome");
+    assert!(duel.emblems.is_empty());
     assert_eq!(player.command.len(), 1);
     assert_eq!(
         duel.objects[&player.command[0]].def.as_str(),

@@ -173,7 +173,11 @@ mod tests {
         extra: &[&'a ModifierDef],
     ) -> Loadout<'a> {
         let data = data::embedded().unwrap();
-        let mut modifiers = vec![data.run.emblem(&planeswalker.emblem).unwrap()];
+        let mut modifiers: Vec<&ModifierDef> = planeswalker
+            .emblem
+            .iter()
+            .filter_map(|emblem| data.run.emblem(emblem))
+            .collect();
         modifiers.extend(extra);
         Loadout::player(
             &starting_deck(planeswalker),

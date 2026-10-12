@@ -162,8 +162,10 @@ pub struct PlaneswalkerDef {
     #[serde(default)]
     pub commander: Option<CardDefId>,
     /// The starting emblem (one of `data/run/emblems.json`) this character
-    /// takes when the player doesn't choose another.
-    pub emblem: ModifierId,
+    /// takes when the player doesn't choose another. None: it starts
+    /// without one.
+    #[serde(default)]
+    pub emblem: Option<ModifierId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -371,8 +373,6 @@ pub enum RunDataError {
     CommanderColors { id: String, card: CardDefId },
     #[error("`{id}`: there is no starting emblem `{emblem}`")]
     UnknownEmblem { id: String, emblem: ModifierId },
-    #[error("there must be at least one starting emblem")]
-    NoEmblems,
     #[error("there must be at least one wound")]
     NoWounds,
     #[error("`{0}`: a feat's text needs `{{n}}` where a tier's number goes")]
@@ -551,9 +551,6 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
     if run.planeswalkers.is_empty() {
         return Err(RunDataError::NoPlaneswalkers);
     }
-    if run.emblems.is_empty() {
-        return Err(RunDataError::NoEmblems);
-    }
     unique(run.emblems.iter().map(|def| def.id.as_str()))?;
     for emblem in &run.emblems {
         validate_modifier(emblem, ModifierKind::Passive)?;
@@ -580,10 +577,12 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
             }
         }
         no_legends(id, &planeswalker.spells, cards)?;
-        if run.emblem(&planeswalker.emblem).is_none() {
+        if let Some(emblem) = &planeswalker.emblem
+            && run.emblem(emblem).is_none()
+        {
             return Err(RunDataError::UnknownEmblem {
                 id: id.to_string(),
-                emblem: planeswalker.emblem.clone(),
+                emblem: emblem.clone(),
             });
         }
         if let Some(commander) = &planeswalker.commander {
