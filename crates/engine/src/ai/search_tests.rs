@@ -427,3 +427,31 @@ fn it_keeps_removal_for_something_better_than_a_token() {
     let baloth = put_on_battlefield(&mut state, opponent, "rumbling_baloth");
     assert_eq!(new(&state, me), cast_at(murder, at(baloth)));
 }
+
+#[test]
+fn it_kills_the_small_blocker_when_it_cannot_kill_the_big_one() {
+    // From the owner's M4b playtest: a 2-power attacker blocked by a 4/5
+    // and a 2/1 put all its damage on the 4/5, killing nothing.
+    for big_first in [true, false] {
+        let (mut state, me, opponent) = empty_board(1);
+        let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+        let big = put_on_battlefield(&mut state, opponent, "jasmine_boreal");
+        let small = put_on_battlefield(&mut state, opponent, "savannah_lions");
+        crate::duel::test_support::attack(&mut state, &[bears]);
+        let blocks = if big_first {
+            [(big, bears), (small, bears)]
+        } else {
+            [(small, bears), (big, bears)]
+        };
+        crate::duel::test_support::block(&mut state, &blocks);
+        crate::duel::test_support::pass_until_other_decision(&mut state);
+        let dividing = Decision::AssignCombatDamage {
+            player: me,
+            attacker: bears,
+        };
+        assert_eq!(state.decision, Some(dividing), "big first: {big_first}");
+        let_it_declare(&mut state, me, dividing);
+        crate::duel::test_support::pass_until_other_decision(&mut state);
+        assert!(!state.is_on_battlefield(small), "big first: {big_first}");
+    }
+}
