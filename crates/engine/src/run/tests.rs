@@ -1006,19 +1006,72 @@ fn a_treasure_offers_the_relics_that_are_left_and_always_the_gold() {
     assert_eq!(none_left.relics, all);
 }
 
+/// Every way through the map from `node` to the boss, as the kinds of the
+/// nodes passed, `node` included.
+fn paths_from(state: &RunState, node: NodeId) -> Vec<Vec<NodeKind>> {
+    let here = state.map.node(node).unwrap();
+    if here.next.is_empty() {
+        return vec![vec![here.kind]];
+    }
+    let mut paths = Vec::new();
+    for &next in &here.next {
+        for mut path in paths_from(state, next) {
+            path.insert(0, here.kind);
+            paths.push(path);
+        }
+    }
+    paths
+}
+
 #[test]
-fn treasures_turn_up_on_the_fourth_row() {
-    let mut treasures = 0;
-    for seed in 0..60 {
+fn the_act_is_eleven_rows_with_as_many_duels_as_before_and_more_between_them() {
+    use NodeKind::{Boss, Draft, Duel, Elite, Event, Rest, Shop, Treasure};
+    // What each row may hold.
+    let rows: [&[NodeKind]; 12] = [
+        &[Duel],
+        &[Duel],
+        &[Draft],
+        &[Treasure, Event],
+        &[Duel, Elite],
+        &[Shop, Rest, Event],
+        &[Duel, Shop, Rest],
+        &[Treasure, Event],
+        &[Duel, Elite],
+        &[Duel, Shop, Draft],
+        &[Rest],
+        &[Boss],
+    ];
+    let mut seen = std::collections::BTreeSet::new();
+    for seed in 0..80 {
         let state = run("warden", seed);
+        assert_eq!(state.map.rows, 12, "seed {seed}");
         for node in &state.map.nodes {
-            if node.kind == NodeKind::Treasure {
-                assert_eq!(node.row, 3, "seed {seed}");
-                treasures += 1;
+            let allowed = rows[usize::from(node.row)];
+            assert!(allowed.contains(&node.kind), "seed {seed}: {node:?}");
+            seen.insert((node.row, node.kind));
+        }
+        for start in travels(&state) {
+            for path in paths_from(&state, start) {
+                assert_eq!(path.len(), 12, "seed {seed}");
+                let count =
+                    |kinds: &[NodeKind]| path.iter().filter(|kind| kinds.contains(kind)).count();
+                // Four duels are certain and two more can be chosen, as
+                // on the shorter map; then the boss.
+                let duels = count(&[Duel, Elite]);
+                assert!((4..=6).contains(&duels), "seed {seed}: {path:?}");
+                // Everything else: at least five stops, where there were
+                // two to four.
+                let others = count(&[Draft, Treasure, Event, Shop, Rest]);
+                assert_eq!(duels + others, 11, "seed {seed}");
+                // Two rows of treasures and events on every path.
+                assert!(count(&[Treasure, Event]) >= 2, "seed {seed}: {path:?}");
+                assert!(count(&[Event]) <= 3, "seed {seed}: {path:?}");
             }
         }
     }
-    assert!(treasures > 20, "{treasures} treasures on 60 maps");
+    // Over many maps every row shows everything it may.
+    let possible: usize = rows.iter().map(|row| row.len()).sum();
+    assert_eq!(seen.len(), possible, "{seen:?}");
 }
 
 // ---- Events ----
@@ -1370,21 +1423,6 @@ fn the_rivals_wager_pays_now_and_costs_life_in_the_next_duel_only() {
         }
     }
     panic!("no duel followed the wager");
-}
-
-#[test]
-fn events_turn_up_on_the_sixth_row() {
-    let mut events = 0;
-    for seed in 0..60 {
-        let state = run("warden", seed);
-        for node in &state.map.nodes {
-            if node.kind == NodeKind::Event {
-                assert_eq!(node.row, 5, "seed {seed}");
-                events += 1;
-            }
-        }
-    }
-    assert!(events > 20, "{events} events on 60 maps");
 }
 
 // ---- The relics, in a duel of the run's ----

@@ -325,22 +325,19 @@ test('a run played badly ends when the hearts run out', async ({ page }) => {
 
 // Whole acts, played as well as the engine's own AI plays: every row of the
 // map, the boons and the boss.
-// A shop, a treasure and an event share two rows of the map, so no one act
-// passes every kind of node: each seed is listed with the phases it has to
-// show, and between them they show them all. Two of them meet the events
-// that have a screen of their own, for choosing a relic or a card.
-const ACTS: [string, number, string[], string?][] = process.env.ACTS
+// Each seed leads through every kind of node, and to one of the two events
+// that have a screen of their own: for choosing a card, or a relic.
+const ACTS: [string, number, string?][] = process.env.ACTS
   ? process.env.ACTS.split(',').map((act) => {
       const [planeswalker, seed] = act.split(':')
-      return [planeswalker, Number(seed), []]
+      return [planeswalker, Number(seed)]
     })
   : [
-      ['warden', 14, ['draft', 'treasure', 'shop', 'rest']],
-      ['firebrand', 12, ['draft', 'shop', 'event', 'rest'], "The Devil's Bargain"],
-      ['warden', 33, ['draft', 'treasure', 'event', 'rest'], 'The Wandering Smith'],
+      ['warden', 17, 'The Wandering Smith'],
+      ['firebrand', 18, "The Devil's Bargain"],
     ]
 
-for (const [planeswalker, seed, phases, event] of ACTS) {
+for (const [planeswalker, seed, event] of ACTS) {
   test(`a whole act as ${planeswalker} (seed ${seed}) can be clicked through to the boss`, async ({
     page,
   }) => {
@@ -361,7 +358,17 @@ for (const [planeswalker, seed, phases, event] of ACTS) {
     // If a change to the game's data moves these seeds,
     // ACTS=warden:1,warden:2,... prints what other seeds lead through.
     expect([...seen.phases]).toEqual(
-      expect.arrayContaining(['map', 'reward', ...phases, 'boons', 'over']),
+      expect.arrayContaining([
+        'map',
+        'reward',
+        'draft',
+        'treasure',
+        'event',
+        'shop',
+        'rest',
+        'boons',
+        'over',
+      ]),
     )
     if (event) expect(seen.events).toContain(event)
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
