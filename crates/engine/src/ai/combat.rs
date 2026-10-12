@@ -76,7 +76,7 @@ fn blockers_for(
     Ok(blockers)
 }
 
-fn declared_attackers(state: &DuelState) -> Vec<ObjectId> {
+pub(super) fn declared_attackers(state: &DuelState) -> Vec<ObjectId> {
     state
         .combat
         .as_ref()
@@ -111,7 +111,7 @@ pub(super) fn declare_attackers(
 }
 
 /// Which of the creatures able to attack should.
-fn attack_plan(
+pub(super) fn attack_plan(
     state: &DuelState,
     player: PlayerId,
     able: &[ObjectId],
@@ -210,6 +210,7 @@ pub(super) fn declare_blockers(
     state: &DuelState,
     player: PlayerId,
     actions: &[Action],
+    gang_blocks: bool,
 ) -> Result<Action, InternalError> {
     let mut declared = Vec::new();
     if let Some(combat) = &state.combat {
@@ -219,7 +220,7 @@ pub(super) fn declare_blockers(
             }
         }
     }
-    let plan = block_plan(state, player)?;
+    let plan = block_plan(state, player, gang_blocks)?;
     if declared.iter().any(|block| !plan.contains(block)) {
         return Ok(Action::ResetDeclaration);
     }
@@ -235,10 +236,67 @@ pub(super) fn declare_blockers(
     })
 }
 
-/// The blocks to make, as `(blocker, attacker)` pairs.
-fn block_plan(
+/// Two free blockers that together kill `attacker` at the cost of one of
+/// them at most, when that one is worth no more than the attacker.
+fn gang_for(
+    state: &DuelState,
+    attacker: ObjectId,
+    free: &[ObjectId],
+) -> Result<Option<(ObjectId, ObjectId)>, InternalError> {
+    // First strike decides such fights in ways this doesn't work out.
+    for keyword in [Keyword::FirstStrike, Keyword::DoubleStrike] {
+        if state.has_keyword(attacker, keyword)? {
+            return Ok(None);
+        }
+    }
+    let power = state.power(attacker)?.max(0);
+    let deadly = state.has_keyword(attacker, Keyword::Deathtouch)? && power > 0;
+    let toughness_left = state.toughness(attacker)? - state.object(attacker)?.damage;
+    let attacker_value = creature_value(state, attacker)?;
+    // (what the pair stands to lose, the pair)
+    let mut best: Option<(i32, (ObjectId, ObjectId))> = None;
+    for (index, &first) in free.iter().enumerate() {
+        for &second in free.iter().skip(index + 1) {
+            let mut together = 0;
+            let mut kills = false;
+            let mut needed = Vec::new();
+            for blocker in [first, second] {
+                let blocker_power = state.power(blocker)?.max(0);
+                together += blocker_power;
+                kills |= blocker_power > 0 && state.has_keyword(blocker, Keyword::Deathtouch)?;
+                let left = state.toughness(blocker)? - state.object(blocker)?.damage;
+                needed.push(if deadly { 1 } else { left.max(1) });
+            }
+            if !(kills || together >= toughness_left) {
+                continue;
+            }
+            // It can't kill both, and the one it would kill is the dearer
+            // of those it can.
+            if power >= needed.iter().sum() {
+                continue;
+            }
+            let mut loss = 0;
+            for (blocker, needed) in [first, second].into_iter().zip(&needed) {
+                if power >= *needed {
+                    loss = loss.max(creature_value(state, blocker)?);
+                }
+            }
+            if loss <= attacker_value && best.is_none_or(|(least, _)| loss < least) {
+                best = Some((loss, (first, second)));
+            }
+        }
+    }
+    Ok(best.map(|(_, pair)| pair))
+}
+
+/// The blocks to make, as `(blocker, attacker)` pairs. With `gang_blocks`,
+/// two creatures also block one attacker to kill it when that costs one of
+/// them at most; version 1 itself doesn't, only the players in the
+/// searching AI's imagined games.
+pub(super) fn block_plan(
     state: &DuelState,
     player: PlayerId,
+    gang_blocks: bool,
 ) -> Result<Vec<(ObjectId, ObjectId)>, InternalError> {
     let mut attackers = Vec::new();
     for attacker in declared_attackers(state) {
@@ -285,6 +343,25 @@ fn block_plan(
             plan.push((blocker, attacker));
             used.insert(blocker);
             blocked.insert(attacker);
+        }
+    }
+
+    if gang_blocks {
+        for &(_, attacker) in &attackers {
+            if blocked.contains(&attacker) || state.has_keyword(attacker, Keyword::Menace)? {
+                continue;
+            }
+            let free: Vec<ObjectId> = blockers_for(state, player, attacker)?
+                .into_iter()
+                .filter(|blocker| !used.contains(blocker))
+                .collect();
+            if let Some((first, second)) = gang_for(state, attacker, &free)? {
+                for blocker in [first, second] {
+                    plan.push((blocker, attacker));
+                    used.insert(blocker);
+                }
+                blocked.insert(attacker);
+            }
         }
     }
 

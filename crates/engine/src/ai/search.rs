@@ -18,8 +18,9 @@
 
 use std::collections::BTreeSet;
 
+use super::battle;
 use super::distinct::distinct;
-use super::{LOOKAHEAD, best_land, evaluate, heuristic, land_color, outcome};
+use super::{LOOKAHEAD, Thinking, VERSION_1, best_land, evaluate, heuristic, land_color, outcome};
 use crate::balance::AiSearchBalance;
 use crate::cards::{CardDef, Color, Supertype};
 use crate::data;
@@ -38,12 +39,19 @@ pub(super) fn choose(
     match decision {
         Decision::Priority { .. } => priority(state, player, decision, actions, settings),
         Decision::ChooseTargets { .. } if actions.len() > 1 => {
-            let preferred = heuristic(state, player, decision, actions, LOOKAHEAD)?;
+            let preferred = heuristic(state, player, decision, actions, VERSION_1)?;
             let ranked = ranked_by_glance(state, player, actions, None)?;
             let candidates = pick_candidates(&ranked, settings);
             best_in_rollouts(state, player, &candidates, &preferred, settings)
         }
-        _ => heuristic(state, player, decision, actions, LOOKAHEAD),
+        Decision::DeclareAttackers { .. } => {
+            battle::declare_attackers(state, player, actions, settings)
+        }
+        Decision::DeclareBlockers { .. } => {
+            battle::declare_blockers(state, player, actions, settings)
+        }
+        Decision::AssignCombatDamage { .. } => battle::assign_damage(state, player, actions),
+        _ => heuristic(state, player, decision, actions, VERSION_1),
     }
 }
 
@@ -68,7 +76,7 @@ fn priority(
     if ranked.is_empty() {
         return Ok(Action::PassPriority);
     }
-    let preferred = heuristic(state, player, decision, actions, LOOKAHEAD)?;
+    let preferred = heuristic(state, player, decision, actions, VERSION_1)?;
     let mut candidates = vec![Action::PassPriority];
     candidates.extend(pick_candidates(&ranked, settings));
     best_in_rollouts(state, player, &candidates, &preferred, settings)
@@ -143,22 +151,12 @@ fn best_in_rollouts(
     if let [only] = candidates {
         return Ok(only.clone());
     }
-    let mut dice = DuelRng::from_seed(seed_from_what_is_seen(state, player)?);
-    let pool = if settings.knows_decklist {
-        None
-    } else {
-        Some(GuessPool::new(state, player.opponent())?)
-    };
-    let until_turn = state.turn.saturating_add(settings.turns);
-    let mut totals = vec![0i64; candidates.len()];
-    for _ in 0..settings.worlds {
-        let world = imagine_world(state, player, &mut dice, pool.as_ref())?;
-        for (total, candidate) in totals.iter_mut().zip(candidates) {
-            let mut game = world.clone();
-            apply_trusted(&mut game, player, candidate)?;
-            play_out(&mut game, until_turn, settings)?;
-            *total += i64::from(evaluate::bounded(&game, player, settings.win_value)?);
-        }
+    let imagined = Imagined::new(state, player, settings)?;
+    let mut totals = Vec::with_capacity(candidates.len());
+    for candidate in candidates {
+        totals.push(imagined.total(player, settings, |game| {
+            apply_trusted(game, player, candidate).map(|_| ())
+        })?);
     }
     let mut best: Option<(&Action, i64)> = None;
     for (candidate, total) in candidates.iter().zip(totals) {
@@ -174,6 +172,55 @@ fn best_in_rollouts(
     }
     best.map(|(candidate, _)| candidate.clone())
         .ok_or_else(|| InternalError::new("the AI has nothing to choose from"))
+}
+
+/// The same position several times over, each with the cards `player`
+/// can't see filled in by a different guess. Everything the AI weighs
+/// against something else is tried in all of them.
+pub(super) struct Imagined {
+    worlds: Vec<DuelState>,
+    until_turn: u32,
+}
+
+impl Imagined {
+    pub(super) fn new(
+        state: &DuelState,
+        player: PlayerId,
+        settings: &AiSearchBalance,
+    ) -> Result<Imagined, InternalError> {
+        let mut dice = DuelRng::from_seed(seed_from_what_is_seen(state, player)?);
+        let pool = if settings.knows_decklist {
+            None
+        } else {
+            Some(GuessPool::new(state, player.opponent())?)
+        };
+        let mut worlds = Vec::new();
+        for _ in 0..settings.worlds {
+            worlds.push(imagine_world(state, player, &mut dice, pool.as_ref())?);
+        }
+        Ok(Imagined {
+            worlds,
+            until_turn: state.turn.saturating_add(settings.turns),
+        })
+    }
+
+    /// How well `player` does, added up over the worlds, by making `play`
+    /// in each and letting version 1 play both sides on from there.
+    pub(super) fn total(
+        &self,
+        player: PlayerId,
+        settings: &AiSearchBalance,
+        play: impl Fn(&mut DuelState) -> Result<(), InternalError>,
+    ) -> Result<i64, InternalError> {
+        let mut total = 0;
+        for world in &self.worlds {
+            let mut game = world.clone();
+            play(&mut game)?;
+            play_out(&mut game, self.until_turn, settings)?;
+            total += i64::from(evaluate::bounded(&game, player, settings.win_value)?);
+        }
+        Ok(total)
+    }
 }
 
 /// Plays an imagined game on with version 1 on both sides, until the turn
@@ -192,7 +239,11 @@ fn play_out(
         };
         let player = decision.player();
         let actions = legal_actions(game, player);
-        let action = heuristic(game, player, decision, &actions, settings.rollout_lookahead)?;
+        let how = Thinking {
+            lookahead: settings.rollout_lookahead,
+            gang_blocks: settings.rollout_gang_blocks,
+        };
+        let action = heuristic(game, player, decision, &actions, how)?;
         apply_trusted(game, player, &action)?;
     }
     Ok(())
@@ -200,7 +251,10 @@ fn play_out(
 
 /// A seed for the AI's own dice, made from everything `player` can see and
 /// nothing else: a hash of the player's view.
-fn seed_from_what_is_seen(state: &DuelState, player: PlayerId) -> Result<u64, InternalError> {
+pub(super) fn seed_from_what_is_seen(
+    state: &DuelState,
+    player: PlayerId,
+) -> Result<u64, InternalError> {
     let view = player_view(state, player)?;
     let bytes = serde_json::to_vec(&view).map_err(|error| InternalError::new(error.to_string()))?;
     Ok(fnv1a(&bytes))

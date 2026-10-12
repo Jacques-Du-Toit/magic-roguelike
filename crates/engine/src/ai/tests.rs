@@ -877,3 +877,42 @@ fn two_copies_of_a_spell_aimed_at_twins_are_one_choice() {
         ]
     );
 }
+
+// ---- The players in the search's imagined games ----
+
+#[test]
+fn only_the_imagined_players_gang_up_on_an_attacker() {
+    let (mut state, me, opponent) = empty_board(1);
+    let first = put_on_battlefield(&mut state, me, "centaur_courser");
+    let second = put_on_battlefield(&mut state, me, "centaur_courser");
+    let elemental = put_on_battlefield(&mut state, opponent, "fire_elemental");
+    crate::duel::test_support::pass_until(&mut state, 2, Step::DeclareAttackers);
+    apply_action(
+        &mut state,
+        opponent,
+        Action::Attack {
+            creature: elemental,
+        },
+    )
+    .unwrap();
+    apply_action(&mut state, opponent, Action::ConfirmAttackers).unwrap();
+    pass_until_other_decision(&mut state);
+    // Version 1 itself: no block.
+    assert_eq!(combat::block_plan(&state, me, false).unwrap(), []);
+    // Two 3/3s kill the 5/4 and it can only kill one of them.
+    assert_eq!(
+        combat::block_plan(&state, me, true).unwrap(),
+        [(first, elemental), (second, elemental)]
+    );
+
+    // Not when it would kill both: a 6/6 against the same pair.
+    let (mut state, me, opponent) = empty_board(1);
+    put_on_battlefield(&mut state, me, "centaur_courser");
+    put_on_battlefield(&mut state, me, "centaur_courser");
+    let dreadmaw = put_on_battlefield(&mut state, opponent, "colossal_dreadmaw");
+    crate::duel::test_support::pass_until(&mut state, 2, Step::DeclareAttackers);
+    apply_action(&mut state, opponent, Action::Attack { creature: dreadmaw }).unwrap();
+    apply_action(&mut state, opponent, Action::ConfirmAttackers).unwrap();
+    pass_until_other_decision(&mut state);
+    assert_eq!(combat::block_plan(&state, me, true).unwrap(), []);
+}

@@ -212,3 +212,21 @@ pub(super) fn distinct<'a>(
     }
     Ok(kept)
 }
+
+/// For each of `cards`, the position in the list of the first card it is
+/// interchangeable with (its own, if there is none before it).
+pub(super) fn classes(state: &DuelState, cards: &[ObjectId]) -> Result<Vec<usize>, InternalError> {
+    let referred_to = referred_to(state);
+    let mut likenesses: Vec<Likeness> = Vec::with_capacity(cards.len());
+    let mut classes = Vec::with_capacity(cards.len());
+    for &card in cards {
+        let likeness = likeness(state, &referred_to, card)?;
+        let class = likenesses
+            .iter()
+            .position(|other| *other == likeness)
+            .unwrap_or(likenesses.len());
+        classes.push(class);
+        likenesses.push(likeness);
+    }
+    Ok(classes)
+}

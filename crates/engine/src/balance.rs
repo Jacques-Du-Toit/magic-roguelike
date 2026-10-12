@@ -67,6 +67,12 @@ pub struct AiSearchBalance {
     pub candidates: u32,
     /// How many ways of aiming one spell or ability are among them.
     pub targets_per_spell: u32,
+    /// How many whole attacks are tried when it declares attackers: v1's
+    /// attack, everything, nothing, then changes of one creature to the
+    /// best so far.
+    pub attack_plans: u32,
+    /// How many whole sets of blocks are tried when it declares blockers.
+    pub block_plans: u32,
     /// How far each imagined game is played: to the start of the turn this
     /// many turns after the current one.
     pub turns: u32,
@@ -76,6 +82,10 @@ pub struct AiSearchBalance {
     /// a player thinks through when weighing a spell (the real version 1
     /// thinks through two). 0 makes the imagined players cheapest.
     pub rollout_lookahead: u8,
+    /// In an imagined game, whether two creatures block one attacker to
+    /// kill it, which the real version 1 never does. Without it the
+    /// searching AI can't see that danger when it attacks.
+    pub rollout_gang_blocks: bool,
     /// What winning is worth, on the scale positions are scored on (a
     /// creature is worth about 5 to 15). Positions are capped just below
     /// it, so that a small chance of winning counts as a small chance.
@@ -130,8 +140,8 @@ pub enum BalanceError {
     #[error("`ai.mulligan.min_lands` must not be above `max_lands`")]
     AiMulliganLands,
     #[error(
-        "`ai.search`: `worlds`, `candidates`, `targets_per_spell`, `turns`, `max_actions` and \
-         `win_value` must all be above zero"
+        "`ai.search`: every count (`worlds`, `candidates`, `attack_plans`, `turns` and so on) and \
+         `win_value` must be above zero"
     )]
     AiSearch,
     #[error("`sim.turn_cap` must be above zero")]
@@ -166,6 +176,8 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
     if search.worlds == 0
         || search.candidates == 0
         || search.targets_per_spell == 0
+        || search.attack_plans == 0
+        || search.block_plans == 0
         || search.turns == 0
         || search.max_actions == 0
         || search.win_value <= 0

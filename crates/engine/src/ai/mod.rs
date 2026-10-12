@@ -18,6 +18,7 @@
 //! - Targets of its triggered abilities: whichever leaves the best position.
 //! - Scry: bottom a land it has no use for or a spell it can't cast soon.
 
+mod battle;
 mod combat;
 mod distinct;
 mod evaluate;
@@ -33,6 +34,22 @@ use crate::duel::{
 /// How many choices of targets, one after another, version 1 thinks through
 /// when it imagines a spell resolving.
 const LOOKAHEAD: u8 = 2;
+
+/// How the heuristics think. Version 1 always thinks one way; the players
+/// in the searching AI's imagined games think a little differently.
+#[derive(Debug, Clone, Copy)]
+struct Thinking {
+    /// How many choices of targets, one after another, are thought through
+    /// when a spell is imagined resolving.
+    lookahead: u8,
+    /// Whether two creatures block one attacker to kill it.
+    gang_blocks: bool,
+}
+
+const VERSION_1: Thinking = Thinking {
+    lookahead: LOOKAHEAD,
+    gang_blocks: false,
+};
 
 /// Which of the engine's AIs makes a decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -64,7 +81,7 @@ pub fn ai_choose_action_with(
     };
     let actions = legal_actions(state, player);
     let choice = match kind {
-        AiKind::Heuristic => heuristic(state, player, decision, &actions, LOOKAHEAD)?,
+        AiKind::Heuristic => heuristic(state, player, decision, &actions, VERSION_1)?,
         AiKind::Search | AiKind::SearchKnowing | AiKind::SearchGuessing => {
             let mut settings = data::embedded()
                 .map_err(|error| InternalError::new(error.to_string()))?
@@ -94,15 +111,15 @@ pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, A
 }
 
 /// Version 1's answer to `decision`, which is `player`'s to make, from
-/// their legal `actions`. `lookahead` is how many choices of targets, one
-/// after another, it thinks through when it imagines a spell resolving.
+/// their legal `actions`, thinking as `how` says.
 fn heuristic(
     state: &DuelState,
     player: PlayerId,
     decision: Decision,
     actions: &[Action],
-    lookahead: u8,
+    how: Thinking,
 ) -> Result<Action, InternalError> {
+    let lookahead = how.lookahead;
     Ok(match decision {
         Decision::Mulligan { .. } => mulligan(state, player, actions)?,
         Decision::BottomCards { .. } => Action::BottomCard {
@@ -113,7 +130,9 @@ fn heuristic(
         },
         Decision::Priority { .. } => priority(state, player, actions, lookahead)?,
         Decision::DeclareAttackers { .. } => combat::declare_attackers(state, player, actions)?,
-        Decision::DeclareBlockers { .. } => combat::declare_blockers(state, player, actions)?,
+        Decision::DeclareBlockers { .. } => {
+            combat::declare_blockers(state, player, actions, how.gang_blocks)?
+        }
         // The division on offer is the automatic one, which kills as many
         // blockers as the damage allows.
         Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,

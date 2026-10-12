@@ -20,9 +20,12 @@
       "worlds": 6,
       "candidates": 4,
       "targets_per_spell": 2,
+      "attack_plans": 10,
+      "block_plans": 12,
       "turns": 2,
       "max_actions": 400,
       "rollout_lookahead": 0,
+      "rollout_gang_blocks": true,
       "win_value": 150,
       "knows_decklist": true
     }

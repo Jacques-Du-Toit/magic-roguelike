@@ -224,3 +224,130 @@ fn it_casts_its_commander() {
     let commander = state.player(me).command[0];
     assert_eq!(new(&state, me), cast(commander));
 }
+
+// ---- Attacks and blocks ----
+
+/// Lets the searching AI answer for `player` until the game asks for
+/// something other than `decision`.
+fn let_it_declare(state: &mut DuelState, player: PlayerId, decision: Decision) {
+    for _ in 0..100 {
+        if state.decision != Some(decision) {
+            return;
+        }
+        let action = new(state, player);
+        apply_action(state, player, action).unwrap();
+    }
+    panic!("the AI never finished declaring");
+}
+
+#[test]
+fn it_double_blocks_to_kill_an_attacker_no_single_blocker_can() {
+    let (mut state, me, opponent) = empty_board(1);
+    let first = put_on_battlefield(&mut state, me, "centaur_courser");
+    let second = put_on_battlefield(&mut state, me, "centaur_courser");
+    // A 5/4: either 3/3 alone dies to it and leaves it alive.
+    let elemental = put_on_battlefield(&mut state, opponent, "fire_elemental");
+    pass_until(&mut state, 2, Step::DeclareAttackers);
+    apply_action(
+        &mut state,
+        opponent,
+        Action::Attack {
+            creature: elemental,
+        },
+    )
+    .unwrap();
+    apply_action(&mut state, opponent, Action::ConfirmAttackers).unwrap();
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let blocking = Decision::DeclareBlockers { player: me };
+    assert_eq!(state.decision, Some(blocking));
+
+    // Version 1 lets it through.
+    assert_eq!(old(&state, me), Action::ConfirmBlockers);
+    let_it_declare(&mut state, me, blocking);
+    let mut blockers = state.combat.as_ref().unwrap().attackers[0].blockers.clone();
+    blockers.sort_unstable();
+    assert_eq!(blockers, [first, second]);
+}
+
+#[test]
+fn it_does_not_attack_into_two_creatures_that_would_gang_up_on_it() {
+    let (mut state, me, opponent) = empty_board(1);
+    let baloth = put_on_battlefield(&mut state, me, "rumbling_baloth");
+    put_on_battlefield(&mut state, opponent, "centaur_courser");
+    put_on_battlefield(&mut state, opponent, "centaur_courser");
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let attacking = Decision::DeclareAttackers { player: me };
+    assert_eq!(state.decision, Some(attacking));
+    // No single 3/3 beats a 4/4, so version 1 attacks.
+    assert_eq!(old(&state, me), Action::Attack { creature: baloth });
+    assert_eq!(new(&state, me), Action::ConfirmAttackers);
+}
+
+#[test]
+fn it_attacks_when_nothing_can_punish_it() {
+    let (mut state, me, opponent) = empty_board(1);
+    let baloth = put_on_battlefield(&mut state, me, "rumbling_baloth");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    put_on_battlefield(&mut state, opponent, "savannah_lions");
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let attacking = Decision::DeclareAttackers { player: me };
+    let_it_declare(&mut state, me, attacking);
+    let attackers: Vec<ObjectId> = state
+        .combat
+        .as_ref()
+        .unwrap()
+        .attackers
+        .iter()
+        .map(|attacker| attacker.attacker)
+        .collect();
+    assert!(attackers.contains(&baloth), "{attackers:?}");
+    let _ = bears;
+}
+
+#[test]
+fn it_divides_damage_to_kill_the_better_blocker() {
+    let (mut state, me, opponent) = empty_board(1);
+    let baloth = put_on_battlefield(&mut state, me, "rumbling_baloth");
+    let bears = put_on_battlefield(&mut state, opponent, "grizzly_bears");
+    let angel = put_on_battlefield(&mut state, opponent, "serra_angel");
+    crate::duel::test_support::attack(&mut state, &[baloth]);
+    // The Bears are declared first, so the automatic division kills them
+    // and leaves 2 damage on the 4/4 Angel.
+    crate::duel::test_support::block(&mut state, &[(bears, baloth), (angel, baloth)]);
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let dividing = Decision::AssignCombatDamage {
+        player: me,
+        attacker: baloth,
+    };
+    assert_eq!(state.decision, Some(dividing));
+    assert_eq!(old(&state, me), Action::ConfirmDamage);
+    let_it_declare(&mut state, me, dividing);
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    assert!(!state.is_on_battlefield(angel));
+    assert!(state.is_on_battlefield(bears));
+}
+
+#[test]
+fn every_step_of_a_declaration_heads_for_the_same_plan() {
+    // Three attackers: the plan is found once and declared a creature at a
+    // time, never taken back.
+    let (mut state, me, opponent) = empty_board(1);
+    for _ in 0..3 {
+        put_on_battlefield(&mut state, me, "rumbling_baloth");
+    }
+    put_on_battlefield(&mut state, opponent, "savannah_lions");
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let attacking = Decision::DeclareAttackers { player: me };
+    let mut steps = Vec::new();
+    for _ in 0..10 {
+        if state.decision != Some(attacking) {
+            break;
+        }
+        let action = new(&state, me);
+        steps.push(action.clone());
+        apply_action(&mut state, me, action).unwrap();
+    }
+    assert_eq!(steps.last(), Some(&Action::ConfirmAttackers));
+    assert!(!steps.contains(&Action::ResetDeclaration), "{steps:?}");
+    assert!(steps.len() >= 3, "{steps:?}");
+}
