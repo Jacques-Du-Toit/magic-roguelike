@@ -21,7 +21,7 @@ pub struct PlayerConfig {
     pub library: Vec<CardInstance>,
     pub starting_life: i32,
     pub opening_hand_size: u8,
-    /// Cards that begin the duel on the battlefield, e.g. a boon's land.
+    /// Cards that begin the duel on the battlefield, e.g. a relic's land.
     #[serde(default)]
     pub starting_permanents: Vec<CardInstance>,
     /// Relics, boons, passives and boss emblems, in the command zone.

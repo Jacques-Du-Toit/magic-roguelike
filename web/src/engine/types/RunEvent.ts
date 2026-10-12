@@ -3,6 +3,7 @@ import type { CardDefId } from "./CardDefId";
 import type { DuelKind } from "./DuelKind";
 import type { DuelOutcome } from "./DuelOutcome";
 import type { EnemyId } from "./EnemyId";
+import type { FeatScore } from "./FeatScore";
 import type { GoldReason } from "./GoldReason";
 import type { ModifierId } from "./ModifierId";
 import type { NodeId } from "./NodeId";
@@ -11,4 +12,4 @@ import type { NodeKind } from "./NodeKind";
 /**
  * Something that happened in the run, in order.
  */
-export type RunEvent = { "type": "travelled", node: NodeId, kind: NodeKind, } | { "type": "duel_started", enemy: EnemyId, kind: DuelKind, } | { "type": "duel_ended", enemy: EnemyId, kind: DuelKind, outcome: DuelOutcome, } | { "type": "hearts_changed", change: number, hearts: number, } | { "type": "gold_changed", change: number, gold: number, reason: GoldReason, } | { "type": "relic_gained", relic: ModifierId, } | { "type": "card_added", card: CardDefId, } | { "type": "card_removed", card: CardDefId, } | { "type": "boon_taken", boon: ModifierId, } | { "type": "next_duel_modified", modifier: ModifierId, } | { "type": "run_ended", won: boolean, };
+export type RunEvent = { "type": "travelled", node: NodeId, kind: NodeKind, } | { "type": "feats_offered", enemy: EnemyId, kind: DuelKind, } | { "type": "duel_started", enemy: EnemyId, kind: DuelKind, } | { "type": "feats_scored", scores: Array<FeatScore>, points: number, } | { "type": "duel_ended", enemy: EnemyId, kind: DuelKind, outcome: DuelOutcome, } | { "type": "wound_taken", wound: ModifierId, } | { "type": "wound_healed", wound: ModifierId, } | { "type": "gold_changed", change: number, gold: number, reason: GoldReason, } | { "type": "relic_gained", relic: ModifierId, } | { "type": "card_added", card: CardDefId, } | { "type": "card_removed", card: CardDefId, } | { "type": "next_duel_modified", modifier: ModifierId, } | { "type": "run_ended", won: boolean, };

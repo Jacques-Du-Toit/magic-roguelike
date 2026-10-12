@@ -98,10 +98,12 @@ export function MenuScreen({
         }}
       >
         <p>
-          One act: follow a path across the map, win duels, grow your deck and beat the boss. You
-          have three hearts; a lost duel costs one. Your commander waits beside your hand in every
-          duel, to be cast when you can pay for it; if it dies it comes back, costing 2 more each
-          time.
+          One act: follow a path across the map, win duels, grow your deck and beat the boss.
+          Before each duel you pick two feats to try for; the better you do at them, the better
+          your reward. A lost duel leaves a wound that follows you into every duel until a rest
+          site heals it, and the third wound ends the run. Your commander waits beside your hand
+          in every duel, to be cast when you can pay for it; if it dies it comes back, costing 2
+          more each time.
         </p>
         <fieldset className="planeswalkers">
           <legend>1. Your commander</legend>

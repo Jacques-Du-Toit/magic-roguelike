@@ -3,8 +3,9 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use ts_rs::TS;
 
-use crate::run::{EnemyTier, ModifierDef, ModifierKind, RunDataError, validate_modifier};
+use crate::run::EnemyTier;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -150,22 +151,27 @@ pub enum BalanceError {
     AiSearch,
     #[error("`sim.turn_cap` must be above zero")]
     TurnCap,
-    #[error("`run.hearts` must be above zero")]
-    Hearts,
+    #[error("`run.max_wounds` must be above zero")]
+    MaxWounds,
     #[error("`run.lands.land_percent` must be between 1 and 90")]
     LandPercent,
     #[error("`run.map` needs at least one column and one row")]
     MapShape,
     #[error("`run.map.rows[{0}]` gives no node kind a weight")]
     MapRowWeights(usize),
-    #[error("`run.rewards` needs at least one choice, and no more own-colour choices than choices")]
+    #[error("`run.rewards.loss_choices` must be above zero")]
     RewardChoices,
+    #[error("`run.feats` needs at least one pick, and no more picks than feats offered")]
+    FeatPicks,
+    #[error(
+        "`run.feats.rewards` needs a first row for 0 points, rows in rising order of points, \
+         and at least one card to choose from in each"
+    )]
+    FeatRewards,
     #[error("`run.draft` needs at least one pick, and no more picks than cards")]
     DraftPicks,
     #[error("`run.rewards.{0}` gives no rarity a weight")]
     RarityWeights(&'static str),
-    #[error("`run.boons`: {0}")]
-    Boon(#[from] RunDataError),
 }
 
 pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
@@ -196,14 +202,13 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
     validate_run(&balance.run)
 }
 
-/// Every number of the run layer: hearts, gold, prices, rewards, the map's
-/// shape and the land share. The boons are here too, because a boon is
-/// nothing but its numbers.
+/// Every number of the run layer: wounds, gold, prices, rewards, the map's
+/// shape and the land share.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RunBalance {
-    /// Hearts at the start of an act.
-    pub hearts: u8,
+    /// The wound that ends the run: with 3, a player can carry two.
+    pub max_wounds: u8,
     pub starting_gold: u32,
     /// A card can't be removed from a deck with this many spells and
     /// non-basic lands or fewer.
@@ -212,13 +217,11 @@ pub struct RunBalance {
     pub map: MapBalance,
     pub gold: GoldBalance,
     pub rewards: RewardBalance,
+    pub feats: FeatBalance,
     pub draft: DraftBalance,
     pub treasure: TreasureBalance,
     pub event: EventBalance,
     pub shop: ShopBalance,
-    pub rest: RestBalance,
-    /// What a remaining heart can buy before the boss.
-    pub boons: Vec<ModifierDef>,
 }
 
 /// Automatic basic lands: lands are `land_percent` of the whole deck, split
@@ -273,17 +276,53 @@ pub struct GoldBalance {
     pub draw: u32,
 }
 
-/// Card rewards: `choices` different cards, the first `own_color_choices`
-/// of them from the planeswalker's colours. `land_percent` is the chance
-/// that one of the choices is a non-basic land instead.
+/// Card rewards: different cards to choose one from, the first
+/// `own_color_choices` of them from the planeswalker's colours.
+/// `land_percent` is the chance that one of the choices is a non-basic land
+/// instead. How many cards a won duel offers depends on the feats
+/// (`FeatBalance`); a lost one offers `loss_choices`. The rarity weights
+/// are a ladder: `duel` for a duel, `elite` for an elite, and each step up
+/// that the feats earn moves one along, `top` being the last.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RewardBalance {
-    pub choices: u8,
+    pub loss_choices: u8,
     pub own_color_choices: u8,
     pub land_percent: u32,
     pub duel: RarityWeights,
     pub elite: RarityWeights,
+    pub top: RarityWeights,
+}
+
+/// Feats: before a duel `offered` are shown and `picks` of them taken.
+/// `rewards` says what a won duel pays for the points they scored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FeatBalance {
+    pub offered: u8,
+    pub picks: u8,
+    pub rewards: Vec<FeatReward>,
+}
+
+/// What a won duel pays when its feats scored `points` or more (and fewer
+/// than the next row's): `choices` cards to choose from, their rarity
+/// weights `rarity_steps` up the ladder, and `gold` on top of the duel's.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct FeatReward {
+    pub points: u32,
+    pub choices: u8,
+    #[serde(default)]
+    pub rarity_steps: u8,
+    #[serde(default)]
+    pub gold: u32,
+}
+
+impl FeatBalance {
+    /// The row for a duel that scored `points`.
+    pub fn reward(&self, points: u32) -> Option<&FeatReward> {
+        self.rewards.iter().rfind(|row| row.points <= points)
+    }
 }
 
 /// A draft node: a pack of `cards` different cards in the planeswalker's
@@ -354,15 +393,9 @@ pub struct PriceBalance {
     pub removal: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RestBalance {
-    pub hearts_restored: u8,
-}
-
 fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
-    if run.hearts == 0 {
-        return Err(BalanceError::Hearts);
+    if run.max_wounds == 0 {
+        return Err(BalanceError::MaxWounds);
     }
     if !(1..=90).contains(&run.lands.land_percent) {
         return Err(BalanceError::LandPercent);
@@ -384,8 +417,18 @@ fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
             return Err(BalanceError::MapRowWeights(index));
         }
     }
-    if run.rewards.choices == 0 || run.rewards.own_color_choices > run.rewards.choices {
+    if run.rewards.loss_choices == 0 {
         return Err(BalanceError::RewardChoices);
+    }
+    if run.feats.picks == 0 || run.feats.picks > run.feats.offered {
+        return Err(BalanceError::FeatPicks);
+    }
+    let rows = &run.feats.rewards;
+    if rows.first().is_none_or(|row| row.points != 0)
+        || !rows.windows(2).all(|pair| pair[0].points < pair[1].points)
+        || rows.iter().any(|row| row.choices == 0)
+    {
+        return Err(BalanceError::FeatRewards);
     }
     if run.draft.picks == 0 || run.draft.picks > run.draft.cards {
         return Err(BalanceError::DraftPicks);
@@ -395,17 +438,11 @@ fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
         ("event", &run.event.card_weights),
         ("duel", &run.rewards.duel),
         ("elite", &run.rewards.elite),
+        ("top", &run.rewards.top),
         ("shop", &run.shop.card_weights),
     ] {
         if weights.total() == 0 {
             return Err(BalanceError::RarityWeights(name));
-        }
-    }
-    let mut ids = std::collections::BTreeSet::new();
-    for boon in &run.boons {
-        validate_modifier(boon, ModifierKind::Boon)?;
-        if !ids.insert(&boon.id) {
-            return Err(RunDataError::DuplicateId(boon.id.0.clone()).into());
         }
     }
     Ok(())
@@ -462,7 +499,14 @@ mod tests {
             change(&mut balance);
             validate(&balance)
         };
-        assert_eq!(check(|b| b.run.hearts = 0), Err(BalanceError::Hearts));
+        assert_eq!(
+            check(|b| b.run.max_wounds = 0),
+            Err(BalanceError::MaxWounds)
+        );
+        assert_eq!(
+            check(|b| b.run.rewards.loss_choices = 0),
+            Err(BalanceError::RewardChoices)
+        );
         assert_eq!(
             check(|b| b.run.lands.land_percent = 100),
             Err(BalanceError::LandPercent)
@@ -495,8 +539,29 @@ mod tests {
             Err(BalanceError::DraftPicks)
         );
         assert_eq!(
-            check(|b| b.run.rewards.own_color_choices = b.run.rewards.choices + 1),
-            Err(BalanceError::RewardChoices)
+            check(|b| b.run.feats.picks = b.run.feats.offered + 1),
+            Err(BalanceError::FeatPicks)
+        );
+        assert_eq!(
+            check(|b| b.run.feats.picks = 0),
+            Err(BalanceError::FeatPicks)
+        );
+        // The feats' rewards start at 0 points, rise, and always offer a card.
+        assert_eq!(
+            check(|b| b.run.feats.rewards[0].points = 1),
+            Err(BalanceError::FeatRewards)
+        );
+        assert_eq!(
+            check(|b| b.run.feats.rewards.swap(1, 2)),
+            Err(BalanceError::FeatRewards)
+        );
+        assert_eq!(
+            check(|b| b.run.feats.rewards[1].choices = 0),
+            Err(BalanceError::FeatRewards)
+        );
+        assert_eq!(
+            check(|b| b.run.feats.rewards.clear()),
+            Err(BalanceError::FeatRewards)
         );
         assert_eq!(
             check(|b| {
@@ -509,20 +574,24 @@ mod tests {
             }),
             Err(BalanceError::RarityWeights("elite"))
         );
+    }
+
+    #[test]
+    fn a_duels_points_pick_the_last_row_they_reach() {
+        let feats = balance().run.feats;
+        let choices = |points: u32| feats.reward(points).map(|row| row.choices);
+        assert_eq!(choices(0), Some(2));
+        assert_eq!((choices(1), choices(2)), (Some(3), Some(3)));
+        assert_eq!((choices(3), choices(4)), (Some(3), Some(3)));
+        assert_eq!((choices(5), choices(6)), (Some(4), Some(4)));
+        assert_eq!(feats.reward(2).map(|row| row.rarity_steps), Some(0));
         assert_eq!(
-            check(|b| {
-                let copy = b.run.boons[0].clone();
-                b.run.boons.push(copy);
-            }),
-            Err(BalanceError::Boon(RunDataError::DuplicateId(
-                balance().run.boons[0].id.0.clone()
-            )))
+            feats.reward(3).map(|row| (row.rarity_steps, row.gold)),
+            Some((1, 15))
         );
         assert_eq!(
-            check(|b| b.run.boons[0].effects.clear()),
-            Err(BalanceError::Boon(RunDataError::NoEffects(
-                balance().run.boons[0].id.0.clone()
-            )))
+            feats.reward(6).map(|row| (row.rarity_steps, row.gold)),
+            Some((1, 30))
         );
     }
 
@@ -534,7 +603,7 @@ mod tests {
         assert!(serde_json::from_str::<Balance>(&typo).is_err());
         let negative = good.replace("\"increase\": 1", "\"increase\": -1");
         assert!(serde_json::from_str::<Balance>(&negative).is_err());
-        let no_hearts = good.replace("\"hearts\": 3,", "");
-        assert!(serde_json::from_str::<Balance>(&no_hearts).is_err());
+        let no_wounds = good.replace("\"max_wounds\": 3,", "");
+        assert!(serde_json::from_str::<Balance>(&no_wounds).is_err());
     }
 }

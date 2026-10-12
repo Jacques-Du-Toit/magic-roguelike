@@ -1,0 +1,62 @@
+[
+  {
+    "id": "unbroken",
+    "name": "Unbroken",
+    "text": "Never fall below {n} life.",
+    "measure": "lowest_life",
+    "tiers": [12, 15, 18]
+  },
+  {
+    "id": "swift",
+    "name": "Swift",
+    "text": "Win by the end of your turn {n}.",
+    "measure": "turns_taken",
+    "tiers": [9, 7, 6]
+  },
+  {
+    "id": "towering",
+    "name": "Towering",
+    "text": "Control a creature with power {n} or greater by your turn 7.",
+    "measure": "greatest_power",
+    "tiers": [5, 7, 10],
+    "by_turn": 7
+  },
+  {
+    "id": "unbowed",
+    "name": "Unbowed",
+    "text": "Lose no more than {n} creatures.",
+    "measure": "creatures_lost",
+    "tiers": [3, 1, 0]
+  },
+  {
+    "id": "dominant",
+    "name": "Dominant",
+    "text": "Have creatures with {n} more total power than the enemy's.",
+    "measure": "power_lead",
+    "tiers": [6, 10, 15]
+  },
+  {
+    "id": "legion",
+    "name": "Legion",
+    "text": "Control {n} creatures at once.",
+    "measure": "most_creatures",
+    "tiers": [4, 6, 8],
+    "planeswalkers": ["warden"]
+  },
+  {
+    "id": "tempered",
+    "name": "Tempered",
+    "text": "Have {n} +1/+1 counters on your creatures at once.",
+    "measure": "most_counters",
+    "tiers": [4, 8, 12],
+    "planeswalkers": ["warden"]
+  },
+  {
+    "id": "adorned",
+    "name": "Adorned",
+    "text": "Control {n} enchantments at once.",
+    "measure": "most_enchantments",
+    "tiers": [2, 3, 5],
+    "planeswalkers": ["warden"]
+  }
+]

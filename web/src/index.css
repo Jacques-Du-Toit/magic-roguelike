@@ -365,6 +365,11 @@ input[type='text'] {
   min-height: 0;
 }
 
+/* In a run's duel the feats sit above the stack, as tall as they need. */
+.duel-side-feats {
+  grid-template-rows: auto minmax(120px, 2fr) minmax(0, 3fr);
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-edge);
@@ -922,17 +927,42 @@ input[type='text'] {
   gap: 1.2rem;
 }
 
-.hearts {
+.wounds {
   font-weight: 600;
 }
 
-.heart {
+.wound {
   color: var(--harm);
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 
-.heart-lost {
+.wound-free {
   color: var(--muted);
+}
+
+/* A feat on offer before a duel: ticked ones stand out. */
+.feat strong {
+  display: block;
+}
+
+.feat-ticked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.feat-rewards {
+  display: grid;
+  gap: 2px;
+  width: min(100%, 520px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  color: var(--muted);
+}
+
+.feats-panel .muted {
+  font-size: 11px;
 }
 
 .run-body {

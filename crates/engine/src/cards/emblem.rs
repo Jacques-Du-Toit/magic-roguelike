@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
-use super::{AbilityDef, Affects, CardError, StaticAbility, TargetSpec, Trigger, TriggerSubject};
+use super::{
+    AbilityDef, Affects, CardError, Effect, StaticAbility, TargetSpec, Trigger, TriggerSubject,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -69,6 +71,9 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
                         | Trigger::Attacks {}
                         | Trigger::DealsDamageToOpponent {}
                 ) {
+                    return Err(EmblemError::SelfTrigger);
+                }
+                if effects.contains(&Effect::SacrificeThis {}) {
                     return Err(EmblemError::SelfTrigger);
                 }
                 for spec in effects.iter().flat_map(|effect| effect.targets()) {

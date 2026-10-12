@@ -115,13 +115,14 @@ fn spell_offer(
     chosen
 }
 
-/// The cards offered after a duel is won. Now and then the last of them is
+/// The `count` cards offered after a duel. Now and then the last of them is
 /// a non-basic land instead of a spell.
 pub(crate) fn card_reward(
     rng: &mut DuelRng,
     data: &GameData,
     colors: &[Color],
     weights: &RarityWeights,
+    count: u8,
 ) -> Vec<CardDefId> {
     let rewards = &data.balance.run.rewards;
     let mut choices = spell_offer(
@@ -129,7 +130,7 @@ pub(crate) fn card_reward(
         &data.cards,
         colors,
         weights,
-        rewards.choices,
+        count,
         rewards.own_color_choices,
     );
     let lands = land_pool(&data.cards, colors);
@@ -346,7 +347,7 @@ mod tests {
         let mut lands = 0;
         for seed in 0..400 {
             let mut rng = DuelRng::from_seed(seed);
-            let choices = card_reward(&mut rng, data, &GW, weights);
+            let choices = card_reward(&mut rng, data, &GW, weights, 3);
             assert_eq!(choices.len(), 3);
             assert!(choices[0] != choices[1] && choices[1] != choices[2]);
             assert_ne!(choices[0], choices[2]);

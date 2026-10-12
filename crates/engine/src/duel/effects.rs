@@ -1,5 +1,6 @@
 //! Carrying out effect primitives.
 
+use super::abilities::sacrifice_permanent;
 use super::action::{GameEvent, Target};
 use super::damage::{LifeCause, change_life, deal_damage, destroy_creature, note_commander_return};
 use super::error::InternalError;
@@ -226,6 +227,11 @@ pub(crate) fn apply_effect(
                     player: controller,
                     card: state.card_ref(card)?,
                 });
+            }
+        }
+        Effect::SacrificeThis {} => {
+            if state.is_on_battlefield(source) {
+                sacrifice_permanent(state, events, controller, source)?;
             }
         }
         Effect::ReturnToHand { .. } => {

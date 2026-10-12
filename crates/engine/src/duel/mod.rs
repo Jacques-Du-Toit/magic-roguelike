@@ -53,6 +53,8 @@ mod turn;
 mod view;
 #[cfg(test)]
 mod view_tests;
+#[cfg(test)]
+mod wound_tests;
 
 pub use action::{Action, BlockDeclared, CardFace, CardRef, GameEvent, Target};
 pub use config::{CardInstance, CardUpgrade, DuelConfig, PlayerConfig, RulesConfig};

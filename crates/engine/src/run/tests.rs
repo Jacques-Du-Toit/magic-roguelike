@@ -21,8 +21,16 @@ fn run(planeswalker: &str, seed: u64) -> RunState {
     .unwrap()
 }
 
+/// Applies a run action. Travelling to a duel also picks the first feats
+/// on offer, so that the duel has started: most tests are about what comes
+/// after. The tests of the feats themselves use `apply_run_action`.
 fn act(state: &mut RunState, action: RunAction) -> Vec<RunEvent> {
-    apply_run_action(state, action).unwrap()
+    let mut events = apply_run_action(state, action).unwrap();
+    if matches!(state.phase, Phase::Feats { .. }) {
+        let first = run_legal_actions(state).remove(0);
+        events.extend(apply_run_action(state, first).unwrap());
+    }
+    events
 }
 
 fn travels(state: &RunState) -> Vec<NodeId> {
@@ -61,10 +69,24 @@ fn loss() -> GameResult {
     }
 }
 
-/// Finishes the duel in progress with the given result.
+/// Makes the duel in progress one in which no feat scores: long, costly
+/// and never ahead.
+fn scrape(state: &mut RunState) {
+    let stats = state.duel_stats.as_mut().unwrap();
+    (stats.turns, stats.lowest_life, stats.creatures_lost) = (99, 1, 99);
+    stats.high_points.clear();
+}
+
+/// Finishes the duel in progress with the given result, as a scrape: its
+/// feats score nothing, so a win pays what a win pays at the least.
 fn finish(state: &mut RunState, result: GameResult) -> Vec<RunEvent> {
+    scrape(state);
     force_result(state, result);
     act(state, RunAction::FinishDuel)
+}
+
+fn feat(id: &str) -> FeatId {
+    FeatId(id.to_string())
 }
 
 /// Plays the duel in progress to its end with the AI on both sides.
@@ -98,7 +120,8 @@ fn walk_to(state: &mut RunState, wanted: NodeKind) -> Option<NodeId> {
                 }
                 act(state, RunAction::Travel { node: options[0] });
             }
-            Phase::Duel { .. } => {
+            // `act` has picked the feats already.
+            Phase::Feats { .. } | Phase::Duel { .. } => {
                 finish(state, win());
             }
             Phase::Reward { .. } => {
@@ -110,7 +133,7 @@ fn walk_to(state: &mut RunState, wanted: NodeKind) -> Option<NodeId> {
             Phase::Treasure { .. } => {
                 act(state, RunAction::TakeGold);
             }
-            Phase::Boons { .. } | Phase::Over { .. } => return None,
+            Phase::Over { .. } => return None,
         }
     }
     None
@@ -152,6 +175,15 @@ fn run_at(planeswalker: &str, stop_at: NodeKind) -> RunState {
     panic!("no seed leads to a {stop_at:?} node");
 }
 
+/// The one wound there is.
+fn wound() -> ModifierId {
+    ModifierId("festering_wound".to_string())
+}
+
+fn max_wounds() -> usize {
+    usize::from(data::embedded().unwrap().balance.run.max_wounds)
+}
+
 fn deck_count(state: &RunState, card: &str) -> usize {
     state
         .deck
@@ -163,14 +195,13 @@ fn deck_count(state: &RunState, card: &str) -> usize {
 // ---- Starting a run ----
 
 #[test]
-fn a_new_run_has_the_starting_deck_hearts_and_gold() {
+fn a_new_run_has_the_starting_deck_no_wounds_and_gold() {
     let balance = &data::embedded().unwrap().balance.run;
     let state = run("warden", 1);
-    assert_eq!(state.hearts, balance.hearts);
-    assert_eq!(state.max_hearts, balance.hearts);
     assert_eq!(state.gold, balance.starting_gold);
     assert_eq!(state.deck.len(), 10);
-    assert!(state.relics.is_empty() && state.boons.is_empty());
+    assert!(state.relics.is_empty() && state.wounds.is_empty());
+    assert_eq!(run_view(&state).unwrap().max_wounds, balance.max_wounds);
     assert_eq!(state.phase, Phase::Map);
     assert_eq!(state.position(), None);
     assert!(state.duel.is_none());
@@ -284,12 +315,19 @@ fn a_duel_node_starts_a_duel_set_up_from_the_run() {
         panic!("expected a duel, got {:?}", state.phase);
     };
     assert_eq!(kind, DuelKind::Normal);
+    // The feats were offered first, and `act` picked two.
     assert_eq!(
-        events[1],
-        RunEvent::DuelStarted {
-            enemy: enemy.clone(),
-            kind
-        }
+        events[1..],
+        [
+            RunEvent::FeatsOffered {
+                enemy: enemy.clone(),
+                kind
+            },
+            RunEvent::DuelStarted {
+                enemy: enemy.clone(),
+                kind
+            }
+        ]
     );
     let enemy = data::embedded().unwrap().run.enemy(&enemy).unwrap();
     assert_eq!(enemy.tier, EnemyTier::Easy);
@@ -336,13 +374,25 @@ fn duel_actions_go_through_the_run() {
         Err(RunError::Duel(_))
     ));
 
+    // The duel's stats start with it and follow it.
+    let stats = state.duel_stats.clone().unwrap();
+    assert_eq!(
+        (stats.player, stats.turns, stats.lowest_life),
+        (PLAYER, 0, 20)
+    );
     play_duel(&mut state);
-    assert!(state.duel.as_ref().unwrap().result.is_some());
+    let duel = state.duel.as_ref().unwrap();
+    assert!(duel.result.is_some());
     assert_eq!(run_legal_actions(&state), [RunAction::FinishDuel]);
+    let stats = state.duel_stats.as_ref().unwrap();
+    assert!(stats.turns >= 2, "{stats:?}");
+    assert_eq!(stats.high_points.len(), stats.turns as usize + 1);
+    assert!(stats.lowest_life <= duel.player(PLAYER).life);
+    assert!(stats.value(Measure::MostCreatures, None) >= 1);
 }
 
 #[test]
-fn winning_a_duel_pays_gold_and_offers_three_cards() {
+fn winning_a_duel_pays_gold_and_offers_cards() {
     let gold = &data::embedded().unwrap().balance.run.gold;
     let mut state = run("warden", 3);
     let node = travels(&state)[0];
@@ -366,36 +416,234 @@ fn winning_a_duel_pays_gold_and_offers_three_cards() {
             reason: GoldReason::DuelWon
         }
     );
-    assert_eq!(events.len(), 2);
-    assert_eq!(state.hearts, state.max_hearts);
-    assert!(state.duel.is_none());
+    // Its feats scored nothing, which is still reported.
+    assert!(matches!(events[2], RunEvent::FeatsScored { points: 0, .. }));
+    assert_eq!(events.len(), 3);
+    assert!(state.wounds.is_empty());
+    assert!(state.duel.is_none() && state.duel_stats.is_none() && state.feats.is_empty());
 
+    // A win with no points offers the fewest cards.
     let Phase::Reward { choices } = state.phase.clone() else {
         panic!("expected a reward, got {:?}", state.phase);
     };
-    assert_eq!(choices.len(), 3);
+    assert_eq!(choices.len(), 2);
     assert_eq!(
         run_legal_actions(&state),
         [
             RunAction::TakeReward { choice: 0 },
             RunAction::TakeReward { choice: 1 },
-            RunAction::TakeReward { choice: 2 },
             RunAction::SkipReward,
         ]
     );
 }
 
+// ---- Feats ----
+
+/// A run that has arrived at its first duel and is choosing feats, with
+/// the feats on offer.
+fn choosing_feats(planeswalker: &str) -> (RunState, Vec<FeatId>) {
+    let mut state = run(planeswalker, 3);
+    let node = travels(&state)[0];
+    apply_run_action(&mut state, RunAction::Travel { node }).unwrap();
+    let Phase::Feats { offered, .. } = state.phase.clone() else {
+        panic!("expected feats, got {:?}", state.phase);
+    };
+    (state, offered)
+}
+
+fn choose(feats: &[usize]) -> RunAction {
+    RunAction::ChooseFeats {
+        feats: feats.to_vec(),
+    }
+}
+
 #[test]
-fn a_win_pays_the_same_however_it_was_won() {
-    let gold = &data::embedded().unwrap().balance.run.gold;
+fn a_duel_offers_five_feats_of_the_characters_and_two_are_picked() {
+    let data = data::embedded().unwrap();
+    let (mut state, offered) = choosing_feats("warden");
+    assert!(state.duel.is_none());
+    assert_eq!(offered.len(), 5);
+    // Different ones, in the pool's order, all of them the Warden's.
+    let places: Vec<usize> = offered
+        .iter()
+        .map(|id| data.run.feats.iter().position(|def| def.id == *id).unwrap())
+        .collect();
+    assert!(
+        places.windows(2).all(|pair| pair[0] < pair[1]),
+        "{places:?}"
+    );
+    assert_eq!(data.run.feats_for(&state.planeswalker).count(), 8);
+
+    // Every pair, and nothing else: the duel can't be put off or dodged.
+    let actions = run_legal_actions(&state);
+    assert_eq!(actions.len(), 10);
+    assert_eq!(actions[0], choose(&[0, 1]));
+    assert_eq!(actions[9], choose(&[3, 4]));
+    for refused in [
+        choose(&[1, 0]),
+        choose(&[2]),
+        choose(&[0, 5]),
+        choose(&[0, 1, 2]),
+    ] {
+        assert_eq!(
+            apply_run_action(&mut state, refused.clone()),
+            Err(RunError::IllegalAction(refused))
+        );
+    }
+
+    let events = apply_run_action(&mut state, choose(&[1, 3])).unwrap();
+    assert!(matches!(events[..], [RunEvent::DuelStarted { .. }]));
+    assert!(matches!(state.phase, Phase::Duel { .. }));
+    assert_eq!(state.feats, [offered[1].clone(), offered[3].clone()]);
+    // The view says how they stand.
+    let standing = run_view(&state).unwrap().feats;
+    assert_eq!(standing.len(), 2);
+    assert_eq!(standing[0].feat, offered[1]);
+
+    // Another seed offers another five.
+    let differs = (4..20).any(|seed| {
+        let mut other = run("warden", seed);
+        let node = travels(&other)[0];
+        apply_run_action(&mut other, RunAction::Travel { node }).unwrap();
+        !matches!(&other.phase, Phase::Feats { offered: theirs, .. } if *theirs == offered)
+    });
+    assert!(differs);
+}
+
+#[test]
+fn a_character_without_feats_of_its_own_is_offered_the_shared_ones() {
+    let data = data::embedded().unwrap();
+    let (_, offered) = choosing_feats("firebrand");
+    let shared: Vec<FeatId> = data
+        .run
+        .feats
+        .iter()
+        .filter(|def| def.planeswalkers.is_empty())
+        .map(|def| def.id.clone())
+        .collect();
+    assert_eq!(offered, shared);
+    assert_eq!(offered.len(), 5);
+}
+
+/// Wins the duel in progress having picked `feats`, with the stats set by
+/// `change`, and returns what happened and how many cards are on offer.
+fn win_with(feats: &[&str], change: impl FnOnce(&mut DuelStats)) -> (Vec<RunEvent>, usize) {
     let mut state = run("warden", 3);
     let node = travels(&state)[0];
     act(&mut state, RunAction::Travel { node });
-    // A quick win at full life earns no more than any other.
-    state.duel.as_mut().unwrap().turn = 3;
-    let before = state.gold;
-    finish(&mut state, win());
-    assert_eq!(state.gold, before + gold.duel_win);
+    scrape(&mut state);
+    state.feats = feats.iter().map(|id| feat(id)).collect();
+    change(state.duel_stats.as_mut().unwrap());
+    force_result(&mut state, win());
+    let events = act(&mut state, RunAction::FinishDuel);
+    let Phase::Reward { choices } = &state.phase else {
+        panic!("expected a reward, got {:?}", state.phase);
+    };
+    (events, choices.len())
+}
+
+#[test]
+fn the_feats_picked_are_scored_on_a_win_and_set_the_reward() {
+    let gold_for_feats = |events: &[RunEvent]| {
+        events.iter().find_map(|event| match event {
+            RunEvent::GoldChanged {
+                change,
+                reason: GoldReason::Feats,
+                ..
+            } => Some(*change),
+            _ => None,
+        })
+    };
+    let score = |id: &str, score: u8, value: i32| FeatScore {
+        feat: feat(id),
+        score,
+        value,
+    };
+
+    // Never below 16 life is two tiers of Unbroken; eight turns is one of
+    // Swift. Three points: three cards, and a little gold.
+    let (events, cards) = win_with(&["unbroken", "swift"], |stats| {
+        (stats.lowest_life, stats.turns) = (16, 8);
+    });
+    assert!(events.contains(&RunEvent::FeatsScored {
+        scores: vec![score("unbroken", 2, 16), score("swift", 1, 8)],
+        points: 3
+    }));
+    assert_eq!((cards, gold_for_feats(&events)), (3, Some(15)));
+
+    // One point: three cards and no more.
+    let (events, cards) = win_with(&["unbroken", "swift"], |stats| stats.turns = 9);
+    assert_eq!((cards, gold_for_feats(&events)), (3, None));
+
+    // Everything: four cards and more gold.
+    let (events, cards) = win_with(&["unbroken", "unbowed"], |stats| {
+        (stats.lowest_life, stats.creatures_lost) = (20, 0);
+    });
+    assert!(events.contains(&RunEvent::FeatsScored {
+        scores: vec![score("unbroken", 3, 20), score("unbowed", 3, 0)],
+        points: 6
+    }));
+    assert_eq!((cards, gold_for_feats(&events)), (4, Some(30)));
+
+    // Only the feats picked count: a duel that would have scored on
+    // others scores nothing.
+    let (events, cards) = win_with(&["legion", "adorned"], |stats| {
+        (stats.lowest_life, stats.turns) = (20, 4);
+    });
+    assert!(events.contains(&RunEvent::FeatsScored {
+        scores: vec![score("legion", 0, 0), score("adorned", 0, 0)],
+        points: 0
+    }));
+    assert_eq!((cards, gold_for_feats(&events)), (2, None));
+}
+
+#[test]
+fn the_points_make_the_cards_rarer() {
+    // Six points take a duel's reward a step up the ladder, to the
+    // elite's weights: far fewer commons over many rewards.
+    let data = data::embedded().unwrap();
+    let commons = |points: bool| {
+        let mut commons = 0;
+        for seed in 0..60 {
+            let mut state = run("warden", seed);
+            let node = travels(&state)[0];
+            act(&mut state, RunAction::Travel { node });
+            scrape(&mut state);
+            if points {
+                state.feats = vec![feat("unbroken"), feat("unbowed")];
+                let stats = state.duel_stats.as_mut().unwrap();
+                (stats.lowest_life, stats.creatures_lost) = (20, 0);
+            }
+            force_result(&mut state, win());
+            act(&mut state, RunAction::FinishDuel);
+            let Phase::Reward { choices } = &state.phase else {
+                panic!("expected a reward");
+            };
+            // The first two cards of each, so that both count the same.
+            commons += choices[..2]
+                .iter()
+                .filter(|id| data.cards.get(id).unwrap().rarity == crate::cards::Rarity::Common)
+                .count();
+        }
+        commons
+    };
+    let (plain, pointed) = (commons(false), commons(true));
+    assert!(pointed + 20 < plain, "{pointed} against {plain}");
+}
+
+#[test]
+fn a_draw_scores_no_feats() {
+    let mut state = run("warden", 3);
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    force_result(&mut state, GameResult::Draw);
+    let events = act(&mut state, RunAction::FinishDuel);
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, RunEvent::FeatsScored { .. }))
+    );
+    assert!(state.feats.is_empty() && state.duel_stats.is_none());
 }
 
 #[test]
@@ -433,22 +681,57 @@ fn taking_a_reward_adds_the_card_and_the_lands_follow() {
 }
 
 #[test]
-fn losing_a_duel_costs_a_heart_and_pays_a_little_gold() {
-    let gold = &data::embedded().unwrap().balance.run.gold;
+fn losing_a_duel_leaves_a_wound_a_little_gold_and_a_smaller_reward() {
+    let balance = &data::embedded().unwrap().balance.run;
     let mut state = run("warden", 3);
     let node = travels(&state)[0];
     act(&mut state, RunAction::Travel { node });
     let before = state.gold;
     let events = finish(&mut state, loss());
-    assert_eq!(state.hearts, state.max_hearts - 1);
-    assert_eq!(state.gold, before + gold.duel_loss);
-    assert!(events.contains(&RunEvent::HeartsChanged {
-        change: -1,
-        hearts: state.hearts
-    }));
-    // No card reward: straight back to the map, and the node is behind us.
-    assert_eq!(state.phase, Phase::Map);
+    assert_eq!(state.wounds, [wound()]);
+    assert_eq!(state.gold, before + balance.gold.duel_loss);
+    assert!(events.contains(&RunEvent::WoundTaken { wound: wound() }));
+    // Fewer cards to pick from than after a win.
+    let Phase::Reward { choices } = state.phase.clone() else {
+        panic!("expected a reward, got {:?}", state.phase);
+    };
+    assert_eq!(choices.len(), usize::from(balance.rewards.loss_choices));
+    // No feats are scored for a duel that was lost.
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, RunEvent::FeatsScored { .. }))
+    );
+    // The node is behind us.
+    act(&mut state, RunAction::SkipReward);
     assert_eq!(travels(&state), state.map.node(node).unwrap().next);
+}
+
+#[test]
+fn a_wound_starts_every_duel_on_the_battlefield_until_it_is_healed() {
+    let wounds_of = |state: &RunState| {
+        let duel = state.duel.as_ref().unwrap();
+        duel.permanents_of(PLAYER)
+            .filter(|permanent| permanent.def.as_str() == "festering_wound")
+            .count()
+    };
+    let mut state = run("warden", 3);
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    assert_eq!(wounds_of(&state), 0);
+    finish(&mut state, loss());
+    act(&mut state, RunAction::SkipReward);
+
+    // In the next duel, and the one after: paying it off lasts one duel.
+    for _ in 0..2 {
+        assert!(travel_to(&mut state, NodeKind::Duel));
+        assert_eq!(wounds_of(&state), 1);
+        finish(&mut state, win());
+        act(&mut state, RunAction::SkipReward);
+    }
+    state.wounds.clear();
+    assert!(travel_to(&mut state, NodeKind::Duel));
+    assert_eq!(wounds_of(&state), 0);
 }
 
 #[test]
@@ -464,9 +747,9 @@ fn conceding_counts_as_a_loss() {
             ..
         }
     ));
-    assert_eq!(state.hearts, state.max_hearts - 1);
+    assert_eq!(state.wounds.len(), 1);
     assert!(state.duel.is_none());
-    assert_eq!(state.phase, Phase::Map);
+    assert!(matches!(state.phase, Phase::Reward { .. }));
 }
 
 #[test]
@@ -477,7 +760,7 @@ fn a_drawn_duel_costs_nothing_and_pays_a_little_gold() {
     act(&mut state, RunAction::Travel { node });
     let before = state.gold;
     let events = finish(&mut state, GameResult::Draw);
-    assert_eq!(state.hearts, state.max_hearts);
+    assert!(state.wounds.is_empty());
     assert_eq!(state.gold, before + gold.draw);
     assert!(matches!(
         events[0],
@@ -490,11 +773,10 @@ fn a_drawn_duel_costs_nothing_and_pays_a_little_gold() {
 }
 
 #[test]
-fn losing_the_last_heart_ends_the_run() {
+fn the_third_wound_ends_the_run() {
     let mut state = run("warden", 3);
-    let hearts = state.hearts;
     let mut lost = 0;
-    while lost < hearts {
+    while lost < max_wounds() {
         let node = travels(&state)[0];
         act(&mut state, RunAction::Travel { node });
         if state.duel.is_none() {
@@ -505,8 +787,9 @@ fn losing_the_last_heart_ends_the_run() {
         }
         let events = finish(&mut state, loss());
         lost += 1;
-        assert_eq!(state.hearts, hearts - lost);
-        if lost < hearts {
+        assert_eq!(state.wounds.len(), lost);
+        if lost < max_wounds() {
+            act(&mut state, RunAction::SkipReward);
             assert_eq!(state.phase, Phase::Map);
         } else {
             assert_eq!(events.last(), Some(&RunEvent::RunEnded { won: false }));
@@ -560,15 +843,15 @@ fn an_elite_win_gives_a_relic_gold_and_a_card_choice() {
 }
 
 #[test]
-fn an_elite_loss_costs_a_heart_and_gives_nothing() {
+fn an_elite_loss_leaves_a_wound_and_no_relic() {
     let data = data::embedded().unwrap();
     let mut state = run_at("warden", NodeKind::Elite);
     let before = state.gold;
     finish(&mut state, loss());
-    assert_eq!(state.hearts, state.max_hearts - 1);
+    assert_eq!(state.wounds, [wound()]);
     assert_eq!(state.gold, before + data.balance.run.gold.elite_loss);
     assert!(state.relics.is_empty());
-    assert_eq!(state.phase, Phase::Map);
+    assert!(matches!(state.phase, Phase::Reward { .. }));
 }
 
 #[test]
@@ -611,26 +894,24 @@ fn a_relic_shapes_the_next_duel_and_the_gold_relic_pays_per_win() {
 // ---- Rest sites ----
 
 #[test]
-fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
+fn a_rest_site_heals_a_wound_removes_a_card_or_is_left() {
     let mut arrived = run_at("warden", NodeKind::Rest);
     assert_eq!(arrived.phase, Phase::Rest);
-    // At full hearts there is nothing to restore.
-    assert!(!run_legal_actions(&arrived).contains(&RunAction::RestHeal));
+    // With no wound there is nothing to heal.
+    let heal = RunAction::HealWound { wound: 0 };
+    assert!(!run_legal_actions(&arrived).contains(&heal));
     assert!(run_legal_actions(&arrived).contains(&RunAction::Leave));
     assert!(run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 9 }));
     assert!(!run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 10 }));
-    arrived.hearts = 1;
+    arrived.wounds = vec![wound(), wound()];
 
     let mut healed = arrived.clone();
-    let events = act(&mut healed, RunAction::RestHeal);
-    assert_eq!(
-        events,
-        [RunEvent::HeartsChanged {
-            change: 1,
-            hearts: 2
-        }]
-    );
-    assert_eq!(healed.hearts, 2);
+    assert!(run_legal_actions(&healed).contains(&RunAction::HealWound { wound: 1 }));
+    assert!(!run_legal_actions(&healed).contains(&RunAction::HealWound { wound: 2 }));
+    let events = act(&mut healed, heal);
+    assert_eq!(events, [RunEvent::WoundHealed { wound: wound() }]);
+    // One wound a rest.
+    assert_eq!(healed.wounds, [wound()]);
     assert_eq!(healed.phase, Phase::Map);
 
     let mut trimmed = arrived.clone();
@@ -647,12 +928,12 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
     assert_eq!(deck_count(&trimmed, removed.as_str()), copies - 1);
     // Only one thing may be done.
     assert_eq!(trimmed.phase, Phase::Map);
-    assert_eq!(trimmed.hearts, 1);
+    assert_eq!(trimmed.wounds.len(), 2);
 
     let mut left = arrived.clone();
     assert_eq!(act(&mut left, RunAction::Leave), []);
     assert_eq!(left.phase, Phase::Map);
-    assert_eq!((left.hearts, left.deck.len()), (1, 10));
+    assert_eq!((left.wounds.len(), left.deck.len()), (2, 10));
 }
 
 #[test]
@@ -1130,8 +1411,13 @@ fn an_event_node_meets_an_event_that_can_be_walked_away_from() {
     assert_eq!(act(&mut state, RunAction::Leave), []);
     assert_eq!(state.phase, Phase::Map);
     assert_eq!(
-        (state.hearts, state.gold, &state.deck, &state.relics),
-        (arrived.hearts, arrived.gold, &arrived.deck, &arrived.relics)
+        (&state.wounds, state.gold, &state.deck, &state.relics),
+        (
+            &arrived.wounds,
+            arrived.gold,
+            &arrived.deck,
+            &arrived.relics
+        )
     );
     assert_eq!(travels(&state), state.map.node(node).unwrap().next);
 
@@ -1151,7 +1437,7 @@ fn an_event_node_meets_an_event_that_can_be_walked_away_from() {
 }
 
 #[test]
-fn the_devils_bargain_gives_a_relic_of_two_for_a_heart() {
+fn the_devils_bargain_gives_a_relic_of_two_for_a_wound() {
     let mut state = at_event("devils_bargain");
     let Phase::Event { relics, cards, .. } = state.phase.clone() else {
         panic!("expected an event");
@@ -1171,10 +1457,10 @@ fn the_devils_bargain_gives_a_relic_of_two_for_a_heart() {
         );
     }
 
-    // Not for the last heart, and not with every relic owned.
-    let mut last_heart = state.clone();
-    last_heart.hearts = 1;
-    assert_eq!(run_legal_actions(&last_heart), [RunAction::Leave]);
+    // Not when the wound would end the run, and not with every relic owned.
+    let mut last_legs = state.clone();
+    last_legs.wounds = vec![wound(); max_wounds() - 1];
+    assert_eq!(run_legal_actions(&last_legs), [RunAction::Leave]);
     let mut collector = at_event("devils_bargain");
     collector.relics = every_relic();
     collector.phase = Phase::Event {
@@ -1189,26 +1475,23 @@ fn the_devils_bargain_gives_a_relic_of_two_for_a_heart() {
     assert_eq!(
         events,
         [
-            RunEvent::HeartsChanged {
-                change: -1,
-                hearts: 2
-            },
+            RunEvent::WoundTaken { wound: wound() },
             RunEvent::RelicGained {
                 relic: relics[1].clone()
             }
         ]
     );
-    assert_eq!(state.hearts, 2);
+    assert_eq!(state.wounds, [wound()]);
     assert_eq!(state.relics, std::slice::from_ref(&relics[1]));
     assert_eq!(state.gold, gold);
     assert_eq!(state.phase, Phase::Map);
 }
 
 #[test]
-fn the_moneylender_trades_a_heart_for_gold_or_gold_for_a_heart() {
+fn the_moneylender_pays_for_a_wound_or_heals_one_for_gold() {
     let arrived = at_event("moneylender");
 
-    // At full hearts there is no heart to buy back.
+    // Unhurt, there is no wound to have healed.
     let mut healthy = arrived.clone();
     healthy.gold = 500;
     assert_eq!(
@@ -1219,10 +1502,7 @@ fn the_moneylender_trades_a_heart_for_gold_or_gold_for_a_heart() {
     assert_eq!(
         events,
         [
-            RunEvent::HeartsChanged {
-                change: -1,
-                hearts: 2
-            },
+            RunEvent::WoundTaken { wound: wound() },
             RunEvent::GoldChanged {
                 change: 100,
                 gold: 600,
@@ -1234,7 +1514,7 @@ fn the_moneylender_trades_a_heart_for_gold_or_gold_for_a_heart() {
 
     // Hurt and with exactly the price: either way.
     let mut hurt = arrived.clone();
-    (hurt.hearts, hurt.gold) = (2, 70);
+    (hurt.wounds, hurt.gold) = (vec![wound()], 70);
     assert_eq!(
         run_legal_actions(&hurt),
         [take(0, None), take(1, None), RunAction::Leave]
@@ -1248,16 +1528,14 @@ fn the_moneylender_trades_a_heart_for_gold_or_gold_for_a_heart() {
                 gold: 0,
                 reason: GoldReason::Event
             },
-            RunEvent::HeartsChanged {
-                change: 1,
-                hearts: 3
-            }
+            RunEvent::WoundHealed { wound: wound() }
         ]
     );
+    assert!(hurt.wounds.is_empty());
 
-    // On the last heart and short of gold she has nothing to offer.
+    // One wound from the end and short of gold, she has nothing to offer.
     let mut broke = arrived.clone();
-    (broke.hearts, broke.gold) = (1, 69);
+    (broke.wounds, broke.gold) = (vec![wound(); max_wounds() - 1], 69);
     assert_eq!(run_legal_actions(&broke), [RunAction::Leave]);
     assert_eq!(
         apply_run_action(&mut broke, take(0, None)),
@@ -1398,7 +1676,9 @@ fn the_rivals_wager_pays_now_and_costs_life_in_the_next_duel_only() {
                 let duel = state.duel.as_ref().unwrap();
                 let expected = if duels == 1 { 15 } else { 20 };
                 assert_eq!(duel.player(PLAYER).life, expected);
-                assert_eq!(duel.player(ENEMY).life, 20);
+                // The wager never touches the enemy, whose life is its own
+                // (the boss has more).
+                assert!(duel.player(ENEMY).life >= 20);
                 assert!(state.next_duel.is_empty());
                 if duels == 2 {
                     return;
@@ -1407,13 +1687,6 @@ fn the_rivals_wager_pays_now_and_costs_life_in_the_next_duel_only() {
             }
             Phase::Reward { .. } => {
                 act(&mut state, RunAction::SkipReward);
-            }
-            Phase::Boons { .. } => {
-                // The one duel on the way has used it up.
-                assert_eq!(duels, 1);
-                act(&mut state, RunAction::StartBoss);
-                assert_eq!(state.duel.as_ref().unwrap().player(PLAYER).life, 20);
-                return;
             }
             _ => {
                 assert_eq!(state.next_duel.len(), usize::from(duels == 0));
@@ -1731,68 +2004,47 @@ fn a_merchants_ledger_bought_in_a_shop_lowers_that_shops_other_prices() {
     assert_eq!(state.gold, gold - after[0].price);
 }
 
-// ---- Boons and the boss ----
+// ---- The boss ----
 
-/// A run standing at the boss node, choosing boons.
-fn at_the_boss(planeswalker: &str) -> RunState {
+/// A run with the boss node next, and that node.
+fn before_the_boss(planeswalker: &str) -> (RunState, NodeId) {
     let mut state = run(planeswalker, 3);
-    assert!(travel_to(&mut state, NodeKind::Boss));
-    assert!(matches!(state.phase, Phase::Boons { .. }));
+    let node = walk_to(&mut state, NodeKind::Boss).unwrap();
+    (state, node)
+}
+
+/// A run that has just started the boss duel.
+fn at_the_boss(planeswalker: &str) -> RunState {
+    let (mut state, node) = before_the_boss(planeswalker);
+    act(&mut state, RunAction::Travel { node });
     state
 }
 
 #[test]
-fn each_remaining_heart_buys_one_boon_for_the_boss_duel() {
+fn the_boss_duel_starts_on_arriving_with_the_wounds_carried() {
     let data = data::embedded().unwrap();
-    let boons: Vec<ModifierId> = data
-        .balance
-        .run
-        .boons
-        .iter()
-        .map(|boon| boon.id.clone())
-        .collect();
-    let mut state = at_the_boss("warden");
-    state.hearts = 2;
-    state.phase = Phase::Boons { picks_left: 2 };
-    let mut expected: Vec<RunAction> = boons
-        .iter()
-        .map(|boon| RunAction::TakeBoon { boon: boon.clone() })
-        .collect();
-    expected.push(RunAction::StartBoss);
-    assert_eq!(run_legal_actions(&state), expected);
-
-    let life = RunAction::TakeBoon {
-        boon: boons[0].clone(),
-    };
-    let events = act(&mut state, life.clone());
-    assert_eq!(
-        events,
-        [RunEvent::BoonTaken {
-            boon: boons[0].clone()
-        }]
-    );
-    // Each boon once.
-    assert!(!run_legal_actions(&state).contains(&life));
-    act(
-        &mut state,
-        RunAction::TakeBoon {
-            boon: boons[2].clone(),
-        },
-    );
-    // No picks left.
-    assert_eq!(run_legal_actions(&state), [RunAction::StartBoss]);
-    assert_eq!(state.hearts, 2);
-
-    act(&mut state, RunAction::StartBoss);
+    let (mut state, node) = before_the_boss("firebrand");
+    state.wounds = vec![wound()];
+    state.relics.clear();
+    // No feats for the boss: it is only to be beaten.
+    let events = apply_run_action(&mut state, RunAction::Travel { node }).unwrap();
+    assert!(matches!(events[1], RunEvent::DuelStarted { .. }));
+    assert!(state.feats.is_empty() && state.duel_stats.is_some());
+    assert!(run_view(&state).unwrap().feats.is_empty());
     let Phase::Duel { enemy, kind } = state.phase.clone() else {
         panic!("expected the boss duel");
     };
     assert_eq!(kind, DuelKind::Boss);
     assert_eq!(data.run.enemy(&enemy).unwrap().tier, EnemyTier::Boss);
     let duel = state.duel.as_ref().unwrap();
-    // +5 for the player; the boss's own +5 and the boon's -5.
-    assert_eq!(duel.player(PLAYER).life, 25);
-    assert_eq!(duel.player(ENEMY).life, 20);
+    assert_eq!(duel.player(PLAYER).life, 20);
+    assert_eq!(duel.player(ENEMY).life, 25);
+    // Nothing but the wound.
+    let permanents: Vec<&str> = duel
+        .permanents_of(PLAYER)
+        .map(|permanent| permanent.def.as_str())
+        .collect();
+    assert_eq!(permanents, ["festering_wound"]);
     assert!(
         duel.emblems
             .iter()
@@ -1801,49 +2053,27 @@ fn each_remaining_heart_buys_one_boon_for_the_boss_duel() {
 }
 
 #[test]
-fn the_boss_can_be_fought_without_boons_and_picks_match_the_hearts() {
-    let mut state = at_the_boss("firebrand");
-    assert_eq!(
-        state.phase,
-        Phase::Boons {
-            picks_left: state.hearts
-        }
-    );
-    act(&mut state, RunAction::StartBoss);
-    let duel = state.duel.as_ref().unwrap();
-    assert_eq!(duel.player(PLAYER).life, 20);
-    assert_eq!(duel.player(ENEMY).life, 25);
-    assert_eq!(duel.permanents_of(PLAYER).count(), 0);
-}
-
-#[test]
 fn beating_the_boss_wins_the_run_and_losing_to_it_ends_the_run() {
     let mut won = at_the_boss("warden");
-    act(&mut won, RunAction::StartBoss);
     let events = finish(&mut won, win());
     assert_eq!(won.phase, Phase::Over { won: true });
     assert_eq!(events.last(), Some(&RunEvent::RunEnded { won: true }));
     assert_eq!(run_legal_actions(&won), []);
 
     let mut lost = at_the_boss("warden");
-    act(&mut lost, RunAction::StartBoss);
     finish(&mut lost, loss());
-    // Whatever hearts were left.
-    assert_eq!(lost.hearts, lost.max_hearts);
+    // However few wounds were carried.
+    assert!(lost.wounds.is_empty());
     assert_eq!(lost.phase, Phase::Over { won: false });
 
     let mut conceded = at_the_boss("warden");
-    act(&mut conceded, RunAction::StartBoss);
     act(&mut conceded, RunAction::Concede);
     assert_eq!(conceded.phase, Phase::Over { won: false });
 }
 
 #[test]
-fn a_drawn_boss_duel_is_fought_again_with_the_boons_kept() {
+fn a_drawn_boss_duel_is_fought_again() {
     let mut state = at_the_boss("warden");
-    let boon = data::embedded().unwrap().balance.run.boons[0].id.clone();
-    act(&mut state, RunAction::TakeBoon { boon });
-    act(&mut state, RunAction::StartBoss);
     let first = state.duel.clone();
     let events = finish(&mut state, GameResult::Draw);
     assert!(matches!(
@@ -1861,7 +2091,7 @@ fn a_drawn_boss_duel_is_fought_again_with_the_boons_kept() {
         }
     ));
     let rematch = state.duel.as_ref().unwrap();
-    assert_eq!(rematch.player(PLAYER).life, 25);
+    assert_eq!(rematch.player(PLAYER).life, 20);
     assert!(rematch.result.is_none());
     // A new duel from a new seed.
     assert_ne!(Some(rematch), first.as_ref());
@@ -1980,7 +2210,7 @@ fn random_runs_always_have_something_to_do_and_end() {
                     assert!(!view.actions.is_empty());
                 }
             }
-            assert!(state.hearts <= state.max_hearts);
+            assert!(state.wounds.len() <= max_wounds());
             for instance in &state.deck {
                 assert!(data.cards.get(&instance.card_id).is_some());
             }
@@ -2028,7 +2258,7 @@ fn the_view_and_the_content_serialise() {
 
     let content = run_content().unwrap();
     assert_eq!(content.planeswalkers.len(), 2);
-    assert_eq!(content.boons.len(), 4);
+    assert_eq!(content.wounds.len(), 1);
     assert!(
         content
             .reward_cards

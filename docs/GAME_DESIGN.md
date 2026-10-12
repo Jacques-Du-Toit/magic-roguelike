@@ -21,27 +21,25 @@ Real Magic: The Gathering duels inside a Slay the Spire–style roguelike. Start
 - The player sees the whole act map and chooses a path (Slay the Spire style). Paths trade risk for reward (more elites, fewer rest sites, etc.).
 - Beating the act 3 boss wins the run.
 
-### 3.1 Hearts (run health)
+### 3.1 Wounds (run health)
 
-In-duel life and run health are **separate**.
+In-duel life and run health are **separate**. (Hearts and boons were the first version of this; wounds replaced them, `DECISIONS.md` #68.)
 
 - Every duel starts at **20 life** for both players, regardless of how the last one went.
-- The player has **hearts** (start: **3 per act**). Hearts refill to full at the start of each act.
-- **Losing a normal duel**: lose 1 heart, receive a reduced reward (e.g. gold only, or pick 1 of 2 commons).
-- **Losing an elite**: lose 1 heart, no relic.
-- **Hearts reach 0 before the boss**: run over.
-- **Losing a boss duel**: run over, regardless of hearts.
-- **Boons**: before the boss, each remaining heart buys **one boon** from a menu, for that boss duel only. Example boons:
-  - Start with +5 life
-  - +1 card in opening hand
-  - Boss starts with −5 life
-  - Free mulligan to 7
-  - Start with an extra land on the battlefield
-- Keep boons modest. A heart is an edge, not a win. Watch for snowballing.
+- **Losing a duel or an elite** leaves a **wound**, and still pays a little: some gold and a pick from 2 cards. An elite lost gives no relic.
+- A wound follows the player into **every duel** until a rest site heals it. The first kind is the Festering Wound: an artifact on the player's battlefield that deals 1 damage to them each turn until they pay {2} to be rid of it for that duel.
+- **The third wound** ends the run.
+- **Losing a boss duel**: run over, however few wounds are carried. The boss is fought with the deck, the relics and the wounds: nothing else.
+- Later wounds may be harsher, and acts may differ in which they give.
 
 ### 3.2 Tying duels together
 
-Because life doesn't carry over, each duel stands alone unless something else links them. Gold bonuses for winning fast or at high life were tried in M3 and dropped: they favour some archetypes over others (`DECISIONS.md` #36). The planned link is **consumables**: single-use items, each about as strong as a boon, earned at events, treasure and shops and spent in a duel of the player's choosing. A later maybe: wagers, where the player gives the enemy an emblem for a better reward.
+Because life doesn't carry over, each duel stands alone unless something else links them. Two things do (`DECISIONS.md` #68, #69):
+
+- **Wounds** carry a loss forward into every duel after it.
+- **Feats** give every duel something to play for beyond winning. Before a duel the player picks two of five feats on offer ("never fall below 12 / 15 / 18 life", "control 4 / 6 / 8 creatures at once"). Each scores a point for each tier met if the duel is won, and the points set how good the card reward is. Missing a feat costs nothing. A character has a pool of feats: some shared, some its own. The boss has none.
+
+Gold bonuses for winning fast or at high life were tried in M3 and dropped as a standing rule, because they favour some archetypes over others (`DECISIONS.md` #36); as feats they are two choices among several. Still planned: **consumables**, single-use items earned at events, treasure and shops and spent in a duel of the player's choosing. Later maybes: feats that belong to an elite or an event, feats collected during the run like relics, and wagers, where the player gives the enemy an emblem for a better reward. The ideas weighed on the way are in `docs/ATTRITION_IDEAS.md`.
 
 ## 4. The duel
 
@@ -90,11 +88,11 @@ These are original characters (or generic archetypes) — not MTG's named planes
 | Node | What happens |
 |---|---|
 | **Duel** | Normal opponent. Win: pick 1 of 3 cards (rarity-weighted) + gold. |
-| **Elite** | Stronger deck. Win: relic + card pick. Loss: −1 heart, nothing. |
+| **Elite** | Stronger deck. Win: relic + card pick. Loss: a wound, no relic. |
 | **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. |
 | **Draft** | Open a pack of five cards in your colours and keep up to two. Built (`DECISIONS.md` #57). |
 | **Shop** | Buy cards, lands (incl. duals), relics. Pay to remove a card. |
-| **Rest** | Choose: upgrade a card, or remove a card. (Healing isn't needed with hearts; possibly "restore 1 heart" as a third option — playtest.) |
+| **Rest** | Choose: heal a wound, or remove a card. Upgrading a card is to come. |
 | **Event** | Short text event with a trade-off choice (e.g. "add a powerful card with a drawback", "sacrifice a relic for two cards"). Built with five events, each of which can be walked away from (`DECISIONS.md` #66). |
 | **Treasure** | Choose one of two relics you don't own, or take gold instead. Built (`DECISIONS.md` #64). |
 
@@ -201,4 +199,4 @@ From the owner's M3 playtest (2026-10-11), the direction to explore once saving 
 
 - Self-mill in a 25-card deck runs into fatigue (seen in the M4a sim). What makes a graveyard deck worth it here?
 
-Settled for the one-act prototype (see `DECISIONS.md` #22 to #31): rest sites restore a heart or remove a card; elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.
+Settled for the one-act prototype (see `DECISIONS.md` #22 to #31): rest sites heal a wound (at first, restored a heart) or remove a card; elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.

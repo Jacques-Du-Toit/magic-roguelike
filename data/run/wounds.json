@@ -1,0 +1,8 @@
+[
+  {
+    "id": "festering_wound",
+    "name": "Festering Wound",
+    "text": "You start each duel with a Festering Wound on the battlefield: it deals 1 damage to you at the beginning of your end step, and {2} sacrifices it for that duel.",
+    "effects": [{ "type": "starting_token", "token": "festering_wound" }]
+  }
+]

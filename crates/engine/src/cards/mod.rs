@@ -82,6 +82,10 @@ pub struct CardDef {
     /// whatever the file says.
     #[serde(default)]
     pub token: bool,
+    /// A permanent its controller is better off without, like a wound. It
+    /// changes no rule: the AI counts it against whoever controls it.
+    #[serde(default)]
+    pub burden: bool,
     #[serde(default)]
     pub abilities: Vec<AbilityDef>,
 }
@@ -144,6 +148,9 @@ pub enum Supertype {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
 pub enum CardType {
+    /// Only a wound so far (`data/tokens/festering_wound.json`): no card in
+    /// the pool is an artifact yet.
+    Artifact,
     Creature,
     Enchantment,
     Instant,
@@ -524,6 +531,9 @@ pub enum Effect {
     /// "Return it to its owner's hand", for an ability that triggers on
     /// its own card going to the graveyard: the card comes back from there.
     ReturnThisToHand {},
+    /// "Sacrifice this": the controller sacrifices the permanent the
+    /// ability is on, if it is still on the battlefield.
+    SacrificeThis {},
     /// Taps the target. With `skip_next_untap` it also stays tapped through
     /// its controller's next untap step.
     Tap {
@@ -557,6 +567,7 @@ impl Effect {
             Effect::ModifyPtUntilEot { .. } => "modify_pt_until_eot",
             Effect::ReturnThisToHand {} => "return_this_to_hand",
             Effect::ReturnToHand { .. } => "return_to_hand",
+            Effect::SacrificeThis {} => "sacrifice_this",
             Effect::Scry { .. } => "scry",
             Effect::Surveil { .. } => "surveil",
             Effect::Tap { .. } => "tap",
@@ -590,6 +601,7 @@ impl Effect {
             | Effect::GainLifeEqualTo { .. }
             | Effect::FetchBasicLand {}
             | Effect::ReturnThisToHand {}
+            | Effect::SacrificeThis {}
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::YourCreaturesGetUntilEot { .. } => Vec::new(),
@@ -818,7 +830,7 @@ pub enum CardError {
     ColorsMismatch(String),
     #[error("a land cannot have a mana cost")]
     LandWithCost,
-    #[error("a token must be a creature with no mana cost")]
+    #[error("a token must be a creature or an artifact, with no mana cost")]
     Token,
     #[error("`create_token` needs a count above zero")]
     NoTokens,
@@ -902,7 +914,8 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
     // A token has a colour and no cost.
     let colors_from_cost = card.colors.iter().copied().collect::<BTreeSet<_>>();
     if card.token {
-        if !card.mana_cost.is_empty() || !card.is_creature() {
+        let kind_fits = card.is_creature() || card.has_type(CardType::Artifact);
+        if !card.mana_cost.is_empty() || !kind_fits {
             return Err(CardError::Token);
         }
     } else if colors_from_cost != card.mana_cost.colors() {
@@ -961,6 +974,10 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
                 .any(|effect| matches!(effect, Effect::GainLifeEqualTo { .. }))
             {
                 return Err(CardError::NotOnASpell("gain_life_equal_to"));
+            }
+            // A spell is not a permanent to sacrifice.
+            if effects.contains(&Effect::SacrificeThis {}) {
+                return Err(CardError::NotOnASpell("sacrifice_this"));
             }
             validate_effects(effects)
         }
@@ -1140,6 +1157,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::GainLifeEqualTo { .. }
         | Effect::FetchBasicLand {}
         | Effect::ReturnThisToHand {}
+        | Effect::SacrificeThis {}
         | Effect::Discard { .. }
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }

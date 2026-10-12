@@ -137,6 +137,12 @@ impl Run {
         self.session.duel_should_auto_pass(hold_priority)
     }
 
+    /// How the feats picked for the duel stand, as a JSON array of
+    /// `FeatScore`.
+    pub fn duel_feats(&self) -> Result<String, JsError> {
+        self.session.duel_feats().map_err(js_error)
+    }
+
     /// Applies one of the human's legal duel actions and returns a
     /// `DuelUpdate` as JSON.
     pub fn duel_apply(&mut self, action: &str) -> Result<String, JsError> {

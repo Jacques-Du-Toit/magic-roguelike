@@ -1,0 +1,21 @@
+{
+  "id": "festering_wound",
+  "name": "Festering Wound",
+  "mana_cost": "",
+  "types": ["Artifact"],
+  "rarity": "common",
+  "oracle_text": "At the beginning of your end step, this artifact deals 1 damage to you.\n{2}: Sacrifice this artifact.",
+  "burden": true,
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": { "type": "beginning_of_end_step" },
+      "effects": [{ "type": "deal_damage", "amount": 1, "target": { "you": {} } }]
+    },
+    {
+      "kind": "activated",
+      "cost": { "mana": "{2}" },
+      "effects": [{ "type": "sacrifice_this" }]
+    }
+  ]
+}

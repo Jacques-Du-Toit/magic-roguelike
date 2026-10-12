@@ -71,11 +71,11 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Instant, sorcery | In | |
 | Land (basic + simple duals) | In | Duals: enter untapped / tapped variants only. Built in M3 with the Guildgates: "enters tapped" is a card property, and the auto-payer matches coloured symbols to sources. |
 | Enchantment, Aura | In | Auras: "enchant creature" first. |
-| Artifact | In | |
+| Artifact | In | The type is built for one permanent only: the Festering Wound, the token a wound of the run puts on the battlefield (`DECISIONS.md` #68). No card in the pool is an artifact yet, and nothing targets or counts artifacts. |
 | Equipment | Later | |
 | Planeswalker cards | Later | Open question. |
 | Vehicles, Sagas, Battles, Classes, Rooms | Out (for now) | |
-| Tokens | In | Creature tokens are built (M4a). Treasure needs artifacts; Food and Clue are later. |
+| Tokens | In | Creature tokens are built (M4a), and one artifact token, the Festering Wound. Treasure needs mana from an artifact; Food and Clue are later. |
 | Double-faced / split / adventure / MDFC | Out | |
 
 ## Keywords
@@ -132,7 +132,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 |---|---|
 | Targeting, illegal targets on resolution (fizzle) | In |
 | Hexproof / shroud | In / Out |
-| Emblems (boss emblems, relics, boons, passives) | In |
+| Emblems (boss emblems, relics, passives) | In |
 | Alternate win/lose conditions | Out |
 | Hidden information (hand, library order) | In |
 | Random discard, look at top N, reveal | In |
@@ -148,7 +148,6 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 |---|---|
 | Boss emblem: "creatures have ward {1}" | Ward (Later) |
 | Boss emblem: "upkeep, create a 2/2 Zombie" | Nothing: tokens are built, and an emblem can create one |
-| Boon: "free mulligan to 7" | A mulligan rule change; not built |
 | Relic: "the first instant each turn costs {1} less" | Cost reduction (Simplified, not built) and per-turn counting |
 | Relic: "+1/+1 counters, that many plus one instead" | General replacement effects (Out for now) |
 | Passive: "your tokens enter with a +1/+1 counter" | Replacement effect (Out for now) |

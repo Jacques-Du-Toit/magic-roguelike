@@ -163,6 +163,25 @@ Built in four parts, each ending in something to play:
 
 **Slice 9 (2026-10-12): the map is 11 rows and the boss.** The layout the owner approved (`DECISIONS.md` #67): easy duel, easy duel, draft, treasure or event, duel or elite, shop/rest/event, duel/shop/rest, treasure or event, duel or elite, duel/shop/draft, rest, boss. A test walks every path of 80 maps: four to six duels, as before, and two rows of treasures and events on each. Checks: 595 engine tests, 12 wasm-crate tests, 29 sim tests, 71 web tests and 22 end-to-end tests pass; `cargo test` takes 64 s and the end-to-end tests 67 s. One act passes every kind of node again, so the end-to-end tests are back to two acts: seeds 17 (Warden, with the Wandering Smith) and 18 (Firebrand, with the Devil's Bargain). `sim --runs --games 300`, +/- 6: the Warden wins the act in 72.3% of runs (60.0% on the 8-row map) and the Firebrand in 52.3% (45.3%), no errors, in 146 s. The act is easier, the Warden's by more than the margin: the same 3.9 normal duels and 0.8 elites a run, but 9.4 cards added where there were 6.9, and 1.4 relics where there were 0.5; the boss is beaten 73.6% and 54.3% of the time by those who reach it (61.6% and 48.7%). No win rate is being aimed at yet (`DECISIONS.md` #56). Still held back: enemies at 10 life in the first rows, until the owner has played this.
 
+**Slice 10 (2026-10-12): wounds and feats.** Hearts and boons are replaced (`DECISIONS.md` #68, #69; the ideas weighed are in `docs/ATTRITION_IDEAS.md`). A lost duel leaves a wound, the Festering Wound: an artifact that starts every duel on the player's battlefield, deals 1 damage to them at their end step and is sacrificed for {2}; a rest site heals one, the third ends the run, and a loss still offers 2 cards. Before every duel but the boss's the player picks 2 of 5 feats, each in three tiers; their points (0 to 6) set the card reward, from 2 cards to choose from up to 4 at better rarity weights with 30 gold. Eight feats: five shared and three for the Warden. New in the engine: the artifact type (for the wound only), "sacrifice this", a `burden` mark the AI reads, and the duel's stats that feats are scored from. Checks: 610 engine tests, 12 wasm-crate tests, 29 sim tests, 72 web tests and 22 end-to-end tests pass. The end-to-end acts are seeds 17 (Warden, with the Devil's Bargain) and 12 (Firebrand, with the Wandering Smith).
+
+`sim --runs --games 300`, +/- 6, in 101 s: the Warden wins the act in 58.7% of runs (72.3% after slice 9) and the Firebrand in 27.7% (52.3%), no errors. Both falls are outside the margin. They reach the boss as often as before (98.3% and 89.0%), with 0.2 wounds on average, and beat it 59.7% and 31.1% of the time (73.6% and 54.3%): the boons are gone, which were up to three of 5 more life, a boss at 5 less, an extra card and a land, and a win with no points now offers 2 cards where it offered 3. How much each of those weighs was not measured.
+
+How often a duel that was won met each tier of each feat, with the AI playing the player's side and not trying for any of them (so a floor for what a person aiming at them does):
+
+| Feat | Warden: tier 1 | tier 2 | tier 3 | Firebrand: tier 1 | tier 2 | tier 3 |
+|---|---|---|---|---|---|---|
+| Unbroken (never below 12 / 15 / 18 life) | 85% | 77% | 60% | 72% | 56% | 35% |
+| Swift (win by your turn 9 / 7 / 6) | 37% | 10% | 3% | 53% | 30% | 18% |
+| Towering (power 5 / 7 / 10 by your turn 7) | 61% | 13% | 3% | 6% | 0% | 0% |
+| Unbowed (lose at most 3 / 1 / 0 creatures) | 29% | 6% | 1% | 31% | 10% | 2% |
+| Dominant (6 / 10 / 15 more total power) | 92% | 61% | 24% | 63% | 9% | 1% |
+| Legion (4 / 6 / 8 creatures at once) | 95% | 49% | 13% | | | |
+| Tempered (4 / 8 / 12 counters at once) | 15% | 6% | 3% | | | |
+| Adorned (2 / 3 / 5 enchantments at once) | 21% | 4% | 0% | | | |
+
+Over 1142 and 1001 duels won, so each figure is within about 3 points. Two feats picked blindly scored 2.3 points a duel for the Warden and 2.6 for the Firebrand, of 6. What stands out, to be tuned once the owner has played it: Unbroken, Dominant and Legion are nearly free at their first tier, and Unbroken's third tier is met in most of the Warden's wins; Unbowed's first tier (at most 3 creatures lost) is met in under a third of wins, so its numbers look too tight; Towering is out of the Firebrand's reach. Not built: replacements for the two feats the owner turned down (Flourishing and Champion), feats of the Firebrand's own, and any tuning of the numbers.
+
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 **M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
@@ -322,7 +341,7 @@ What the new AI still plays badly:
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
-- [ ] Draft node (built), Treasure node (built), Event node (built, five events), card upgrades.
+- [ ] Draft node (built), Treasure node (built), Event node (built, five events), wounds and feats in place of hearts and boons (built, to be played), card upgrades.
 - [ ] 3 acts, 3 bosses, ~20 relics (12 so far), 4+ planeswalkers.
 - [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.

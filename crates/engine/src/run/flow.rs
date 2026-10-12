@@ -8,9 +8,10 @@ use crate::duel::{
 };
 
 use super::defs::{
-    EnemyDef, EnemyId, EnemyTier, EventDef, EventEffect, EventOptionDef, ModifierDef,
+    EnemyDef, EnemyId, EnemyTier, EventDef, EventEffect, EventOptionDef, FeatId, ModifierDef,
     ModifierEffect, ModifierId, PlaneswalkerDef,
 };
+use super::feats::{DuelStats, FeatScore};
 use super::loadout::{Loadout, duel_config, starting_deck};
 use super::map::generate_map;
 use super::rewards::{
@@ -22,7 +23,7 @@ use super::state::{
     RunError, RunEvent, RunState, Ware,
 };
 
-/// Starts a run: a map, the planeswalker's starting deck, full hearts.
+/// Starts a run: a map, the planeswalker's starting deck, no wounds.
 pub fn new_run(config: RunConfig, seed: u64) -> Result<RunState, RunError> {
     let data = data::embedded()?;
     let planeswalker = data
@@ -40,16 +41,16 @@ pub fn new_run(config: RunConfig, seed: u64) -> Result<RunState, RunError> {
         seed,
         planeswalker: config.planeswalker,
         emblem,
-        hearts: balance.hearts,
-        max_hearts: balance.hearts,
+        wounds: Vec::new(),
         gold: balance.starting_gold,
         deck: starting_deck(planeswalker),
         relics: Vec::new(),
-        boons: Vec::new(),
         map,
         path: Vec::new(),
         phase: Phase::Map,
         duel: None,
+        duel_stats: None,
+        feats: Vec::new(),
         fought: Vec::new(),
         events_met: Vec::new(),
         next_duel: Vec::new(),
@@ -71,9 +72,11 @@ fn event_picks(
     let mut picks = vec![None];
     for effect in &option.effects {
         let possible = match effect {
-            // Never the last heart: an event doesn't end a run.
-            EventEffect::LoseHearts { amount } => state.hearts > *amount,
-            EventEffect::RestoreHearts { .. } => state.hearts < state.max_hearts,
+            // Never the wound that ends the run: an event doesn't do that.
+            EventEffect::TakeWound {} => {
+                state.wounds.len() + 1 < usize::from(data.balance.run.max_wounds)
+            }
+            EventEffect::HealWound {} => !state.wounds.is_empty(),
             EventEffect::PayGold { amount } => state.gold >= *amount,
             EventEffect::GainRelic {} => {
                 picks = (0..relics.len()).map(Some).collect();
@@ -107,6 +110,30 @@ fn planeswalker<'a>(
     data.run
         .planeswalker(&state.planeswalker)
         .ok_or_else(|| InternalError::new(format!("no planeswalker `{}`", state.planeswalker)))
+}
+
+/// Every way to pick `picks` of `offered` things, as places in rising order.
+fn combinations(offered: usize, picks: usize) -> Vec<Vec<usize>> {
+    let mut all: Vec<Vec<usize>> = vec![Vec::new()];
+    for _ in 0..picks {
+        all = all
+            .into_iter()
+            .flat_map(|chosen| {
+                let from = chosen.last().map_or(0, |last| last + 1);
+                (from..offered).map(move |next| {
+                    let mut longer = chosen.clone();
+                    longer.push(next);
+                    longer
+                })
+            })
+            .collect();
+    }
+    all
+}
+
+/// How many of the feats offered before a duel are picked.
+fn feat_picks(data: &GameData, offered: usize) -> usize {
+    usize::from(data.balance.run.feats.picks).min(offered)
 }
 
 /// Whether the deck is big enough to lose a card.
@@ -153,6 +180,12 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
                 .map(|node| RunAction::Travel { node })
                 .collect()
         }
+        Phase::Feats { offered, .. } => {
+            combinations(offered.len(), feat_picks(data, offered.len()))
+                .into_iter()
+                .map(|feats| RunAction::ChooseFeats { feats })
+                .collect()
+        }
         Phase::Duel { .. } => match &state.duel {
             Some(duel) if duel.result.is_none() => vec![RunAction::Concede],
             _ => vec![RunAction::FinishDuel],
@@ -165,10 +198,9 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
             actions
         }
         Phase::Rest => {
-            let mut actions = Vec::new();
-            if state.hearts < state.max_hearts {
-                actions.push(RunAction::RestHeal);
-            }
+            let mut actions: Vec<RunAction> = (0..state.wounds.len())
+                .map(|wound| RunAction::HealWound { wound })
+                .collect();
             actions.extend(removals());
             actions.push(RunAction::Leave);
             actions
@@ -222,20 +254,6 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
             actions.push(RunAction::Leave);
             actions
         }
-        Phase::Boons { picks_left } => {
-            let mut actions = Vec::new();
-            if *picks_left > 0 {
-                for boon in &data.balance.run.boons {
-                    if !state.boons.contains(&boon.id) {
-                        actions.push(RunAction::TakeBoon {
-                            boon: boon.id.clone(),
-                        });
-                    }
-                }
-            }
-            actions.push(RunAction::StartBoss);
-            actions
-        }
         Phase::Over { .. } => Vec::new(),
     })
 }
@@ -258,14 +276,19 @@ pub fn apply_run_action(
 }
 
 /// Applies an action of the duel in progress for `player`. The enemy's
-/// actions come from `ai_choose_action` on `RunState::duel`.
+/// actions come from `ai_choose_action` on `RunState::duel`. What happened
+/// is added to the duel's stats, which its feats are scored from.
 pub fn apply_duel_action(
     state: &mut RunState,
     player: PlayerId,
     action: Action,
 ) -> Result<Vec<GameEvent>, RunError> {
     let duel = state.duel.as_mut().ok_or(RunError::NoDuel)?;
-    Ok(apply_action(duel, player, action)?)
+    let events = apply_action(duel, player, action)?;
+    if let Some(stats) = state.duel_stats.as_mut() {
+        stats.observe(duel, &events)?;
+    }
+    Ok(events)
 }
 
 fn change_gold(state: &mut RunState, events: &mut Vec<RunEvent>, change: i64, reason: GoldReason) {
@@ -287,12 +310,10 @@ fn end_run(state: &mut RunState, events: &mut Vec<RunEvent>, won: bool) {
 }
 
 /// The modifiers the player takes into a duel: the starting emblem, relics,
-/// whatever an event left for the next duel, and the boons too if it is
-/// the boss.
+/// wounds, and whatever an event left for the next duel.
 fn player_modifiers<'a>(
     state: &RunState,
     data: &'a GameData,
-    kind: DuelKind,
 ) -> Result<Vec<&'a ModifierDef>, InternalError> {
     let emblem = data
         .run
@@ -313,17 +334,12 @@ fn player_modifiers<'a>(
                 .ok_or_else(|| InternalError::new(format!("no event modifier `{id}`")))?,
         );
     }
-    if kind == DuelKind::Boss {
-        for id in &state.boons {
-            modifiers.push(
-                data.balance
-                    .run
-                    .boons
-                    .iter()
-                    .find(|boon| boon.id == *id)
-                    .ok_or_else(|| InternalError::new(format!("no boon `{id}`")))?,
-            );
-        }
+    for id in &state.wounds {
+        modifiers.push(
+            data.run
+                .wound(id)
+                .ok_or_else(|| InternalError::new(format!("no wound `{id}`")))?,
+        );
     }
     Ok(modifiers)
 }
@@ -349,25 +365,77 @@ fn pick_enemy<'a>(
         .ok_or_else(|| InternalError::new(format!("no enemy of tier {tier:?}")))
 }
 
-fn start_duel(
+/// What happens on arriving at a duel: the feats for it are offered, and
+/// the duel starts once they are picked. With no feats to offer it starts
+/// at once.
+fn offer_feats(
     state: &mut RunState,
     events: &mut Vec<RunEvent>,
     data: &GameData,
     enemy: &EnemyDef,
     kind: DuelKind,
 ) -> Result<(), RunError> {
+    // Places in the character's pool, taken at random and shown in the
+    // pool's order.
+    let pool: Vec<&FeatId> = data
+        .run
+        .feats_for(&state.planeswalker)
+        .map(|feat| &feat.id)
+        .collect();
+    let mut left: Vec<usize> = (0..pool.len()).collect();
+    let mut taken = Vec::new();
+    for _ in 0..data.balance.run.feats.offered {
+        if left.is_empty() {
+            break;
+        }
+        let pick = state
+            .rng
+            .below(u32::try_from(left.len()).unwrap_or(u32::MAX)) as usize;
+        taken.push(left.remove(pick));
+    }
+    taken.sort_unstable();
+    let offered: Vec<FeatId> = taken
+        .into_iter()
+        .filter_map(|place| pool.get(place).map(|&id| id.clone()))
+        .collect();
+    if offered.is_empty() {
+        return start_duel(state, events, data, enemy, kind, Vec::new());
+    }
+    state.phase = Phase::Feats {
+        enemy: enemy.id.clone(),
+        kind,
+        offered,
+    };
+    events.push(RunEvent::FeatsOffered {
+        enemy: enemy.id.clone(),
+        kind,
+    });
+    Ok(())
+}
+
+fn start_duel(
+    state: &mut RunState,
+    events: &mut Vec<RunEvent>,
+    data: &GameData,
+    enemy: &EnemyDef,
+    kind: DuelKind,
+    feats: Vec<FeatId>,
+) -> Result<(), RunError> {
     let planeswalker = planeswalker(state, data)?;
     let player = Loadout::player(
         &state.deck,
         &planeswalker.colors,
         planeswalker.commander.as_ref(),
-        player_modifiers(state, data, kind)?,
+        player_modifiers(state, data)?,
         &data.cards,
         &data.balance,
     )?;
     let config = duel_config(player, Loadout::enemy(enemy, &data.cards)?, &data.balance);
     let seed = state.rng.next_seed();
-    state.duel = Some(new_duel(config, seed)?);
+    let duel = new_duel(config, seed)?;
+    state.duel_stats = Some(DuelStats::new(&duel, PLAYER)?);
+    state.duel = Some(duel);
+    state.feats = feats;
     // What an event left for the next duel has now been used.
     state.next_duel.clear();
     state.phase = Phase::Duel {
@@ -408,11 +476,11 @@ fn travel(
                 .get(row)
                 .map_or(EnemyTier::Normal, |row| row.duel_tier);
             let enemy = pick_enemy(state, data, tier)?;
-            start_duel(state, events, data, enemy, DuelKind::Normal)?;
+            offer_feats(state, events, data, enemy, DuelKind::Normal)?;
         }
         NodeKind::Elite => {
             let enemy = pick_enemy(state, data, EnemyTier::Elite)?;
-            start_duel(state, events, data, enemy, DuelKind::Elite)?;
+            offer_feats(state, events, data, enemy, DuelKind::Elite)?;
         }
         NodeKind::Rest => state.phase = Phase::Rest,
         NodeKind::Shop => {
@@ -462,10 +530,10 @@ fn travel(
                 }
             };
         }
+        // The boss is only to be beaten: no feats.
         NodeKind::Boss => {
-            state.phase = Phase::Boons {
-                picks_left: state.hearts,
-            };
+            let boss = pick_enemy(state, data, EnemyTier::Boss)?;
+            start_duel(state, events, data, boss, DuelKind::Boss, Vec::new())?;
         }
     }
     Ok(())
@@ -489,13 +557,38 @@ fn pick_event<'a>(state: &mut RunState, data: &'a GameData) -> Option<&'a EventD
     pool.get(pick).copied()
 }
 
-fn restore_hearts(state: &mut RunState, events: &mut Vec<RunEvent>, amount: u8) {
-    let restored = amount.min(state.max_hearts - state.hearts);
-    state.hearts += restored;
-    events.push(RunEvent::HeartsChanged {
-        change: i8::try_from(restored).unwrap_or(i8::MAX),
-        hearts: state.hearts,
+/// Heals `wounds[index]`.
+fn heal_wound(
+    state: &mut RunState,
+    events: &mut Vec<RunEvent>,
+    index: usize,
+) -> Result<(), InternalError> {
+    if index >= state.wounds.len() {
+        return Err(InternalError::new(format!("no wound {index} to heal")));
+    }
+    let wound = state.wounds.remove(index);
+    events.push(RunEvent::WoundHealed { wound });
+    Ok(())
+}
+
+/// The player takes a wound, one of `data/run/wounds.json` at random.
+fn take_wound(
+    state: &mut RunState,
+    events: &mut Vec<RunEvent>,
+    data: &GameData,
+) -> Result<(), InternalError> {
+    let wounds = &data.run.wounds;
+    let pick = state
+        .rng
+        .below(u32::try_from(wounds.len()).unwrap_or(u32::MAX)) as usize;
+    let wound = wounds
+        .get(pick)
+        .ok_or_else(|| InternalError::new("there are no wounds to take"))?;
+    state.wounds.push(wound.id.clone());
+    events.push(RunEvent::WoundTaken {
+        wound: wound.id.clone(),
     });
+    Ok(())
 }
 
 /// What the player's relics do to the run itself.
@@ -553,19 +646,6 @@ fn gain_relic(state: &mut RunState, events: &mut Vec<RunEvent>, relic: ModifierI
     events.push(RunEvent::RelicGained { relic });
 }
 
-fn lose_heart(state: &mut RunState, events: &mut Vec<RunEvent>) {
-    state.hearts = state.hearts.saturating_sub(1);
-    events.push(RunEvent::HeartsChanged {
-        change: -1,
-        hearts: state.hearts,
-    });
-    if state.hearts == 0 {
-        end_run(state, events, false);
-    } else {
-        state.phase = Phase::Map;
-    }
-}
-
 /// Ends the duel with `outcome` and applies what follows from it.
 fn finish_duel(
     state: &mut RunState,
@@ -577,6 +657,8 @@ fn finish_duel(
         return Err(RunError::NoDuel);
     };
     state.duel.take().ok_or(RunError::NoDuel)?;
+    let stats = state.duel_stats.take();
+    let feats = std::mem::take(&mut state.feats);
     events.push(RunEvent::DuelEnded {
         enemy: enemy.clone(),
         kind,
@@ -589,12 +671,12 @@ fn finish_duel(
         (DuelKind::Boss, DuelOutcome::Won) => end_run(state, events, true),
         (DuelKind::Boss, DuelOutcome::Lost) => end_run(state, events, false),
         (DuelKind::Boss, DuelOutcome::Drawn) => {
-            // The boss has to be beaten: fight again, boons kept.
+            // The boss has to be beaten: fight again.
             let enemy = data
                 .run
                 .enemy(&enemy)
                 .ok_or_else(|| InternalError::new(format!("no enemy `{enemy}`")))?;
-            start_duel(state, events, data, enemy, DuelKind::Boss)?;
+            start_duel(state, events, data, enemy, DuelKind::Boss, Vec::new())?;
         }
         (_, DuelOutcome::Drawn) => {
             change_gold(state, events, i64::from(gold.draw), GoldReason::DuelDrawn);
@@ -606,7 +688,21 @@ fn finish_duel(
                 _ => gold.duel_loss,
             };
             change_gold(state, events, i64::from(consolation), GoldReason::DuelLost);
-            lose_heart(state, events);
+            take_wound(state, events, data)?;
+            if state.wounds.len() >= usize::from(balance.max_wounds) {
+                end_run(state, events, false);
+            } else {
+                // A loss still pays a little: fewer cards to pick from.
+                let colors = &planeswalker(state, data)?.colors;
+                let choices = card_reward(
+                    &mut state.rng,
+                    data,
+                    colors,
+                    &balance.rewards.duel,
+                    balance.rewards.loss_choices,
+                );
+                state.phase = Phase::Reward { choices };
+            }
         }
         (_, DuelOutcome::Won) => {
             let prize = match kind {
@@ -620,20 +716,71 @@ fn finish_duel(
                 i64::from(relic_gold(state, data)),
                 GoldReason::Relic,
             );
-            let weights = if kind == DuelKind::Elite {
-                if let Some(relic) = random_relic(&mut state.rng, data, &state.relics) {
-                    gain_relic(state, events, relic);
-                }
-                &balance.rewards.elite
-            } else {
-                &balance.rewards.duel
-            };
+            if kind == DuelKind::Elite
+                && let Some(relic) = random_relic(&mut state.rng, data, &state.relics)
+            {
+                gain_relic(state, events, relic);
+            }
+            // The feats set how good the card reward is.
+            let points = score_feats(events, data, &feats, stats.as_ref())?;
+            let reward = balance
+                .feats
+                .reward(points)
+                .ok_or_else(|| InternalError::new(format!("no reward for {points} points")))?;
+            change_gold(state, events, i64::from(reward.gold), GoldReason::Feats);
+            let ladder = [
+                &balance.rewards.duel,
+                &balance.rewards.elite,
+                &balance.rewards.top,
+            ];
+            let step = usize::from(kind == DuelKind::Elite) + usize::from(reward.rarity_steps);
+            let weights = ladder[step.min(ladder.len() - 1)];
             let colors = &planeswalker(state, data)?.colors;
-            let choices = card_reward(&mut state.rng, data, colors, weights);
+            let choices = card_reward(&mut state.rng, data, colors, weights, reward.choices);
             state.phase = Phase::Reward { choices };
         }
     }
     Ok(())
+}
+
+/// Scores the feats picked for a duel that was won, reports it, and
+/// returns their points in all.
+fn score_feats(
+    events: &mut Vec<RunEvent>,
+    data: &GameData,
+    feats: &[FeatId],
+    stats: Option<&DuelStats>,
+) -> Result<u32, InternalError> {
+    if feats.is_empty() {
+        return Ok(0);
+    }
+    let stats = stats.ok_or_else(|| InternalError::new("a duel with feats has no stats"))?;
+    let scores = scores(data, feats, stats)?;
+    let points = scores.iter().map(|score| u32::from(score.score)).sum();
+    events.push(RunEvent::FeatsScored { scores, points });
+    Ok(points)
+}
+
+/// What each of `feats` scores for a duel with these stats.
+fn scores(
+    data: &GameData,
+    feats: &[FeatId],
+    stats: &DuelStats,
+) -> Result<Vec<FeatScore>, InternalError> {
+    feats
+        .iter()
+        .map(|id| {
+            let feat = data
+                .run
+                .feat(id)
+                .ok_or_else(|| InternalError::new(format!("no feat `{id}`")))?;
+            Ok(FeatScore {
+                feat: id.clone(),
+                score: feat.score(stats),
+                value: feat.value(stats),
+            })
+        })
+        .collect()
 }
 
 fn add_card(state: &mut RunState, events: &mut Vec<RunEvent>, card: CardDefId) {
@@ -666,6 +813,24 @@ fn perform(
     let mismatch = || InternalError::new(format!("{action:?} does not fit the phase"));
     match (action, state.phase.clone()) {
         (RunAction::Travel { node }, Phase::Map) => travel(state, events, data, *node)?,
+        (
+            RunAction::ChooseFeats { feats },
+            Phase::Feats {
+                enemy,
+                kind,
+                offered,
+            },
+        ) => {
+            let mut chosen = Vec::new();
+            for place in feats {
+                chosen.push(offered.get(*place).ok_or_else(mismatch)?.clone());
+            }
+            let enemy = data
+                .run
+                .enemy(&enemy)
+                .ok_or_else(|| InternalError::new(format!("no enemy `{enemy}`")))?;
+            start_duel(state, events, data, enemy, kind, chosen)?;
+        }
         (RunAction::Concede, Phase::Duel { .. }) => {
             finish_duel(state, events, data, DuelOutcome::Lost)?;
         }
@@ -684,8 +849,8 @@ fn perform(
             state.phase = Phase::Map;
         }
         (RunAction::SkipReward, Phase::Reward { .. }) => state.phase = Phase::Map,
-        (RunAction::RestHeal, Phase::Rest) => {
-            restore_hearts(state, events, data.balance.run.rest.hearts_restored);
+        (RunAction::HealWound { wound }, Phase::Rest) => {
+            heal_wound(state, events, *wound)?;
             state.phase = Phase::Map;
         }
         (RunAction::RemoveCard { card }, Phase::Rest) => {
@@ -786,15 +951,10 @@ fn perform(
             state.phase = Phase::Map;
             for effect in &option.effects {
                 match effect {
-                    EventEffect::LoseHearts { amount } => {
-                        state.hearts = state.hearts.saturating_sub(*amount);
-                        events.push(RunEvent::HeartsChanged {
-                            change: -i8::try_from(*amount).unwrap_or(i8::MAX),
-                            hearts: state.hearts,
-                        });
-                    }
-                    EventEffect::RestoreHearts { amount } => {
-                        restore_hearts(state, events, *amount);
+                    EventEffect::TakeWound {} => take_wound(state, events, data)?,
+                    EventEffect::HealWound {} => {
+                        let latest = state.wounds.len().checked_sub(1).ok_or_else(mismatch)?;
+                        heal_wound(state, events, latest)?;
                     }
                     EventEffect::GainGold { amount } => {
                         change_gold(state, events, i64::from(*amount), GoldReason::Event);
@@ -835,17 +995,6 @@ fn perform(
         ) => {
             state.phase = Phase::Map;
         }
-        (RunAction::TakeBoon { boon }, Phase::Boons { picks_left }) => {
-            state.boons.push(boon.clone());
-            events.push(RunEvent::BoonTaken { boon: boon.clone() });
-            state.phase = Phase::Boons {
-                picks_left: picks_left.saturating_sub(1),
-            };
-        }
-        (RunAction::StartBoss, Phase::Boons { .. }) => {
-            let boss = pick_enemy(state, data, EnemyTier::Boss)?;
-            start_duel(state, events, data, boss, DuelKind::Boss)?;
-        }
         _ => return Err(mismatch().into()),
     }
     Ok(())
@@ -856,5 +1005,16 @@ pub fn current_enemy(state: &RunState) -> Option<&EnemyId> {
     match &state.phase {
         Phase::Duel { enemy, .. } => Some(enemy),
         _ => None,
+    }
+}
+
+/// How the feats picked for the duel in progress stand: what each would
+/// score if the duel were won now. Empty when no duel is on, and for the
+/// boss.
+pub fn feat_scores(state: &RunState) -> Result<Vec<FeatScore>, RunError> {
+    let data = data::embedded()?;
+    match &state.duel_stats {
+        Some(stats) => Ok(scores(data, &state.feats, stats)?),
+        None => Ok(Vec::new()),
     }
 }

@@ -1,6 +1,6 @@
 // The run: the map and what happens at its nodes. It renders the engine's
 // run view, offers the legal run actions and sends one back. Nothing here
-// decides what a node gives, what something costs or what a heart buys.
+// decides what a node gives, what something costs or what a feat scores.
 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { ManaCost } from '../components/Card.tsx'
@@ -18,13 +18,16 @@ import type { RunView } from '../engine/types/RunView.ts'
 import {
   NODE_LABEL,
   type RunNames,
-  boonDef,
   describeRunEvents,
   enemyName,
+  featDef,
+  featRewardText,
+  featText,
   nextDuelDef,
   relicDef,
+  woundDef,
 } from '../run/describe.ts'
-import { DuelScreen, type Speed } from './DuelScreen.tsx'
+import { type DuelFeat, DuelScreen, type Speed } from './DuelScreen.tsx'
 
 interface RunScreenProps {
   run: Run
@@ -80,6 +83,8 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   const [removing, setRemoving] = useState(false)
   // The option of an event that a card of the deck is being chosen for.
   const [picking, setPicking] = useState<number | null>(null)
+  // The feats ticked so far before a duel: their places among those offered.
+  const [ticked, setTicked] = useState<number[]>([])
   const [copied, setCopied] = useState(false)
   const [abandoning, setAbandoning] = useState(false)
 
@@ -115,6 +120,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
     setError(null)
     setRemoving(false)
     setPicking(null)
+    setTicked([])
     // A duel that has been left, or replaced by a rematch, is over.
     const started = events.some((event) => event.type === 'duel_started')
     if (duel && (started || next.phase.type !== 'duel')) {
@@ -140,7 +146,30 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
 
   const { phase, actions } = view
   const emblem = content.emblems.find((def) => def.id === view.emblem)
-  const can =(type: RunAction['type']) => actions.find((action) => action.type === type)
+  const can = (type: RunAction['type']) => actions.find((action) => action.type === type)
+  const wounds = `${view.wounds.length} of ${view.max_wounds} wounds`
+  // How the feats picked for the duel stand, in the duel screen's words.
+  const duelFeats = (): DuelFeat[] => {
+    try {
+      return run.duel.feats().flatMap((standing) => {
+        const feat = featDef(names, standing.feat)
+        return feat
+          ? [
+              {
+                id: feat.id,
+                name: feat.name,
+                text: featText(feat),
+                score: standing.score,
+                tiers: feat.tiers.length,
+              },
+            ]
+          : []
+      })
+    } catch {
+      // No duel to ask about: it has just been left.
+      return []
+    }
+  }
 
   if (phase.type === 'duel' && duel) {
     return (
@@ -154,11 +183,12 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         report={runReport}
         exit={{
           kind: 'run',
-          hearts: `${view.hearts} of ${view.max_hearts} hearts`,
+          wounds,
           stakes:
-            phase.kind === 'boss'
+            phase.kind === 'boss' || view.wounds.length + 1 >= view.max_wounds
               ? 'Lose this duel and the run is over.'
-              : 'Losing this duel costs a heart.',
+              : 'Losing this duel leaves a wound.',
+          feats: duelFeats,
           onConcede: () => send({ type: 'concede' }),
           onContinue: () => send({ type: 'finish_duel' }),
         }}
@@ -191,6 +221,106 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         </>
       )
       break
+    case 'feats': {
+      const enemy = content.enemies.find((def) => def.id === phase.enemy)
+      const enemyCommander = enemy?.commander ? cards.get(enemy.commander) : undefined
+      // The engine lists every set of feats that may be picked; the ticks
+      // are sent once they are one of them.
+      const picks = actions.find((action) => action.type === 'choose_feats')?.feats.length ?? 0
+      const sorted = ticked.toSorted((a, b) => a - b)
+      const choice = actions.find(
+        (action) =>
+          action.type === 'choose_feats' &&
+          action.feats.length === sorted.length &&
+          action.feats.every((place, index) => place === sorted[index]),
+      )
+      const tick = (place: number) =>
+        setTicked((before) =>
+          before.includes(place)
+            ? before.filter((other) => other !== place)
+            : // Ticking one more than may be picked lets go of the oldest.
+              [...before, place].slice(-picks),
+        )
+      title = `Before the duel: choose ${picks} feats`
+      body = (
+        <>
+          <section className="boss-brief" data-testid="feats-enemy">
+            <h3>
+              {phase.kind === 'elite' ? 'Elite: ' : 'Against '}
+              {enemy?.name ?? phase.enemy}
+            </h3>
+            {enemyCommander && (
+              <p>
+                Its commander is <strong>{enemyCommander.name}</strong>{' '}
+                <ManaCost cost={enemyCommander.mana_cost} /> {enemyCommander.power}/
+                {enemyCommander.toughness}
+                {enemyCommander.oracle_text && <> · {enemyCommander.oracle_text}</>}
+              </p>
+            )}
+            {enemy && enemy.modifiers.length > 0 && (
+              <ul className="modifiers">
+                {enemy.modifiers.map((modifier) => (
+                  <Modifier key={modifier.id} def={modifier} kind="enemy-emblem" />
+                ))}
+              </ul>
+            )}
+          </section>
+          <p className="muted">
+            Each feat scores a point for each of its numbers you meet, if you win. The points of
+            both set your reward; missing them costs nothing.
+          </p>
+          <div className="choice-list" data-testid="feats">
+            {phase.offered.map((id, place) => {
+              const feat = featDef(names, id)
+              const on = ticked.includes(place)
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={on ? 'feat feat-ticked' : 'feat'}
+                  aria-pressed={on}
+                  onClick={() => tick(place)}
+                  data-testid="feat"
+                >
+                  <strong>{feat?.name ?? id}</strong> {feat && featText(feat)}
+                </button>
+              )
+            })}
+          </div>
+          <ul className="feat-rewards" data-testid="feat-rewards">
+            {content.feat_rewards.map((reward, index) => {
+              const next = content.feat_rewards[index + 1]
+              const points =
+                next === undefined
+                  ? `${reward.points} or more`
+                  : next.points - 1 === reward.points
+                    ? `${reward.points}`
+                    : `${reward.points} to ${next.points - 1}`
+              return (
+                <li key={reward.points}>
+                  <strong>
+                    {points} {points === '1' ? 'point' : 'points'}:
+                  </strong>{' '}
+                  {featRewardText(reward)}
+                </li>
+              )
+            })}
+          </ul>
+          <div className="button-row">
+            <button
+              type="button"
+              className="primary"
+              disabled={!choice}
+              onClick={() => choice && send(choice)}
+              data-testid="start-duel"
+            >
+              {choice ? 'Start the duel' : `Choose ${picks - ticked.length} more`}
+            </button>
+          </div>
+        </>
+      )
+      break
+    }
     case 'reward':
       title = 'Choose a card to add to your deck'
       body = (
@@ -345,21 +475,25 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
       break
     }
     case 'rest': {
-      const heal = can('rest_heal')
+      const heals = actions.flatMap((action) => (action.type === 'heal_wound' ? [action] : []))
       title = 'Rest site: choose one'
       body = (
         <div className="choice-list">
-          <button
-            type="button"
-            disabled={!heal}
-            onClick={() => heal && send(heal)}
-            data-testid="rest-heal"
-          >
-            Restore a heart
-            <span className="muted">
-              {heal ? ` You have ${view.hearts} of ${view.max_hearts}.` : ' Your hearts are full.'}
-            </span>
-          </button>
+          {heals.length === 0 && (
+            <button type="button" disabled data-testid="rest-heal">
+              Heal a wound
+              <span className="muted"> You have none.</span>
+            </button>
+          )}
+          {heals.map((heal) => {
+            const wound = woundDef(names, view.wounds[heal.wound])
+            return (
+              <button key={heal.wound} type="button" onClick={() => send(heal)} data-testid="rest-heal">
+                Heal a wound: {wound?.name ?? view.wounds[heal.wound]}
+                <span className="muted"> You have {view.wounds.length}.</span>
+              </button>
+            )
+          })}
           <button
             type="button"
             disabled={removable.size === 0}
@@ -441,55 +575,6 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
       )
       break
     }
-    case 'boons': {
-      title = 'Before the boss: spend your hearts on boons'
-      const boss = content.enemies.find((enemy) => enemy.tier === 'boss')
-      body = (
-        <>
-          <p>
-            Each heart you still have buys one boon for the boss duel. Picks left:{' '}
-            <strong data-testid="picks-left">{phase.picks_left}</strong>.
-          </p>
-          <div className="choice-list" data-testid="boons">
-            {content.boons.map((boon) => {
-              const taken = view.boons.includes(boon.id)
-              const take = actions.find(
-                (action) => action.type === 'take_boon' && action.boon === boon.id,
-              )
-              return (
-                <button
-                  key={boon.id}
-                  type="button"
-                  disabled={!take}
-                  onClick={() => take && send(take)}
-                  data-testid="boon"
-                >
-                  <strong>{boon.name}</strong> {boon.text}
-                  {taken && <span className="badge badge-granted">Taken</span>}
-                </button>
-              )
-            })}
-          </div>
-          {boss && (
-            <section className="boss-brief">
-              <h3>{boss.name}</h3>
-              <ul className="modifiers">
-                {boss.modifiers.map((modifier) => (
-                  <Modifier key={modifier.id} def={modifier} kind="boss-emblem" />
-                ))}
-              </ul>
-              <p className="muted">Lose this duel and the run is over.</p>
-            </section>
-          )}
-          <div className="button-row">
-            <button type="button" className="primary" onClick={() => send({ type: 'start_boss' })} data-testid="start-boss">
-              {phase.picks_left > 0 && can('take_boon') ? 'Fight the boss without the rest' : 'Fight the boss'}
-            </button>
-          </div>
-        </>
-      )
-      break
-    }
     case 'over':
       title = phase.won ? 'You won the act' : 'Your run is over'
       body = (
@@ -497,8 +582,8 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
           <p data-testid="run-result">
             {phase.won
               ? 'The boss is beaten. That is the whole of the game so far.'
-              : view.hearts === 0
-                ? 'You have no hearts left.'
+              : view.wounds.length >= view.max_wounds
+                ? 'That was one wound too many.'
                 : 'The boss was too strong this time.'}
           </p>
           <p className="muted">
@@ -528,16 +613,17 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
       <header className="topbar run-topbar">
         <strong>{planeswalker?.name ?? run.planeswalker}</strong>
         <span
-          className="hearts"
-          data-testid="hearts"
-          aria-label={`${view.hearts} of ${view.max_hearts} hearts`}
+          className="wounds"
+          data-testid="wounds"
+          aria-label={`${wounds}: the last one ends the run`}
+          title="A lost duel leaves a wound. The last one ends the run."
         >
-          {Array.from({ length: view.max_hearts }, (_, index) => (
-            <span key={index} className={index < view.hearts ? 'heart' : 'heart heart-lost'} aria-hidden="true">
-              {index < view.hearts ? '♥' : '♡'}
+          {Array.from({ length: view.max_wounds }, (_, index) => (
+            <span key={index} className={index < view.wounds.length ? 'wound' : 'wound wound-free'} aria-hidden="true">
+              {index < view.wounds.length ? '✖' : '○'}
             </span>
           ))}{' '}
-          {view.hearts}/{view.max_hearts} hearts
+          {view.wounds.length}/{view.max_wounds} wounds
         </span>
         <span data-testid="gold">{view.gold} gold</span>
         <button type="button" className="link" onClick={() => setDeckOpen(true)} data-testid="open-deck">
@@ -636,15 +722,16 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
               </ul>
             </section>
           )}
-          {view.boons.length > 0 && (
+          {view.wounds.length > 0 && (
             <section className="panel">
-              <h2>Boons for the boss</h2>
+              <h2>Wounds</h2>
               <ul className="modifiers">
-                {view.boons.map((id) => {
-                  const boon = boonDef(names, id)
-                  return boon && <Modifier key={id} def={boon} kind="taken-boon" />
+                {view.wounds.map((id, index) => {
+                  const wound = woundDef(names, id)
+                  return wound && <Modifier key={index} def={wound} kind="wound" />
                 })}
               </ul>
+              <p className="muted">A rest site heals one.</p>
             </section>
           )}
         </aside>

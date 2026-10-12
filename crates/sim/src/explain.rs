@@ -509,7 +509,10 @@ pub fn explain(report: &str, last: usize) -> Result<String, String> {
                 match input {
                     Input::Run(action) => {
                         // A new duel begins a new story.
-                        if matches!(action, RunAction::Travel { .. } | RunAction::StartBoss) {
+                        if matches!(
+                            action,
+                            RunAction::Travel { .. } | RunAction::ChooseFeats { .. }
+                        ) {
                             story.clear();
                         }
                         apply_run_action(&mut run, action)

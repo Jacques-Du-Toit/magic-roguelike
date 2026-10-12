@@ -2,27 +2,27 @@
   {
     "id": "devils_bargain",
     "name": "The Devil's Bargain",
-    "text": "A smiling stranger lays two relics on the road and names his price: a heart.",
+    "text": "A smiling stranger lays two relics on the road and names his price: a wound.",
     "relics": 2,
     "options": [
       {
-        "text": "Lose 1 heart and take this relic.",
-        "effects": [{ "type": "lose_hearts", "amount": 1 }, { "type": "gain_relic" }]
+        "text": "Take a wound and take this relic.",
+        "effects": [{ "type": "take_wound" }, { "type": "gain_relic" }]
       }
     ]
   },
   {
     "id": "moneylender",
     "name": "The Moneylender",
-    "text": "She deals in gold and in years of your life, and she buys as readily as she sells.",
+    "text": "She deals in gold and in blood, and she buys as readily as she sells.",
     "options": [
       {
-        "text": "Lose 1 heart and gain 100 gold.",
-        "effects": [{ "type": "lose_hearts", "amount": 1 }, { "type": "gain_gold", "amount": 100 }]
+        "text": "Take a wound and gain 100 gold.",
+        "effects": [{ "type": "take_wound" }, { "type": "gain_gold", "amount": 100 }]
       },
       {
-        "text": "Pay 70 gold and restore 1 heart.",
-        "effects": [{ "type": "pay_gold", "amount": 70 }, { "type": "restore_hearts", "amount": 1 }]
+        "text": "Pay 70 gold and heal a wound.",
+        "effects": [{ "type": "pay_gold", "amount": 70 }, { "type": "heal_wound" }]
       }
     ]
   },

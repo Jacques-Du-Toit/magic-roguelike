@@ -37,7 +37,8 @@ cargo run -p sim -- --games 100 # headless AI-vs-AI simulation: 100 games for ev
                                 # of the decks in data/decks, then a report (--seed S to vary)
 cargo run -p sim -- --replay deck_a deck_c --seed 7   # one game, move by move
 cargo run --release -p sim -- --enemies --games 400   # the run's starting decks against its enemy decks
-cargo run --release -p sim -- --runs --games 400      # whole runs: how often the act is won
+cargo run --release -p sim -- --runs --games 400      # whole runs: how often the act is won, and how often
+                                                      # each feat's tiers are met by an AI that isn't trying
 cargo run --release -p sim -- --versus --games 100    # the new AI against the old on the same decks, both ways
                                                       # round (--ai, --against); add --enemies for the run's decks
 cargo run --release -p sim -- --versus --games 50 --decks deck_a,deck_b,deck_c   # a quick sample: only these decks
@@ -88,7 +89,7 @@ Update this section if commands change.
 2. **The engine is deterministic.** All randomness goes through the seeded RNG in game state. Never use `thread_rng`, system time, or HashMap iteration order for anything gameplay-relevant (use `BTreeMap`/`IndexMap` or sort).
 3. **Cards are data.** New cards are added to `data/cards/*.json` with `tools/scryfall.mjs add`, then given abilities using existing effect primitives; `tools/scryfall.mjs check` must pass. Only add a new effect primitive when a card genuinely can't be expressed; add a test for the primitive. `Custom` effects implemented in Rust are a last resort and must be listed in `docs/ARCHITECTURE.md`.
 4. **Tests are mandatory for rules.** Every card, keyword, and rules interaction gets a test. Every bug fixed gets a regression test that fails before the fix. Run `cargo test` before declaring work done.
-5. **No magic numbers for balance.** Life totals, opening hand sizes, fatigue, hearts, rewards, prices, boon values, map shape, land share, etc. live in `data/balance.json`, never hard-coded. Content keeps its own numbers beside its text, as cards do: relics, passives and enemy emblems in `data/run/`.
+5. **No magic numbers for balance.** Life totals, opening hand sizes, fatigue, wounds, rewards, what feats pay, prices, map shape, land share, etc. live in `data/balance.json`, never hard-coded. Content keeps its own numbers beside its text, as cards do: relics, wounds, feats, passives and enemy emblems in `data/run/`.
 6. **Stay inside `docs/RULES_SCOPE.md`.** If a card needs a rule marked "out", don't add the card. Ask instead of expanding scope.
 7. **Errors, not panics.** Engine functions return `Result`. Illegal actions are rejected with a clear error, never a panic. No `unwrap()` in engine code outside tests.
 8. **Small, focused changes.** Prefer several small commits over one large one. Don't refactor unrelated code while doing a task.
@@ -105,12 +106,12 @@ Update this section if commands change.
 
 - **Run**: one full playthrough, three acts.
 - **Act**: one map ending in a boss.
-- **Hearts**: run-level health. Lost by losing duels; separate from in-duel life (20 by default).
+- **Wound**: run-level health, separate from in-duel life (20 by default). A lost duel leaves one; it follows the player into every duel until a rest site heals it, and the third ends the run. It replaced hearts (`DECISIONS.md` #68).
+- **Feat**: something to do in a duel beyond winning it ("never fall below 12 / 15 / 18 life"). Two are picked before each duel; their points set the card reward (`DECISIONS.md` #69).
 - **Smoothing**: the engine deals several candidate opening hands and keeps the one closest to the deck's land ratio. Lands are in the library, as in normal Magic.
 - **Fatigue**: drawing from an empty library costs life (1, then 2, then 3...) instead of losing the game.
 - **Relic**: passive item that modifies rules for the whole run.
-- **Modifier**: what relics, boons, passives and boss emblems all are in the code (`ModifierDef`). It reaches a duel through `PlayerConfig`, often as an **emblem**.
-- **Boon**: pre-boss bonus bought with remaining hearts.
+- **Modifier**: what relics, wounds, passives and boss emblems all are in the code (`ModifierDef`). It reaches a duel through `PlayerConfig`, often as an **emblem**.
 - **Commander**: a legendary creature in the deck's colours that waits in the command zone and is cast from there, costing more each time (a prototype; `DECISIONS.md` #45). Characters, elites and the boss have one.
 - **Starting emblem**: the modifier the player picks with their commander when a run starts (`data/run/emblems.json`). It used to be the character's fixed passive.
 - **Planeswalker (character)**: the player's chosen starting identity (starting deck, colours, passive). Not the MTG card type.

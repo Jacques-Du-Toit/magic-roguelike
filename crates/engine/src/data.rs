@@ -14,8 +14,9 @@ use thiserror::Error;
 use crate::balance::{self, Balance, BalanceError};
 use crate::cards::{self, CardDef, CardDefId, CardError};
 use crate::decks::{self, DeckDef, DeckError, DeckId};
-use crate::run::{self, EnemyDef, EventDef, ModifierDef, PlaneswalkerDef, RunData, RunDataError};
-
+use crate::run::{
+    self, EnemyDef, EventDef, FeatDef, ModifierDef, PlaneswalkerDef, RunData, RunDataError,
+};
 static DATA_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../data");
 
 static EMBEDDED: LazyLock<Result<GameData, DataError>> =
@@ -83,8 +84,10 @@ pub struct RunFiles<'a> {
     pub planeswalkers: &'a str,
     pub emblems: &'a str,
     pub relics: &'a str,
+    pub wounds: &'a str,
     pub enemies: &'a str,
     pub events: &'a str,
+    pub feats: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -177,22 +180,23 @@ impl GameData {
 
         let balance: Balance = parse("balance.json", files.balance)?;
         balance::validate(&balance)?;
-        for boon in &balance.run.boons {
-            run::validate_modifier_tokens(boon, &cards)?;
-        }
 
         let planeswalkers: Vec<PlaneswalkerDef> =
             parse("run/planeswalkers.json", files.run.planeswalkers)?;
         let emblems: Vec<ModifierDef> = parse("run/emblems.json", files.run.emblems)?;
         let relics: Vec<ModifierDef> = parse("run/relics.json", files.run.relics)?;
+        let wounds: Vec<ModifierDef> = parse("run/wounds.json", files.run.wounds)?;
         let enemies: Vec<EnemyDef> = parse("run/enemies.json", files.run.enemies)?;
         let events: Vec<EventDef> = parse("run/events.json", files.run.events)?;
+        let feats: Vec<FeatDef> = parse("run/feats.json", files.run.feats)?;
         let run = RunData {
             planeswalkers,
             emblems,
             relics,
+            wounds,
             enemies,
             events,
+            feats,
         };
         run::validate(&run, &cards)?;
 
@@ -249,8 +253,10 @@ fn embedded_files() -> Result<DataFiles<'static>, DataError> {
             planeswalkers: run_file("planeswalkers")?,
             emblems: run_file("emblems")?,
             relics: run_file("relics")?,
+            wounds: run_file("wounds")?,
             enemies: run_file("enemies")?,
             events: run_file("events")?,
+            feats: run_file("feats")?,
         },
     })
 }
@@ -297,7 +303,10 @@ mod tests {
     const EMBLEMS: &str = r#"[{ "id": "ranger_passive", "name": "Vigour", "text": "More life.",
         "effects": [{ "type": "starting_life", "who": "owner", "change": 1 }] }]"#;
     const RELICS: &str = "[]";
+    const WOUNDS: &str = r#"[{ "id": "scar", "name": "Scar", "text": "Less life.",
+        "effects": [{ "type": "starting_life", "who": "owner", "change": -1 }] }]"#;
     const EVENTS: &str = "[]";
+    const FEATS: &str = "[]";
     const ENEMIES: &str = r#"[
         { "id": "cubs", "name": "Cubs", "tier": "easy", "cards": [{ "card": "forest", "count": 2 }] },
         { "id": "bears", "name": "Bears", "tier": "normal", "cards": [{ "card": "forest", "count": 2 }] },
@@ -308,8 +317,10 @@ mod tests {
         planeswalkers: PLANESWALKERS,
         emblems: EMBLEMS,
         relics: RELICS,
+        wounds: WOUNDS,
         enemies: ENEMIES,
         events: EVENTS,
+        feats: FEATS,
     };
     fn files<'a>(cards: &[(&'a str, &'a str)], deck: &'a str, balance: &'a str) -> DataFiles<'a> {
         DataFiles {
@@ -559,7 +570,8 @@ mod tests {
         assert_eq!((basics, lands - basics), (5, 10));
         assert_eq!((creatures, others), (112, 59));
         assert_eq!(legends, 7);
-        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 19);
+        // 19 creature tokens and the wound.
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 20);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -978,7 +990,7 @@ mod tests {
         assert_eq!(run.planeswalkers.len(), 2);
         assert_eq!(run.relics.len(), 12);
         assert_eq!(run.events.len(), 5);
-        assert_eq!(data().balance.run.boons.len(), 4);
+        assert_eq!(run.wounds.len(), 1);
         let count = |tier| run.enemies_of(tier).count();
         assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 7));
         assert_eq!(count(EnemyTier::Elite), 4);
@@ -1328,9 +1340,13 @@ mod tests {
         assert_eq!(
             load(&event(
                 "",
-                &option(r#"{ "type": "lose_hearts", "amount": 0 }"#)
+                &option(r#"{ "type": "pay_gold", "amount": 0 }"#)
             )),
             run(RunDataError::ZeroChange(fork()))
+        );
+        assert_eq!(
+            load(&event("", &option(r#"{ "type": "take_wound" }"#))),
+            Ok(())
         );
         // A relic or cards to give have to be shown first.
         assert_eq!(
@@ -1367,6 +1383,88 @@ mod tests {
         assert!(matches!(
             load("{"),
             Err(DataError::Parse { file, .. }) if file == "run/events.json"
+        ));
+    }
+
+    #[test]
+    fn rejects_bad_feats() {
+        let load = |feats: &str| {
+            let mut files = files(&CARDS, DECK, BALANCE);
+            files.run = RunFiles { feats, ..RUN };
+            GameData::load(&files).map(|_| ())
+        };
+        let feat = |text: &str, measure: &str, tiers: &str, more: &str| {
+            format!(
+                r#"[{{ "id": "feat", "name": "Feat", "text": "{text}",
+                "measure": "{measure}", "tiers": {tiers}{more} }}]"#
+            )
+        };
+        let run = |error: RunDataError| Err(DataError::Run(error));
+        let id = || "feat".to_string();
+
+        assert_eq!(
+            load(&feat("Reach {n}.", "greatest_power", "[5, 7, 10]", "")),
+            Ok(())
+        );
+        assert_eq!(
+            load(&feat(
+                "Reach {n} soon.",
+                "greatest_power",
+                "[5]",
+                r#", "by_turn": 4, "planeswalkers": ["ranger"]"#
+            )),
+            Ok(())
+        );
+        // Fewer is better for some measures, and the tiers run that way.
+        assert_eq!(
+            load(&feat("Win by turn {n}.", "turns_taken", "[9, 7, 6]", "")),
+            Ok(())
+        );
+        assert_eq!(
+            load(&feat("Win by turn {n}.", "turns_taken", "[6, 7]", "")),
+            run(RunDataError::FeatTiers(id()))
+        );
+        assert_eq!(
+            load(&feat("Reach {n}.", "greatest_power", "[5, 5]", "")),
+            run(RunDataError::FeatTiers(id()))
+        );
+        assert_eq!(
+            load(&feat("Reach {n}.", "greatest_power", "[]", "")),
+            run(RunDataError::FeatTiers(id()))
+        );
+        assert_eq!(
+            load(&feat("Reach {n}.", "greatest_power", "[1, 2, 3, 4]", "")),
+            run(RunDataError::FeatTiers(id()))
+        );
+        assert_eq!(
+            load(&feat("Be big.", "greatest_power", "[5]", "")),
+            run(RunDataError::FeatText(id()))
+        );
+        // A deadline is for a high point, not for the whole duel.
+        assert_eq!(
+            load(&feat(
+                "Stay at {n}.",
+                "lowest_life",
+                "[12]",
+                r#", "by_turn": 4"#
+            )),
+            run(RunDataError::FeatDeadline(id()))
+        );
+        assert_eq!(
+            load(&feat(
+                "Reach {n}.",
+                "greatest_power",
+                "[5]",
+                r#", "planeswalkers": ["nobody"]"#
+            )),
+            run(RunDataError::UnknownPlaneswalker {
+                id: id(),
+                planeswalker: crate::run::PlaneswalkerId("nobody".to_string()),
+            })
+        );
+        assert!(matches!(
+            load(&feat("Reach {n}.", "biggest_hat", "[5]", "")),
+            Err(DataError::Parse { file, .. }) if file == "run/feats.json"
         ));
     }
 

@@ -36,10 +36,31 @@ async function playDuel(page: Page, well: boolean): Promise<void> {
   throw new Error('the duel did not end')
 }
 
+/**
+ * Before a duel: ticks the first two feats on offer and starts the duel.
+ * The button only works once two are ticked.
+ */
+async function pickFeats(page: Page): Promise<void> {
+  await expect(run(page)).toHaveAttribute('data-phase', 'feats')
+  await expect(page.getByTestId('feats-enemy')).not.toBeEmpty()
+  const start = page.getByTestId('start-duel')
+  await expect(start).toBeDisabled()
+  await page.getByTestId('feat').nth(0).click()
+  await expect(start).toHaveText('Choose 1 more')
+  await page.getByTestId('feat').nth(1).click()
+  await expect(page.locator('[data-testid="feat"][aria-pressed="true"]')).toHaveCount(2)
+  await start.click()
+  await expect(duel(page)).toBeVisible()
+}
+
 interface Seen {
   phases: Set<string>
   nodes: Set<string>
   duels: number
+  /** Duels that showed the two feats picked for them. */
+  duelsWithFeats: number
+  /** Whether a wound was ever carried. */
+  wounded: boolean
   /** Duels in which the enemy showed a commander. */
   enemyCommanders: number
   /** The names of the events met. */
@@ -66,10 +87,21 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       await open.nth(pick).click()
       return true
     }
-    case 'reward':
-      await expect(page.getByTestId('reward-card')).toHaveCount(3)
+    case 'feats': {
+      // Five of the Warden's eight; the Firebrand has the five shared ones.
+      await expect(page.getByTestId('feat')).toHaveCount(5)
+      await expect(page.getByTestId('feat-rewards').locator('li')).toHaveCount(4)
+      await pickFeats(page)
+      return true
+    }
+    case 'reward': {
+      // Two to four cards: by how the feats went, or two after a loss.
+      const cards = await page.getByTestId('reward-card').count()
+      expect(cards).toBeGreaterThanOrEqual(2)
+      expect(cards).toBeLessThanOrEqual(4)
       await page.getByTestId('reward-card').first().getByRole('button').click()
       return true
+    }
     case 'draft': {
       // Five cards, of which two are kept; the pack shrinks as they go.
       const deck = page.getByTestId('open-deck')
@@ -111,7 +143,7 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
         return true
       }
       const relics = await page.getByTestId('relic').count()
-      const hearts = await page.getByTestId('hearts').innerText()
+      const wounds = await page.getByTestId('wounds').innerText()
       await option.click()
       if (name === 'The Wandering Smith') {
         // A card of the deck is given up for another.
@@ -122,19 +154,23 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
         await expect(page.getByTestId('news')).toContainText('joins your deck.')
       }
       if (name === "The Devil's Bargain") {
-        // One of the two relics, for a heart.
+        // One of the two relics, for a wound.
         await expect(page.getByTestId('relic')).toHaveCount(relics + 1)
-        await expect(page.getByTestId('hearts')).not.toHaveText(hearts)
-        await expect(page.getByTestId('news')).toContainText('You lose 1 heart')
+        await expect(page.getByTestId('wounds')).not.toHaveText(wounds)
+        await expect(page.getByTestId('news')).toContainText('You take a wound: Festering Wound.')
       }
       await expect(run(page)).toHaveAttribute('data-phase', 'map')
       await expect(page.getByTestId('news')).not.toBeEmpty()
       return true
     }
     case 'rest': {
-      const heal = page.getByTestId('rest-heal')
+      // A wound is healed if there is one: the side panel loses it.
+      const heal = page.getByTestId('rest-heal').first()
       if (await heal.isEnabled()) {
+        const carried = await page.getByTestId('wound').count()
         await heal.click()
+        await expect(page.getByTestId('wound')).toHaveCount(carried - 1)
+        await expect(page.getByTestId('news')).toContainText('is healed.')
       } else {
         await page.getByTestId('rest-remove').click()
         const deck = page.getByRole('dialog', { name: 'Remove a card' })
@@ -153,17 +189,6 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       await page.getByTestId('leave').click()
       return true
     }
-    case 'boons': {
-      const picks = Number(await page.getByTestId('picks-left').innerText())
-      for (let pick = 0; pick < picks; pick += 1) {
-        await page.locator('[data-testid="boon"]:enabled').first().click()
-      }
-      await expect(page.getByTestId('picks-left')).toHaveText('0')
-      await expect(page.getByTestId('taken-boon')).toHaveCount(picks)
-      await shot(page, 'run-boons-taken')
-      await page.getByTestId('start-boss').click()
-      return true
-    }
     case 'over':
       return false
     default:
@@ -173,7 +198,15 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
 
 /** Clicks through the run on screen until it is over. */
 async function playRun(page: Page, well: boolean): Promise<Seen> {
-  const seen: Seen = { phases: new Set(), nodes: new Set(), duels: 0, enemyCommanders: 0, events: [] }
+  const seen: Seen = {
+    phases: new Set(),
+    nodes: new Set(),
+    duels: 0,
+    duelsWithFeats: 0,
+    wounded: false,
+    enemyCommanders: 0,
+    events: [],
+  }
   for (let step = 0; step < 200; step += 1) {
     await expect(run(page).or(duel(page))).toBeVisible()
     if (await duel(page).isVisible()) {
@@ -181,6 +214,16 @@ async function playRun(page: Page, well: boolean): Promise<Seen> {
       if (seen.duels === 1) {
         await idle(page).waitFor()
         await shot(page, 'run-duel')
+      }
+      // The two feats picked are on show, with what they would score now;
+      // the boss has none.
+      const feats = await page.getByTestId('duel-feat').count()
+      expect([0, 2]).toContain(feats)
+      if (feats === 2) seen.duelsWithFeats += 1
+      // A wound carried is on the battlefield from the start.
+      if (await page.locator('.permanent-slot[data-card="festering_wound"]').first().isVisible()) {
+        if (!seen.wounded) await shot(page, 'run-duel-wounded')
+        seen.wounded = true
       }
       // The player always has a commander; elites and the boss show theirs.
       await expect(page.locator('[data-player="P1"] [data-testid="commander"]')).toBeVisible()
@@ -220,7 +263,7 @@ test('the menu starts a run with the chosen commander and emblem', async ({ page
 
   await expect(run(page)).toHaveAttribute('data-phase', 'map')
   await expect(page.getByTestId('seed')).toHaveText('Seed 9')
-  await expect(page.getByTestId('hearts')).toContainText('3/3 hearts')
+  await expect(page.getByTestId('wounds')).toContainText('0/3 wounds')
   await expect(page.getByTestId('gold')).toHaveText('30 gold')
   await expect(page.getByTestId('starting-emblem')).toContainText('Warm Welcome')
   await expect(page.getByTestId('run-commander')).toContainText('Boris Devilboon')
@@ -240,21 +283,61 @@ test('the menu starts a run with the chosen commander and emblem', async ({ page
   expect(errors).toEqual([])
 })
 
-test('a duel in a run can be conceded, and costs a heart', async ({ page }) => {
+test('feats are picked before a duel, and a duel conceded leaves a wound', async ({ page }) => {
+  const errors = watchForErrors(page)
   await page.goto('/?run=warden&seed=4&speed=instant')
   await page.locator('.map-node-open').first().click()
-  await expect(duel(page)).toBeVisible()
-  await expect(page.getByTestId('stakes')).toContainText('3 of 3 hearts')
+
+  // Five feats, each with its three tiers, and what the points pay.
+  await expect(run(page)).toHaveAttribute('data-phase', 'feats')
+  await expect(page.getByTestId('run-title')).toHaveText('Before the duel: choose 2 feats')
+  await expect(page.getByTestId('feat')).toHaveCount(5)
+  await expect(page.getByTestId('feat').first()).toContainText('/')
+  await expect(page.getByTestId('feat-rewards')).toContainText('0 points: 2 cards to choose from')
+  await expect(page.getByTestId('feat-rewards')).toContainText('5 or more points: 4 cards')
+  // A third tick lets go of the first.
+  for (const place of [4, 3, 2]) await page.getByTestId('feat').nth(place).click()
+  await expect(page.getByTestId('feat').nth(4)).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByTestId('start-duel')).toBeEnabled()
+  // And a tick can be taken back.
+  for (const place of [3, 2]) await page.getByTestId('feat').nth(place).click()
+  await shot(page, 'run-feats')
+  const names = await page.getByTestId('feat').locator('strong').allInnerTexts()
+  await pickFeats(page)
+
+  // The two picked are on show in the duel, with nothing scored for sure yet.
+  await expect(page.getByTestId('duel-feat')).toHaveCount(2)
+  await expect(page.getByTestId('duel-feat').nth(0)).toContainText(names[0])
+  await expect(page.getByTestId('duel-feat').nth(1)).toContainText(names[1])
+  await expect(page.getByTestId('stakes')).toContainText('0 of 3 wounds')
+  await expect(page.getByTestId('stakes')).toContainText('Losing this duel leaves a wound.')
   // The starting emblem is on show in the duel.
   await expect(page.getByTestId('emblem')).toContainText('Warm Welcome')
   await page.getByRole('button', { name: 'Concede' }).click()
   await page.getByTestId('concede').click()
 
-  await expect(run(page)).toHaveAttribute('data-phase', 'map')
-  await expect(page.getByTestId('hearts')).toContainText('2/3 hearts')
+  // A wound, and a smaller reward than a win's.
+  await expect(run(page)).toHaveAttribute('data-phase', 'reward')
+  await expect(page.getByTestId('wounds')).toContainText('1/3 wounds')
+  await expect(page.getByTestId('wound')).toContainText('Festering Wound')
   await expect(page.getByTestId('news')).toContainText('You lost to')
-  await expect(page.getByTestId('news')).toContainText('You lose 1 heart (2 left).')
+  await expect(page.getByTestId('news')).toContainText('You take a wound: Festering Wound.')
+  await expect(page.getByTestId('reward-card')).toHaveCount(2)
+  await shot(page, 'run-wounded')
+  await page.getByTestId('skip').click()
+  await expect(run(page)).toHaveAttribute('data-phase', 'map')
   await expect(page.locator('.map-node-here')).toHaveCount(1)
+
+  // The wound is on the battlefield in the next duel, and can be paid off.
+  await page.locator('.map-node-open').first().click()
+  await pickFeats(page)
+  await idle(page).waitFor()
+  await expect(page.locator('.permanent-slot[data-card="festering_wound"]')).toHaveCount(1)
+  await expect(page.getByTestId('stakes')).toContainText('1 of 3 wounds')
+  await page.getByRole('button', { name: 'Keep', exact: true }).click()
+  await idle(page).waitFor()
+  await shot(page, 'run-duel-wound')
+  expect(errors).toEqual([])
 })
 
 test('the commander waits in the command zone and is cast from it', async ({ page }) => {
@@ -262,7 +345,7 @@ test('the commander waits in the command zone and is cast from it', async ({ pag
   const errors = watchForErrors(page)
   await page.goto('/?run=warden&seed=2&speed=instant&hints=1')
   await page.locator('.map-node-open').first().click()
-  await expect(duel(page)).toBeVisible()
+  await pickFeats(page)
   await idle(page).waitFor()
   const mine = page.locator('[data-player="P1"] [data-testid="commander"]')
   await expect(mine).toContainText('Jasmine Boreal')
@@ -307,7 +390,7 @@ test('the same seed gives the same run', async ({ page }) => {
   expect(await kinds()).toEqual(first)
 })
 
-test('a run played badly ends when the hearts run out', async ({ page }) => {
+test('a run played badly ends with one wound too many', async ({ page }) => {
   test.setTimeout(600_000)
   const errors = watchForErrors(page)
   await page.goto('/?run=warden&seed=1&speed=instant')
@@ -315,6 +398,9 @@ test('a run played badly ends when the hearts run out', async ({ page }) => {
   await expect(page.getByTestId('run-result')).not.toBeEmpty()
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(seen.duels).toBeGreaterThanOrEqual(3)
+  // Wounds were carried into later duels, where they sat on the battlefield.
+  expect(seen.wounded).toBe(true)
+  expect(seen.duelsWithFeats).toBeGreaterThanOrEqual(3)
   expect(errors).toEqual([])
 
   // The end of a run leads to another.
@@ -324,7 +410,7 @@ test('a run played badly ends when the hearts run out', async ({ page }) => {
 })
 
 // Whole acts, played as well as the engine's own AI plays: every row of the
-// map, the boons and the boss.
+// map, the feats before each duel, and the boss.
 // Each seed leads through every kind of node, and to one of the two events
 // that have a screen of their own: for choosing a card, or a relic.
 const ACTS: [string, number, string?][] = process.env.ACTS
@@ -333,8 +419,8 @@ const ACTS: [string, number, string?][] = process.env.ACTS
       return [planeswalker, Number(seed)]
     })
   : [
-      ['warden', 17, 'The Wandering Smith'],
-      ['firebrand', 18, "The Devil's Bargain"],
+      ['warden', 17, "The Devil's Bargain"],
+      ['firebrand', 12, 'The Wandering Smith'],
     ]
 
 for (const [planeswalker, seed, event] of ACTS) {
@@ -348,7 +434,8 @@ for (const [planeswalker, seed, event] of ACTS) {
     await shot(page, `run-over-${planeswalker}`)
     const title = await page.getByTestId('run-title').innerText()
     console.log(
-      `${planeswalker} seed ${seed}: ${seen.duels} duels, phases ${[...seen.phases].join(' ')}, ` +
+      `${planeswalker} seed ${seed}: ${seen.duels} duels${seen.wounded ? ' (wounded)' : ''}, ` +
+        `phases ${[...seen.phases].join(' ')}, ` +
         `nodes ${[...seen.nodes].join(' ')}, events ${seen.events.join(', ') || 'none'}, ${title}`,
     )
     await expect(page.getByTestId('run-result')).not.toBeEmpty()
@@ -360,16 +447,18 @@ for (const [planeswalker, seed, event] of ACTS) {
     expect([...seen.phases]).toEqual(
       expect.arrayContaining([
         'map',
+        'feats',
         'reward',
         'draft',
         'treasure',
         'event',
         'shop',
         'rest',
-        'boons',
         'over',
       ]),
     )
+    // Every duel but the boss's had its two feats.
+    expect(seen.duelsWithFeats).toBe(seen.duels - 1)
     if (event) expect(seen.events).toContain(event)
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
     // The elite and the boss each brought a commander.

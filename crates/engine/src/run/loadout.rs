@@ -1,5 +1,5 @@
 //! Turning what each side brings to a fight into a `DuelConfig`. This is the
-//! one place where relics, boons, passives and boss emblems reach the duel.
+//! one place where relics, wounds, passives and boss emblems reach the duel.
 
 use crate::balance::Balance;
 use crate::cards::{CardDefId, Color};
@@ -51,7 +51,7 @@ pub fn library_with_lands(
 
 impl<'a> Loadout<'a> {
     /// The player's side: their deck with its basic lands, their commander
-    /// and their modifiers (starting emblem, relics, boons).
+    /// and their modifiers (starting emblem, relics, wounds).
     pub fn player(
         deck: &[CardInstance],
         colors: &[Color],
@@ -243,31 +243,40 @@ mod tests {
     }
 
     #[test]
-    fn boons_and_relics_change_the_setup() {
+    fn relics_and_wounds_change_the_setup() {
         let data = data::embedded().unwrap();
         let firebrand = planeswalker("firebrand");
-        let mut extra: Vec<&ModifierDef> = data.balance.run.boons.iter().collect();
-        extra.extend(&data.run.relics);
+        let mut extra: Vec<&ModifierDef> = data.run.relics.iter().collect();
+        // Two wounds carried.
+        extra.extend([&data.run.wounds[0], &data.run.wounds[0]]);
         let config = duel_config(
             player_loadout(firebrand, &extra),
             Loadout::enemy(enemy("pyre_tyrant"), &data.cards).unwrap(),
             &data.balance,
         );
         let [player, boss] = &config.players;
-        // +5 from the boon and +3 from the relic.
-        assert_eq!(player.starting_life, 28);
-        assert_eq!(player.opening_hand_size, 8);
-        // The boss's own +5 and the boon's -5.
-        assert_eq!(boss.starting_life, 20);
-        // The Firebrand's spells have more red symbols than black: a land
-        // from the boon and one from the Surveyor's Map, after the Rally
-        // Horn's Soldier.
+        // +3 from the relic.
+        assert_eq!(player.starting_life, 23);
+        assert_eq!(player.opening_hand_size, 7);
+        // The boss's own +5.
+        assert_eq!(boss.starting_life, 25);
+        // The Rally Horn's Soldier, the Surveyor's Map's land (the
+        // Firebrand's spells have more red symbols than black), and a
+        // Festering Wound for each wound.
         let starting: Vec<&str> = player
             .starting_permanents
             .iter()
             .map(|card| card.card_id.as_str())
             .collect();
-        assert_eq!(starting, ["mountain", "soldier_token", "mountain"]);
+        assert_eq!(
+            starting,
+            [
+                "soldier_token",
+                "mountain",
+                "festering_wound",
+                "festering_wound"
+            ]
+        );
         // The passive and the relics with abilities.
         let names: Vec<&str> = player.emblems.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(
@@ -284,14 +293,14 @@ mod tests {
             ]
         );
         let state = new_duel(config, 3).unwrap();
-        assert_eq!(state.player(PlayerId::P1).hand.len(), 8);
-        assert_eq!(state.permanents_of(PlayerId::P1).count(), 3);
+        assert_eq!(state.player(PlayerId::P1).hand.len(), 7);
+        assert_eq!(state.permanents_of(PlayerId::P1).count(), 4);
     }
 
     #[test]
     fn modifiers_cannot_start_a_player_dead() {
         let data = data::embedded().unwrap();
-        let mut wound = data.balance.run.boons[2].clone();
+        let mut wound = data.run.relics[0].clone();
         wound.effects = vec![ModifierEffect::StartingLife {
             who: Who::Opponent,
             change: -100,

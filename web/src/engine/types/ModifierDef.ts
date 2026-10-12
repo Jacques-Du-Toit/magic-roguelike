@@ -3,7 +3,7 @@ import type { ModifierEffect } from "./ModifierEffect";
 import type { ModifierId } from "./ModifierId";
 
 /**
- * Something that changes how a duel is set up for its owner. Relics, boons,
+ * Something that changes how a duel is set up for its owner. Relics, wounds,
  * planeswalker passives and boss emblems are all modifiers.
  */
 export type ModifierDef = { id: ModifierId, name: string, 

@@ -6,13 +6,15 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::balance::FeatReward;
 use crate::cards::CardDefId;
 use crate::data;
 use crate::decks::DeckEntry;
 use crate::duel::CardInstance;
 
 use super::defs::{EnemyDef, EventDef, ModifierDef, ModifierId, PlaneswalkerDef, PlaneswalkerId};
-use super::flow::run_legal_actions;
+use super::feats::{FeatDef, FeatScore};
+use super::flow::{feat_scores, run_legal_actions};
 use super::lands::basic_lands;
 use super::state::{NodeId, Phase, RunAction, RunError, RunMap, RunState};
 
@@ -24,22 +26,25 @@ pub struct RunView {
     pub planeswalker: PlaneswalkerId,
     /// The starting emblem chosen for the run.
     pub emblem: ModifierId,
-    pub hearts: u8,
-    pub max_hearts: u8,
+    /// The wounds carried, oldest first. `RunAction::HealWound` indexes it.
+    pub wounds: Vec<ModifierId>,
+    /// The wound that would end the run.
+    pub max_wounds: u8,
     pub gold: u32,
     /// The spells and non-basic lands. `RunAction::RemoveCard` indexes it.
     pub deck: Vec<CardInstance>,
     /// The basic lands that go with the deck right now.
     pub basic_lands: Vec<DeckEntry>,
     pub relics: Vec<ModifierId>,
-    /// Boons bought for the boss duel.
-    pub boons: Vec<ModifierId>,
     /// Modifiers from events, for the next duel only.
     pub next_duel: Vec<ModifierId>,
     pub map: RunMap,
     /// The nodes visited, in order. The last is where the player is.
     pub path: Vec<NodeId>,
     pub phase: Phase,
+    /// The feats picked for the duel in progress, and what each would
+    /// score if it were won now.
+    pub feats: Vec<FeatScore>,
     /// What the player may do now. Empty only when the run is over.
     pub actions: Vec<RunAction>,
 }
@@ -60,17 +65,17 @@ pub fn run_view(state: &RunState) -> Result<RunView, RunError> {
         seed: state.seed.to_string(),
         planeswalker: state.planeswalker.clone(),
         emblem: state.emblem.clone(),
-        hearts: state.hearts,
-        max_hearts: state.max_hearts,
+        wounds: state.wounds.clone(),
+        max_wounds: data.balance.run.max_wounds,
         gold: state.gold,
         deck: state.deck.clone(),
         basic_lands,
         relics: state.relics.clone(),
-        boons: state.boons.clone(),
         next_duel: state.next_duel.clone(),
         map: state.map.clone(),
         path: state.path.clone(),
         phase: state.phase.clone(),
+        feats: feat_scores(state)?,
         actions: run_legal_actions(state),
     })
 }
@@ -83,9 +88,12 @@ pub struct RunContent {
     /// The starting emblems a run can be begun with.
     pub emblems: Vec<ModifierDef>,
     pub relics: Vec<ModifierDef>,
-    pub boons: Vec<ModifierDef>,
+    pub wounds: Vec<ModifierDef>,
     pub enemies: Vec<EnemyDef>,
     pub events: Vec<EventDef>,
+    pub feats: Vec<FeatDef>,
+    /// What a won duel pays for the points its feats scored, fewest first.
+    pub feat_rewards: Vec<FeatReward>,
     /// The cards a card reward or a shop can offer.
     pub reward_cards: Vec<CardDefId>,
 }
@@ -96,9 +104,11 @@ pub fn run_content() -> Result<RunContent, RunError> {
         planeswalkers: data.run.planeswalkers.clone(),
         emblems: data.run.emblems.clone(),
         relics: data.run.relics.clone(),
-        boons: data.balance.run.boons.clone(),
+        wounds: data.run.wounds.clone(),
         enemies: data.run.enemies.clone(),
         events: data.run.events.clone(),
+        feats: data.run.feats.clone(),
+        feat_rewards: data.balance.run.feats.rewards.clone(),
         reward_cards: data
             .cards
             .iter()

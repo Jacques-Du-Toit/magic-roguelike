@@ -11,6 +11,10 @@ const CARD_IN_HAND: i32 = 3;
 /// What an enchantment that stays on the battlefield is worth for being
 /// there, beyond what it does to creatures: a little more than the card.
 const LASTING_PERMANENT: i32 = 4;
+/// What a permanent marked as a burden (a wound) costs whoever controls it:
+/// less than a creature is worth, so that mana goes to the board first and
+/// to getting rid of the burden when some is left over.
+const BURDEN: i32 = 3;
 /// What a creature is worth for an ability that does something most turns:
 /// about a point of power and one of toughness more than its body.
 const ENGINE_ABILITY: i32 = 4;
@@ -136,6 +140,18 @@ fn ability_value(ability: &AbilityDef) -> i32 {
     }
 }
 
+/// What a permanent that is neither a creature nor a land is worth to its
+/// controller for being on the battlefield. An Aura counts on its creature.
+fn lasting_value(def: &CardDef) -> i32 {
+    if def.burden {
+        -BURDEN
+    } else if !def.is_creature() && !def.is_land() && !def.is_aura() {
+        LASTING_PERMANENT
+    } else {
+        0
+    }
+}
+
 /// What a life total is worth. Each point matters more the fewer are left.
 fn life_value(life: i32) -> i32 {
     (1..=life.max(0))
@@ -165,10 +181,7 @@ pub(super) fn position(state: &DuelState, player: PlayerId) -> Result<i32, Inter
             total += creature_value(state, creature)?;
         }
         for permanent in state.permanents_of(who) {
-            let def = state.def(permanent.id)?;
-            if !def.is_creature() && !def.is_land() && !def.is_aura() {
-                total += LASTING_PERMANENT;
-            }
+            total += lasting_value(state.def(permanent.id)?);
         }
         Ok(total)
     };
@@ -209,10 +222,7 @@ fn searched_position(state: &DuelState, player: PlayerId) -> Result<i32, Interna
             total += creature_value(state, creature)?;
         }
         for permanent in state.permanents_of(who) {
-            let def = state.def(permanent.id)?;
-            if !def.is_creature() && !def.is_land() && !def.is_aura() {
-                total += LASTING_PERMANENT;
-            }
+            total += lasting_value(state.def(permanent.id)?);
         }
         Ok(total)
     };

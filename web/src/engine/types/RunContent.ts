@@ -2,6 +2,8 @@
 import type { CardDefId } from "./CardDefId";
 import type { EnemyDef } from "./EnemyDef";
 import type { EventDef } from "./EventDef";
+import type { FeatDef } from "./FeatDef";
+import type { FeatReward } from "./FeatReward";
 import type { ModifierDef } from "./ModifierDef";
 import type { PlaneswalkerDef } from "./PlaneswalkerDef";
 
@@ -12,7 +14,11 @@ export type RunContent = { planeswalkers: Array<PlaneswalkerDef>,
 /**
  * The starting emblems a run can be begun with.
  */
-emblems: Array<ModifierDef>, relics: Array<ModifierDef>, boons: Array<ModifierDef>, enemies: Array<EnemyDef>, events: Array<EventDef>, 
+emblems: Array<ModifierDef>, relics: Array<ModifierDef>, wounds: Array<ModifierDef>, enemies: Array<EnemyDef>, events: Array<EventDef>, feats: Array<FeatDef>, 
+/**
+ * What a won duel pays for the points its feats scored, fewest first.
+ */
+feat_rewards: Array<FeatReward>, 
 /**
  * The cards a card reward or a shop can offer.
  */

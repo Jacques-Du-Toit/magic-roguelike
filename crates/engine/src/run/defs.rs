@@ -1,6 +1,6 @@
-//! Run content: planeswalkers, enemies and the modifiers (relics, boons,
+//! Run content: planeswalkers, enemies and the modifiers (relics, wounds,
 //! passives, boss emblems) that change how a duel is set up. The data
-//! formats of `data/run/*.json` and of the boons in `data/balance.json`.
+//! formats of `data/run/*.json`.
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -14,6 +14,8 @@ use crate::cards::{
 };
 use crate::data::CardDatabase;
 use crate::decks::DeckEntry;
+
+use super::feats::FeatDef;
 
 macro_rules! id_type {
     ($(#[$doc:meta])* $name:ident) => {
@@ -39,14 +41,15 @@ macro_rules! id_type {
 }
 
 id_type!(
-    /// Identifies a modifier: a relic, a boon, a passive or an enemy's emblem.
+    /// Identifies a modifier: a relic, a wound, a passive or an enemy's emblem.
     ModifierId
 );
 id_type!(PlaneswalkerId);
 id_type!(EnemyId);
 id_type!(EventId);
+id_type!(FeatId);
 
-/// Something that changes how a duel is set up for its owner. Relics, boons,
+/// Something that changes how a duel is set up for its owner. Relics, wounds,
 /// planeswalker passives and boss emblems are all modifiers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -222,14 +225,11 @@ pub struct EventOptionDef {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum EventEffect {
-    /// Costs hearts. Never the last one: an event doesn't end a run.
-    LoseHearts {
-        amount: u8,
-    },
-    /// Restores hearts, up to the most the player can have.
-    RestoreHearts {
-        amount: u8,
-    },
+    /// The player takes a wound. Never the one that would end the run: an
+    /// event doesn't do that.
+    TakeWound {},
+    /// The player's latest wound is healed.
+    HealWound {},
     GainGold {
         amount: u32,
     },
@@ -264,11 +264,33 @@ pub struct RunData {
     /// The starting emblems: the player takes one into the run.
     pub emblems: Vec<ModifierDef>,
     pub relics: Vec<ModifierDef>,
+    /// What a lost duel leaves the player with until it is healed.
+    pub wounds: Vec<ModifierDef>,
     pub enemies: Vec<EnemyDef>,
     pub events: Vec<EventDef>,
+    /// What can be set out to do in a duel beyond winning it.
+    pub feats: Vec<FeatDef>,
 }
 
 impl RunData {
+    pub fn feat(&self, id: &FeatId) -> Option<&FeatDef> {
+        self.feats.iter().find(|def| def.id == *id)
+    }
+
+    /// The feats offered to a character, in file order.
+    pub fn feats_for<'a>(
+        &'a self,
+        planeswalker: &'a PlaneswalkerId,
+    ) -> impl Iterator<Item = &'a FeatDef> {
+        self.feats
+            .iter()
+            .filter(move |feat| feat.is_for(planeswalker))
+    }
+
+    pub fn wound(&self, id: &ModifierId) -> Option<&ModifierDef> {
+        self.wounds.iter().find(|def| def.id == *id)
+    }
+
     pub fn event(&self, id: &EventId) -> Option<&EventDef> {
         self.events.iter().find(|def| def.id == *id)
     }
@@ -351,6 +373,19 @@ pub enum RunDataError {
     UnknownEmblem { id: String, emblem: ModifierId },
     #[error("there must be at least one starting emblem")]
     NoEmblems,
+    #[error("there must be at least one wound")]
+    NoWounds,
+    #[error("`{0}`: a feat's text needs `{{n}}` where a tier's number goes")]
+    FeatText(String),
+    #[error("`{0}`: a feat needs one to three tiers, each harder than the one before")]
+    FeatTiers(String),
+    #[error("`{0}`: `by_turn` is above zero, and only for a measure that is a high point")]
+    FeatDeadline(String),
+    #[error("`{id}`: there is no planeswalker `{planeswalker}`")]
+    UnknownPlaneswalker {
+        id: String,
+        planeswalker: PlaneswalkerId,
+    },
     #[error("there must be at least one planeswalker")]
     NoPlaneswalkers,
     #[error("there must be at least one enemy of tier {0:?}")]
@@ -375,7 +410,7 @@ fn check_id(id: &str) -> Result<(), RunDataError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModifierKind {
     Relic,
-    Boon,
+    Wound,
     Passive,
     Enemy,
     /// What an event gives for the next duel.
@@ -562,6 +597,15 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
         validate_modifier_tokens(relic, cards)?;
     }
 
+    if run.wounds.is_empty() {
+        return Err(RunDataError::NoWounds);
+    }
+    unique(run.wounds.iter().map(|def| def.id.as_str()))?;
+    for wound in &run.wounds {
+        validate_modifier(wound, ModifierKind::Wound)?;
+        validate_modifier_tokens(wound, cards)?;
+    }
+
     unique(run.enemies.iter().map(|def| def.id.as_str()))?;
     for enemy in &run.enemies {
         let id = enemy.id.as_str();
@@ -606,10 +650,7 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
             }
             for effect in &option.effects {
                 match effect {
-                    EventEffect::LoseHearts { amount: 0 }
-                    | EventEffect::RestoreHearts { amount: 0 }
-                    | EventEffect::GainGold { amount: 0 }
-                    | EventEffect::PayGold { amount: 0 } => {
+                    EventEffect::GainGold { amount: 0 } | EventEffect::PayGold { amount: 0 } => {
                         return Err(RunDataError::ZeroChange(id.to_string()));
                     }
                     EventEffect::GainRelic {} if event.relics == 0 => {
@@ -631,6 +672,11 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
         }
     }
 
+    unique(run.feats.iter().map(|def| def.id.as_str()))?;
+    for feat in &run.feats {
+        validate_feat(feat, run)?;
+    }
+
     for tier in [
         EnemyTier::Easy,
         EnemyTier::Normal,
@@ -642,4 +688,45 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
         }
     }
     Ok(())
+}
+
+fn validate_feat(feat: &FeatDef, run: &RunData) -> Result<(), RunDataError> {
+    let id = feat.id.as_str();
+    check_id(id)?;
+    if feat.name.trim().is_empty() {
+        return Err(RunDataError::EmptyText(id.to_string()));
+    }
+    if !feat.text.contains("{n}") {
+        return Err(RunDataError::FeatText(id.to_string()));
+    }
+    // Each tier is harder than the one before: a smaller number where
+    // fewer is better, a larger one otherwise.
+    let harder = |pair: &[i32]| {
+        if feat.measure.fewer_is_better() {
+            pair[1] < pair[0]
+        } else {
+            pair[1] > pair[0]
+        }
+    };
+    if !(1..=3).contains(&feat.tiers.len()) || !feat.tiers.windows(2).all(harder) {
+        return Err(RunDataError::FeatTiers(id.to_string()));
+    }
+    if feat
+        .by_turn
+        .is_some_and(|turn| turn == 0 || !feat.measure.is_high_point())
+    {
+        return Err(RunDataError::FeatDeadline(id.to_string()));
+    }
+    unique(feat.planeswalkers.iter().map(PlaneswalkerId::as_str))?;
+    match feat
+        .planeswalkers
+        .iter()
+        .find(|planeswalker| run.planeswalker(planeswalker).is_none())
+    {
+        Some(planeswalker) => Err(RunDataError::UnknownPlaneswalker {
+            id: id.to_string(),
+            planeswalker: planeswalker.clone(),
+        }),
+        None => Ok(()),
+    }
 }

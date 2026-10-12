@@ -15,6 +15,7 @@ import type { CardDef } from './types/CardDef.ts'
 import type { DeckDef } from './types/DeckDef.ts'
 import type { DuelUpdate } from './types/DuelUpdate.ts'
 import type { EngineInfo } from './types/EngineInfo.ts'
+import type { FeatScore } from './types/FeatScore.ts'
 import type { PlayerId } from './types/PlayerId.ts'
 import type { PlayerView } from './types/PlayerView.ts'
 import type { RunAction } from './types/RunAction.ts'
@@ -45,7 +46,7 @@ export function deckDefs(): DeckDef[] {
   return JSON.parse(decks()) as DeckDef[]
 }
 
-/** Everything a run can contain: planeswalkers, relics, boons and enemies. */
+/** Everything a run can contain: planeswalkers, relics, wounds, feats and enemies. */
 export function runContent(): RunContent {
   return JSON.parse(run_content()) as RunContent
 }
@@ -173,6 +174,8 @@ export class Run {
       return update
     },
     aiStep: (): DuelUpdate => JSON.parse(this.#run.duel_ai_step()) as DuelUpdate,
+    /** How the feats picked for the duel stand: what each would score now. */
+    feats: (): FeatScore[] => JSON.parse(this.#run.duel_feats()) as FeatScore[],
     /** What the AI would do in the human's place. */
     suggest: (): Action => JSON.parse(this.#run.duel_suggest()) as Action,
   }

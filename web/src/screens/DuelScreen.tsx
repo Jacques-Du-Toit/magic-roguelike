@@ -60,15 +60,28 @@ export type Speed = 'normal' | 'fast' | 'instant'
 /** How to start the next game from the duel screen. */
 export type NextGame = 'new_seed' | 'same_seed' | 'menu'
 
+/** A feat picked for a duel of a run, as the side panel shows it. */
+export interface DuelFeat {
+  id: string
+  name: string
+  /** What it asks for, with its tiers. */
+  text: string
+  /** The tiers it would score if the duel were won now, of `tiers`. */
+  score: number
+  tiers: number
+}
+
 /** Where the duel screen leads: another practice game, or back to the run. */
 export type DuelExit =
   | { kind: 'practice'; onNextGame: (next: NextGame) => void }
   | {
       kind: 'run'
-      /** The player's hearts, in words. */
-      hearts: string
+      /** The player's wounds, in words. */
+      wounds: string
       /** What losing this duel costs, in words. */
       stakes: string
+      /** The feats picked for this duel, as they stand now. None for the boss. */
+      feats: () => DuelFeat[]
       onConcede: () => void
       /** Leave the finished duel and take its result into the run. */
       onContinue: () => void
@@ -231,6 +244,8 @@ export function DuelScreen({
 }: DuelScreenProps) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const { view, actions, busy, effects, info } = snapshot
+  // Asked of the engine at every change of the duel: the score moves with it.
+  const feats = exit.kind === 'run' ? exit.feats() : []
 
   // What is being pointed at only makes sense for the actions it was started
   // under: any change of legal actions drops it.
@@ -481,7 +496,7 @@ export function DuelScreen({
           )}
           {exit.kind === 'run' && (
             <span className="muted" data-testid="stakes">
-              {exit.hearts}. {exit.stakes}
+              {exit.wounds}. {exit.stakes}
             </span>
           )}
           {exit.kind === 'run' && view.result === null && !conceding && (
@@ -699,7 +714,26 @@ export function DuelScreen({
         )}
       </div>
 
-      <aside className="duel-side">
+      <aside className={feats.length > 0 ? 'duel-side duel-side-feats' : 'duel-side'}>
+        {feats.length > 0 && (
+          <section className="panel feats-panel" aria-label="Feats" data-testid="duel-feats">
+            <h2>Feats</h2>
+            <ul className="modifiers">
+              {feats.map((feat) => (
+                <li key={feat.id} className="modifier" data-testid="duel-feat" data-score={feat.score}>
+                  <strong>
+                    {feat.name}{' '}
+                    <span className={feat.score > 0 ? 'badge badge-granted' : 'badge'}>
+                      {feat.score} of {feat.tiers}
+                    </span>
+                  </strong>
+                  {feat.text}
+                </li>
+              ))}
+            </ul>
+            <p className="muted">What each would score if you won now.</p>
+          </section>
+        )}
         <StackPanel
           view={view}
           cards={cards}

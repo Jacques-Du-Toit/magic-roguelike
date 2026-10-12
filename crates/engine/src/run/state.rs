@@ -10,7 +10,8 @@ use crate::duel::{
     ActionError, CardInstance, ConfigError, DuelRng, DuelState, InternalError, PlayerId,
 };
 
-use super::defs::{EnemyId, EventId, ModifierId, PlaneswalkerId};
+use super::defs::{EnemyId, EventId, FeatId, ModifierId, PlaneswalkerId};
+use super::feats::{DuelStats, FeatScore};
 
 /// The human's seat in every duel of a run. The starting player is still
 /// the duel's seeded coin flip.
@@ -87,6 +88,13 @@ pub enum DuelKind {
 pub enum Phase {
     /// Choose the next node.
     Map,
+    /// A duel is about to start: `enemy` is who it is against, and some of
+    /// the `offered` feats are to be picked for it.
+    Feats {
+        enemy: EnemyId,
+        kind: DuelKind,
+        offered: Vec<FeatId>,
+    },
     /// A duel is being played. `RunState::duel` holds it.
     Duel {
         enemy: EnemyId,
@@ -123,10 +131,6 @@ pub enum Phase {
         relics: Vec<ModifierId>,
         cards: Vec<CardDefId>,
     },
-    /// Before the boss: each remaining heart buys one boon.
-    Boons {
-        picks_left: u8,
-    },
     Over {
         won: bool,
     },
@@ -160,20 +164,25 @@ pub struct RunState {
     pub planeswalker: PlaneswalkerId,
     /// The starting emblem chosen for the run.
     pub emblem: ModifierId,
-    pub hearts: u8,
-    pub max_hearts: u8,
+    /// The wounds carried, oldest first: one for each duel lost and not
+    /// healed since. Each is a modifier the player takes into every duel.
+    /// The run ends when there are `run.max_wounds` of them.
+    pub wounds: Vec<ModifierId>,
     pub gold: u32,
     /// Spells and non-basic lands. The basic lands are worked out from it.
     pub deck: Vec<CardInstance>,
     pub relics: Vec<ModifierId>,
-    /// Boons bought for the boss duel.
-    pub boons: Vec<ModifierId>,
     pub map: RunMap,
     /// The nodes visited, in order. The last is where the player is.
     pub path: Vec<NodeId>,
     pub phase: Phase,
     /// The duel in progress, in `Phase::Duel`.
     pub duel: Option<DuelState>,
+    /// What that duel has been like for the player so far, which is what
+    /// feats are scored from.
+    pub duel_stats: Option<DuelStats>,
+    /// The feats picked for that duel. None for the boss.
+    pub feats: Vec<FeatId>,
     /// Enemies already met, so the next one is someone new if possible.
     pub fought: Vec<EnemyId>,
     /// Events already met, likewise.
@@ -202,6 +211,11 @@ pub enum RunAction {
     Travel {
         node: NodeId,
     },
+    /// Before a duel: pick these of the feats offered, by their places in
+    /// `offered`, in rising order, and start the duel.
+    ChooseFeats {
+        feats: Vec<usize>,
+    },
     /// Give up the duel in progress. It counts as a loss.
     Concede,
     /// Leave a duel that has ended and take its consequences.
@@ -211,8 +225,10 @@ pub enum RunAction {
         choice: usize,
     },
     SkipReward,
-    /// At a rest site: restore hearts.
-    RestHeal,
+    /// At a rest site: heal `wounds[wound]`.
+    HealWound {
+        wound: usize,
+    },
     /// At a rest site or a shop: remove `deck[card]` from the deck.
     RemoveCard {
         card: usize,
@@ -240,12 +256,6 @@ pub enum RunAction {
     },
     /// Leave a rest site, a shop, a draft or an event.
     Leave,
-    /// Before the boss: spend a pick on a boon.
-    TakeBoon {
-        boon: ModifierId,
-    },
-    /// Start the boss duel with the boons taken so far.
-    StartBoss,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -268,6 +278,7 @@ pub enum GoldReason {
     Removal,
     Treasure,
     Event,
+    Feats,
 }
 
 /// Something that happened in the run, in order.
@@ -279,19 +290,31 @@ pub enum RunEvent {
         node: NodeId,
         kind: NodeKind,
     },
+    /// A duel is ahead, with feats to pick for it.
+    FeatsOffered {
+        enemy: EnemyId,
+        kind: DuelKind,
+    },
     DuelStarted {
         enemy: EnemyId,
         kind: DuelKind,
+    },
+    /// A duel was won: how its feats scored, and their points in all.
+    FeatsScored {
+        scores: Vec<FeatScore>,
+        points: u32,
     },
     DuelEnded {
         enemy: EnemyId,
         kind: DuelKind,
         outcome: DuelOutcome,
     },
-    /// `hearts` is the new total.
-    HeartsChanged {
-        change: i8,
-        hearts: u8,
+    /// The player now carries this wound as well.
+    WoundTaken {
+        wound: ModifierId,
+    },
+    WoundHealed {
+        wound: ModifierId,
     },
     /// `gold` is the new total.
     GoldChanged {
@@ -308,9 +331,6 @@ pub enum RunEvent {
     },
     CardRemoved {
         card: CardDefId,
-    },
-    BoonTaken {
-        boon: ModifierId,
     },
     /// An event has left the player a modifier for their next duel.
     NextDuelModified {

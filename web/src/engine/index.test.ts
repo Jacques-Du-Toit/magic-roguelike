@@ -72,7 +72,16 @@ describe('Duel', () => {
     const view = run.view()
     expect(view.emblem).toBe('emblem_fury')
     const travel = view.actions[0]
-    run.apply(travel)
+    // Arriving offers the feats; the duel starts once two are picked.
+    const offered = run.apply(travel).view
+    expect(offered.phase.type).toBe('feats')
+    expect(() => run.duel.view()).toThrow('no duel is being played')
+    expect(offered.actions[0]).toEqual({ type: 'choose_feats', feats: [0, 1] })
+    const started = run.apply(offered.actions[0]).view
+    expect(started.feats.map((feat) => feat.feat)).toEqual(
+      offered.phase.type === 'feats' ? offered.phase.offered.slice(0, 2) : [],
+    )
+    expect(run.duel.feats()).toEqual(started.feats)
     const [you, enemy] = run.duel.view().players
     expect(you.emblems.map((emblem) => emblem.name)).toEqual(['Battle Fury'])
     expect(you.commander?.def).toBe('jasmine_boreal')
@@ -145,7 +154,9 @@ describe('Run', () => {
       'warden',
       'firebrand',
     ])
-    expect(content.boons).toHaveLength(4)
+    expect(content.wounds.map((wound) => wound.id)).toEqual(['festering_wound'])
+    expect(content.feats).toHaveLength(8)
+    expect(content.feat_rewards[0]).toMatchObject({ points: 0, choices: 2 })
     expect(content.emblems.map((emblem) => emblem.id)).toEqual(['emblem_welcome', 'emblem_fury'])
     expect(content.planeswalkers.map((planeswalker) => planeswalker.commander)).toEqual([
       'jasmine_boreal',
@@ -164,7 +175,16 @@ describe('Run', () => {
     const view = run.view()
     expect(view.emblem).toBe('emblem_fury')
     const travel = view.actions[0]
-    run.apply(travel)
+    // Arriving offers the feats; the duel starts once two are picked.
+    const offered = run.apply(travel).view
+    expect(offered.phase.type).toBe('feats')
+    expect(() => run.duel.view()).toThrow('no duel is being played')
+    expect(offered.actions[0]).toEqual({ type: 'choose_feats', feats: [0, 1] })
+    const started = run.apply(offered.actions[0]).view
+    expect(started.feats.map((feat) => feat.feat)).toEqual(
+      offered.phase.type === 'feats' ? offered.phase.offered.slice(0, 2) : [],
+    )
+    expect(run.duel.feats()).toEqual(started.feats)
     const [you, enemy] = run.duel.view().players
     expect(you.emblems.map((emblem) => emblem.name)).toEqual(['Battle Fury'])
     expect(you.commander?.def).toBe('jasmine_boreal')

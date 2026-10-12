@@ -5,4 +5,4 @@ import type { ModifierDef } from "./ModifierDef";
  * A cost or a gain of an event's option. An option is on offer only while
  * every cost can be paid and every gain can be had.
  */
-export type EventEffect = { "type": "lose_hearts", amount: number, } | { "type": "restore_hearts", amount: number, } | { "type": "gain_gold", amount: number, } | { "type": "pay_gold", amount: number, } | { "type": "gain_relic", } | { "type": "gain_cards", } | { "type": "transmute", } | { "type": "next_duel", modifier: ModifierDef, };
+export type EventEffect = { "type": "take_wound", } | { "type": "heal_wound", } | { "type": "gain_gold", amount: number, } | { "type": "pay_gold", amount: number, } | { "type": "gain_relic", } | { "type": "gain_cards", } | { "type": "transmute", } | { "type": "next_duel", modifier: ModifierDef, };

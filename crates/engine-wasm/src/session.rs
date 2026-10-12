@@ -11,7 +11,7 @@ use engine::duel::{
 };
 use engine::run::{
     ENEMY, ModifierId, PLAYER, PlaneswalkerId, RunAction, RunConfig, RunEvent, RunState, RunView,
-    apply_duel_action, apply_run_action, new_run, run_content, run_view,
+    apply_duel_action, apply_run_action, feat_scores, new_run, run_content, run_view,
 };
 use engine::{AiKind, ai_choose_action_with};
 use serde::{Deserialize, Serialize};
@@ -215,6 +215,13 @@ impl RunSession {
     pub fn duel_should_auto_pass(&self, hold_priority: bool) -> bool {
         self.duel()
             .is_ok_and(|duel| should_auto_pass(duel, PLAYER, hold_priority))
+    }
+
+    /// How the feats picked for the duel stand, as a JSON array of
+    /// `FeatScore`: what each would score if the duel were won now.
+    pub fn duel_feats(&self) -> Result<String, String> {
+        self.duel()?;
+        to_json(&feat_scores(&self.state).map_err(|error| error.to_string())?)
     }
 
     /// Applies one of the human's legal duel actions. Returns a
@@ -426,6 +433,7 @@ mod tests {
         // No duel yet.
         assert!(session.duel_view().is_err());
         assert!(session.duel_ai_step().is_err());
+        assert!(session.duel_feats().is_err());
         assert!(!session.duel_should_auto_pass(false));
 
         assert_eq!(
@@ -482,11 +490,15 @@ mod tests {
             if view.actions == [RunAction::Concede] {
                 let duel: PlayerView = serde_json::from_str(&session.duel_view().unwrap()).unwrap();
                 assert_eq!(duel.viewer, PLAYER);
+                // The feats picked for it, as the run's view has them.
+                let feats: Vec<engine::run::FeatScore> =
+                    serde_json::from_str(&session.duel_feats().unwrap()).unwrap();
+                assert_eq!(feats, view.feats);
                 play_run_duel(&mut session);
                 continue;
             }
-            // Take the last action on offer: it finishes duels, skips
-            // rewards, leaves shops and rest sites, and starts the boss.
+            // Take the last action on offer: it picks feats, finishes
+            // duels, skips rewards, and leaves shops and rest sites.
             let action = view.actions.last().unwrap().clone();
             let update = run_act(&mut session, &action);
             assert_eq!(update.view, run_view_of(&session));

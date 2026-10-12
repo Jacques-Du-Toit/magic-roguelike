@@ -36,4 +36,9 @@ altered: boolean,
  * it by folder: true for `data/tokens/`, false for `data/cards/`,
  * whatever the file says.
  */
-token: boolean, abilities: Array<AbilityDef>, };
+token: boolean, 
+/**
+ * A permanent its controller is better off without, like a wound. It
+ * changes no rule: the AI counts it against whoever controls it.
+ */
+burden: boolean, abilities: Array<AbilityDef>, };
