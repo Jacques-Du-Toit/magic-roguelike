@@ -1,0 +1,39 @@
+{
+  "id": "oakheart_dryads",
+  "name": "Oakheart Dryads",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment",
+    "Creature"
+  ],
+  "subtypes": [
+    "Nymph",
+    "Dryad"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rarity": "common",
+  "oracle_text": "Constellation — Whenever this creature or another enchantment you control enters, target creature gets +1/+1 until end of turn.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "enchantment_you_control"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "creature": {}
+          },
+          "power": 1,
+          "toughness": 1
+        }
+      ]
+    }
+  ]
+}

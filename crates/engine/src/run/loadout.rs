@@ -191,7 +191,7 @@ mod tests {
             &data.balance,
         );
         let [player, opponent] = &config.players;
-        assert_eq!(player.library.len(), 20);
+        assert_eq!(player.library.len(), 17);
         let count = |card: &str| {
             player
                 .library
@@ -199,8 +199,8 @@ mod tests {
                 .filter(|instance| instance.card_id.as_str() == card)
                 .count()
         };
-        // 6 white symbols and 7 green.
-        assert_eq!((count("plains"), count("forest")), (4, 4));
+        // 4 white symbols and 7 green.
+        assert_eq!((count("plains"), count("forest")), (3, 4));
         assert_eq!(player.starting_life, 20);
         assert_eq!(player.emblems.len(), 1);
         assert_eq!(player.emblems[0].name, "Warm Welcome");

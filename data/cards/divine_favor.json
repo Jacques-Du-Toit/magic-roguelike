@@ -1,0 +1,42 @@
+{
+  "id": "divine_favor",
+  "name": "Divine Favor",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "subtypes": [
+    "Aura"
+  ],
+  "rarity": "common",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, you gain 3 life.\nEnchanted creature gets +1/+3.",
+  "enchant": {
+    "creature": {}
+  },
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "enchanted",
+      "power": 1,
+      "toughness": 3
+    }
+  ]
+}

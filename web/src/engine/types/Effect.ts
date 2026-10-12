@@ -15,4 +15,4 @@ export type Effect = { "type": "add_counters", target: TargetSpec, amount: numbe
 /**
  * "With toughness N or greater": only those.
  */
-min_toughness: number | null, } | { "type": "fetch_basic_land", } | { "type": "tap", target: TargetSpec, skip_next_untap: boolean, };
+min_toughness: number | null, } | { "type": "fetch_basic_land", } | { "type": "return_this_to_hand", } | { "type": "tap", target: TargetSpec, skip_next_untap: boolean, };

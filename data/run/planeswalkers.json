@@ -9,8 +9,8 @@
     "spells": [
         { "card": "savannah_lions", "count": 1 },
         { "card": "glory_seeker", "count": 1 },
-        { "card": "youthful_knight", "count": 2 },
-        { "card": "pacifism", "count": 2 },
+        { "card": "youthful_knight", "count": 1 },
+        { "card": "pacifism", "count": 1 },
         { "card": "grizzly_bears", "count": 1 },
         { "card": "elvish_visionary", "count": 1 },
         { "card": "centaur_courser", "count": 1 },

@@ -8,7 +8,9 @@
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::state::{AbilityRef, DuelState, PendingTrigger, TriggeredAbility};
-use crate::cards::{AbilityDef, CastKind, Effect, Keyword, Stat, StatOf, Trigger, TriggerSubject};
+use crate::cards::{
+    AbilityDef, CardType, CastKind, Effect, Keyword, Stat, StatOf, Trigger, TriggerSubject,
+};
 
 /// Something abilities can trigger on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +35,8 @@ pub(crate) enum Happening {
     },
     /// A permanent is about to leave the battlefield.
     Left(ObjectId),
+    /// A permanent is about to go from the battlefield to a graveyard.
+    PutIntoGraveyard(ObjectId),
     /// A player's upkeep has begun.
     Upkeep(PlayerId),
     /// Combat has begun on a player's turn.
@@ -225,6 +229,11 @@ fn triggers_on(
             TriggerSubject::TokenYouControl => (state.def(object)?.token
                 && state.object(object)?.owner == controller)
                 .then_some(Some(object)),
+            TriggerSubject::EnchantmentYouControl => {
+                (state.def(object)?.has_type(CardType::Enchantment)
+                    && state.object(object)?.owner == controller)
+                    .then_some(Some(object))
+            }
         })
     };
     Ok(match (*trigger, happening) {
@@ -240,7 +249,8 @@ fn triggers_on(
             }
         }
         (Trigger::Dies { subject }, Happening::Dies(object)) => by_subject(subject, object)?,
-        (Trigger::LeavesBattlefield {}, Happening::Left(object)) => {
+        (Trigger::LeavesBattlefield {}, Happening::Left(object))
+        | (Trigger::PutIntoGraveyardFromBattlefield {}, Happening::PutIntoGraveyard(object)) => {
             is_holder(object).then_some(None)
         }
         (Trigger::Attacks {}, Happening::Attacked(object))
@@ -259,6 +269,7 @@ fn triggers_on(
         (Trigger::CastSpell { kind }, Happening::CastSpell { player, spell }) => {
             let def = state.def(spell)?;
             let fits = match kind {
+                CastKind::Enchantment => def.has_type(CardType::Enchantment),
                 CastKind::InstantOrSorcery => def.is_instant_or_sorcery(),
                 CastKind::Noncreature => !def.is_creature(),
             };

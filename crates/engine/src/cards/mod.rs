@@ -283,6 +283,9 @@ pub enum Trigger {
     /// The permanent the ability is on leaves the battlefield, for
     /// anywhere.
     LeavesBattlefield {},
+    /// The permanent the ability is on is put into a graveyard from the
+    /// battlefield.
+    PutIntoGraveyardFromBattlefield {},
     /// The subject is put into a graveyard from the battlefield.
     Dies { subject: TriggerSubject },
     /// The permanent the ability is on attacks.
@@ -309,6 +312,7 @@ pub enum Trigger {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum CastKind {
+    Enchantment,
     InstantOrSorcery,
     Noncreature,
 }
@@ -327,6 +331,9 @@ pub enum TriggerSubject {
     AnotherCreatureYouControl,
     /// Any token the controller controls.
     TokenYouControl,
+    /// Any enchantment the controller controls, the one the ability is on
+    /// included ("constellation").
+    EnchantmentYouControl,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -344,6 +351,9 @@ pub enum StaticAbility {
         /// "With flying": only those that have this keyword.
         #[serde(default)]
         with_keyword: Option<Keyword>,
+        /// "For each enchantment you control": that many times over.
+        #[serde(default)]
+        for_each: Option<Count>,
     },
     GrantKeyword {
         affects: Affects,
@@ -511,6 +521,9 @@ pub enum Effect {
     /// battlefield tapped, then shuffles. The game picks the land: one of
     /// the colour they have the fewest lands for.
     FetchBasicLand {},
+    /// "Return it to its owner's hand", for an ability that triggers on
+    /// its own card going to the graveyard: the card comes back from there.
+    ReturnThisToHand {},
     /// Taps the target. With `skip_next_untap` it also stays tapped through
     /// its controller's next untap step.
     Tap {
@@ -542,6 +555,7 @@ impl Effect {
             Effect::LoseLife { .. } => "lose_life",
             Effect::Mill { .. } => "mill",
             Effect::ModifyPtUntilEot { .. } => "modify_pt_until_eot",
+            Effect::ReturnThisToHand {} => "return_this_to_hand",
             Effect::ReturnToHand { .. } => "return_to_hand",
             Effect::Scry { .. } => "scry",
             Effect::Surveil { .. } => "surveil",
@@ -575,6 +589,7 @@ impl Effect {
             | Effect::DoubleCountersOnYourCreatures {}
             | Effect::GainLifeEqualTo { .. }
             | Effect::FetchBasicLand {}
+            | Effect::ReturnThisToHand {}
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::YourCreaturesGetUntilEot { .. } => Vec::new(),
@@ -598,6 +613,11 @@ pub enum Count {
     /// The +1/+1 counters the controller has put on their own creatures
     /// this turn.
     CounterPutThisTurn,
+    /// The enchantments the controller controls.
+    EnchantmentYouControl,
+    /// The enchantments on the battlefield, whoever controls them, other
+    /// than the one the ability is on.
+    OtherEnchantment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -1030,7 +1050,8 @@ pub(crate) fn validate_triggered(trigger: &Trigger, effects: &[Effect]) -> Resul
         Trigger::EntersBattlefield {
             subject: TriggerSubject::CreatureYouControl
                 | TriggerSubject::AnotherCreatureYouControl
-                | TriggerSubject::TokenYouControl,
+                | TriggerSubject::TokenYouControl
+                | TriggerSubject::EnchantmentYouControl,
             ..
         } | Trigger::Dies {
             subject: TriggerSubject::CreatureYouControl | TriggerSubject::AnotherCreatureYouControl
@@ -1118,6 +1139,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::DoubleCountersOnYourCreatures {}
         | Effect::GainLifeEqualTo { .. }
         | Effect::FetchBasicLand {}
+        | Effect::ReturnThisToHand {}
         | Effect::Discard { .. }
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }

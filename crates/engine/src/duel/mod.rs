@@ -22,6 +22,8 @@ mod damage;
 mod effects;
 #[cfg(test)]
 mod emblem_tests;
+#[cfg(test)]
+mod enchantment_tests;
 mod error;
 #[cfg(test)]
 mod graveyard_tests;

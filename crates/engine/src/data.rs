@@ -548,9 +548,9 @@ mod tests {
         // The commanders: never in a deck, a reward or a shop.
         let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (109, 50));
+        assert_eq!((creatures, others), (112, 59));
         assert_eq!(legends, 7);
-        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 18);
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 19);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -900,6 +900,20 @@ mod tests {
         assert!(!card("forest").enters_tapped);
     }
 
+    /// Whether a card is offered by rewards, drafts and shops to some
+    /// character: a spell that is not legendary, in that character's
+    /// colours.
+    fn is_a_reward(card: &CardDef) -> bool {
+        !card.is_land()
+            && !card.is_legendary()
+            && !card.colors.is_empty()
+            && data().run.planeswalkers.iter().any(|planeswalker| {
+                card.colors
+                    .iter()
+                    .all(|color| planeswalker.colors.contains(color))
+            })
+    }
+
     /// A card nobody can ever meet is dead weight: every card is in a test
     /// deck, a starting deck or an enemy deck. Non-basic lands are the
     /// exception (they come from rewards and shops), and so are tokens and
@@ -922,7 +936,7 @@ mod tests {
                 || run.enemies.iter().any(|def| leads(&def.commander));
             let reward_land = card.is_land() && card.supertypes.is_empty();
             assert!(
-                used || reward_land || RUN_STRANGERS.contains(&id),
+                used || reward_land || is_a_reward(card),
                 "{id} is in no deck"
             );
         }
@@ -944,67 +958,9 @@ mod tests {
             };
             let met = run.planeswalkers.iter().any(|def| in_entries(&def.spells))
                 || run.enemies.iter().any(|def| in_entries(&def.cards));
-            assert!(met || RUN_STRANGERS.contains(&id), "{id} is in no run deck");
-            assert!(
-                !(met && RUN_STRANGERS.contains(&id)),
-                "{id} is in a run deck: take it off RUN_STRANGERS"
-            );
+            assert!(met || is_a_reward(card), "{id} is in no run deck or reward");
         }
     }
-
-    /// Spells no enemy or starting deck uses yet. Those in a character's
-    /// colours still turn up as rewards.
-    const RUN_STRANGERS: [&str; 45] = [
-        // The big-creatures package.
-        "armada_wurm",
-        "garruks_uprising",
-        "honey_mammoth",
-        "nessian_hornbeetle",
-        "pelakka_wurm",
-        "rampant_growth",
-        "sight_of_the_scalelords",
-        "steel_leaf_champion",
-        "terra_stomper",
-        "thragtusk",
-        // The lifegain package, and Conclave Mentor.
-        "angelic_chorus",
-        "celestial_unicorn",
-        "centaur_healer",
-        "conclave_mentor",
-        "griffin_aerie",
-        "nyx_fleece_ram",
-        "resplendent_angel",
-        "soulmender",
-        "speaker_of_the_heavens",
-        "twinblade_paladin",
-        "unflinching_courage",
-        // The counters package.
-        "archangel_of_thune",
-        "armorcraft_judge",
-        "basris_solidarity",
-        "cathars_crusade",
-        "crowned_ceratok",
-        "invigorating_surge",
-        "iridescent_hornbeetle",
-        "kalonian_hydra",
-        "lightwalker",
-        "luminarch_aspirant",
-        "ridgescale_tusker",
-        "snakeskin_veil",
-        "woodland_champion",
-        // The go-wide package of the green-white pool.
-        "captains_call",
-        "collective_blessing",
-        "fists_of_ironwood",
-        "good_fortune_unicorn",
-        "impassioned_orator",
-        "inspired_charge",
-        "intangible_virtue",
-        "might_of_the_masses",
-        "overrun",
-        "sworn_companions",
-        "trostanis_summoner",
-    ];
 
     #[test]
     fn the_run_content_is_what_the_roadmap_asks_for() {
@@ -1021,7 +977,7 @@ mod tests {
             let spells: u32 = planeswalker.spells.iter().map(|entry| entry.count).sum();
             // The Warden starts lean, to be shaped by drafts.
             let expected = if planeswalker.id.as_str() == "warden" {
-                12
+                10
             } else {
                 15
             };

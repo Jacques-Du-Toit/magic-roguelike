@@ -1,0 +1,20 @@
+{
+  "id": "warrior_token",
+  "name": "Warrior",
+  "mana_cost": "",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Warrior"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "keywords": [
+    "vigilance"
+  ]
+}

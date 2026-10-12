@@ -1,0 +1,29 @@
+{
+  "id": "ancestral_mask",
+  "name": "Ancestral Mask",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "subtypes": [
+    "Aura"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 for each other enchantment on the battlefield.",
+  "enchant": {
+    "creature": {}
+  },
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "enchanted",
+      "power": 2,
+      "toughness": 2,
+      "for_each": "other_enchantment"
+    }
+  ]
+}

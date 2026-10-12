@@ -19,3 +19,5 @@ tools/.scryfall-cache/
 .DS_Store
 Thumbs.db
 *.log
+
+tools/.check-logs/

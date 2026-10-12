@@ -51,6 +51,13 @@ node tools/scryfall.mjs add "Card Name"   # writes data/cards/<id>.json from Scr
 node tools/scryfall.mjs check             # every card's name, cost, types, stats, keywords and text against Scryfall
                                           # (a card marked "altered" keeps its own text)
 node --test tools/scryfall.test.mjs       # the tool's own tests
+node tools/add-cards.mjs spec.json        # a batch of cards: Scryfall's facts, the spec's abilities, and tokens
+                                          # (.claude/skills/add-cards/SKILL.md has the whole routine)
+
+# Every check before a commit (from repo root, Windows PowerShell)
+.\tools\check-all.ps1                    # fmt, clippy, all tests, Scryfall, wasm, lint, build, end-to-end
+.\tools\check-all.ps1 -Quick             # without the end-to-end tests
+.\tools\check-all.ps1 -Sim               # and then 300 whole runs in the sim
 
 # AI speed in WebAssembly (from repo root, after npm run wasm in web/)
 node tools/ai-timing.mjs 4                # plays 4 whole runs through the wasm handle and times every AI decision

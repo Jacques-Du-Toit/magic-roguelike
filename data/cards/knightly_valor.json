@@ -1,0 +1,47 @@
+{
+  "id": "knightly_valor",
+  "name": "Knightly Valor",
+  "mana_cost": "{4}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "subtypes": [
+    "Aura"
+  ],
+  "rarity": "common",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, create a 2/2 white Knight creature token with vigilance. (Attacking doesn't cause it to tap.)\nEnchanted creature gets +2/+2 and has vigilance.",
+  "enchant": {
+    "creature": {}
+  },
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "knight_token"
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "enchanted",
+      "power": 2,
+      "toughness": 2
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "enchanted",
+      "keyword": "vigilance"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "setessan_champion",
+  "name": "Setessan Champion",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Warrior"
+  ],
+  "power": 1,
+  "toughness": 3,
+  "rarity": "rare",
+  "oracle_text": "Constellation — Whenever an enchantment you control enters, put a +1/+1 counter on this creature and draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "enchantment_you_control"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "this": {}
+          },
+          "amount": 1
+        },
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

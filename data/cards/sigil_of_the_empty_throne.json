@@ -1,0 +1,28 @@
+{
+  "id": "sigil_of_the_empty_throne",
+  "name": "Sigil of the Empty Throne",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Whenever you cast an enchantment spell, create a 4/4 white Angel creature token with flying.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "cast_spell",
+        "kind": "enchantment"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "angel_token"
+        }
+      ]
+    }
+  ]
+}

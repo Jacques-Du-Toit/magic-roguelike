@@ -1,0 +1,36 @@
+{
+  "id": "satyr_enchanter",
+  "name": "Satyr Enchanter",
+  "mana_cost": "{1}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Satyr",
+    "Druid"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "Whenever you cast an enchantment spell, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "cast_spell",
+        "kind": "enchantment"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

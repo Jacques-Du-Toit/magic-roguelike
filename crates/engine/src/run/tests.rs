@@ -138,7 +138,7 @@ fn a_new_run_has_the_starting_deck_hearts_and_gold() {
     assert_eq!(state.hearts, balance.hearts);
     assert_eq!(state.max_hearts, balance.hearts);
     assert_eq!(state.gold, balance.starting_gold);
-    assert_eq!(state.deck.len(), 12);
+    assert_eq!(state.deck.len(), 10);
     assert!(state.relics.is_empty() && state.boons.is_empty());
     assert_eq!(state.phase, Phase::Map);
     assert_eq!(state.position(), None);
@@ -147,7 +147,7 @@ fn a_new_run_has_the_starting_deck_hearts_and_gold() {
     let view = run_view(&state).unwrap();
     assert_eq!(view.seed, "1");
     let lands: u32 = view.basic_lands.iter().map(|entry| entry.count).sum();
-    assert_eq!(lands, 8);
+    assert_eq!(lands, 7);
     assert_eq!(view.actions, run_legal_actions(&state));
     assert_eq!(view.actions.len(), 3);
 }
@@ -265,10 +265,10 @@ fn a_duel_node_starts_a_duel_set_up_from_the_run() {
     assert_eq!(current_enemy(&state), Some(&enemy.id));
 
     let duel = state.duel.as_ref().unwrap();
-    // The player's 12 spells and 8 lands, the starting emblem, and the
+    // The player's 10 spells and 7 lands, the starting emblem, and the
     // commander waiting in the command zone.
     let player = duel.player(PLAYER);
-    assert_eq!(player.hand.len() + player.library.len(), 20);
+    assert_eq!(player.hand.len() + player.library.len(), 17);
     assert_eq!(duel.emblems.len(), 1);
     assert_eq!(duel.emblems[0].controller, PLAYER);
     assert_eq!(duel.emblems[0].def.name, "Warm Welcome");
@@ -383,14 +383,14 @@ fn taking_a_reward_adds_the_card_and_the_lands_follow() {
             card: choices[1].clone()
         }]
     );
-    assert_eq!(state.deck.len(), 13);
-    assert_eq!(state.deck[12].card_id, choices[1]);
+    assert_eq!(state.deck.len(), 11);
+    assert_eq!(state.deck[10].card_id, choices[1]);
     assert_eq!(state.phase, Phase::Map);
 
-    // 13 spells want 9 lands.
+    // 11 spells want 7 lands.
     let view = run_view(&state).unwrap();
     let lands: u32 = view.basic_lands.iter().map(|entry| entry.count).sum();
-    assert_eq!(lands, 9);
+    assert_eq!(lands, 7);
 
     // Skipping leaves the deck alone.
     let mut other = run("warden", 3);
@@ -398,7 +398,7 @@ fn taking_a_reward_adds_the_card_and_the_lands_follow() {
     act(&mut other, RunAction::Travel { node });
     finish(&mut other, win());
     assert_eq!(act(&mut other, RunAction::SkipReward), []);
-    assert_eq!(other.deck.len(), 12);
+    assert_eq!(other.deck.len(), 10);
 }
 
 #[test]
@@ -584,8 +584,8 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
     // At full hearts there is nothing to restore.
     assert!(!run_legal_actions(&arrived).contains(&RunAction::RestHeal));
     assert!(run_legal_actions(&arrived).contains(&RunAction::Leave));
-    assert!(run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 11 }));
-    assert!(!run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 12 }));
+    assert!(run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 9 }));
+    assert!(!run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 10 }));
     arrived.hearts = 1;
 
     let mut healed = arrived.clone();
@@ -610,7 +610,7 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
             card: removed.clone()
         }]
     );
-    assert_eq!(trimmed.deck.len(), 11);
+    assert_eq!(trimmed.deck.len(), 9);
     assert_eq!(deck_count(&trimmed, removed.as_str()), copies - 1);
     // Only one thing may be done.
     assert_eq!(trimmed.phase, Phase::Map);
@@ -619,7 +619,7 @@ fn a_rest_site_restores_a_heart_removes_a_card_or_is_left() {
     let mut left = arrived.clone();
     assert_eq!(act(&mut left, RunAction::Leave), []);
     assert_eq!(left.phase, Phase::Map);
-    assert_eq!((left.hearts, left.deck.len()), (1, 12));
+    assert_eq!((left.hearts, left.deck.len()), (1, 10));
 }
 
 #[test]

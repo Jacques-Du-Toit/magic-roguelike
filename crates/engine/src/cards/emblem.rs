@@ -62,6 +62,7 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
                         subject: TriggerSubject::This,
                         ..
                     } | Trigger::LeavesBattlefield {}
+                        | Trigger::PutIntoGraveyardFromBattlefield {}
                         | Trigger::Dies {
                             subject: TriggerSubject::This
                         }

@@ -1,0 +1,50 @@
+{
+  "id": "cartouche_of_solidarity",
+  "name": "Cartouche of Solidarity",
+  "mana_cost": "{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "subtypes": [
+    "Aura",
+    "Cartouche"
+  ],
+  "rarity": "common",
+  "oracle_text": "Enchant creature you control\nWhen this Aura enters, create a 1/1 white Warrior creature token with vigilance.\nEnchanted creature gets +1/+1 and has first strike. (It deals combat damage before creatures without first strike.)",
+  "enchant": {
+    "creature": {
+      "controller": "you"
+    }
+  },
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "warrior_token"
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "enchanted",
+      "power": 1,
+      "toughness": 1
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "enchanted",
+      "keyword": "first_strike"
+    }
+  ]
+}

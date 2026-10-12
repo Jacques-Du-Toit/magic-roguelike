@@ -97,6 +97,7 @@ fn ability_value(ability: &AbilityDef) -> i32 {
                     ..
                 }
                 | Trigger::LeavesBattlefield {}
+                | Trigger::PutIntoGraveyardFromBattlefield {}
                 | Trigger::Dies {
                     subject: TriggerSubject::This,
                 } => 0,

@@ -5,7 +5,7 @@ use super::damage::{LifeCause, change_life, deal_damage, destroy_creature, note_
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::stack::permanent_entered;
-use super::state::{Decision, DuelState, StackItemKind, Zone};
+use super::state::{Decision, DuelState, StackItemKind, TriggeredAbility, Zone};
 use super::triggers::stat_of;
 use super::turn::{discard_card, draw_card, mill_card};
 use crate::cards::{Count, Effect, PlayerRef, StatOf, WhichCreatures};
@@ -198,6 +198,36 @@ pub(crate) fn apply_effect(
                 mill_card(state, events, player, top)?;
             }
         }
+        Effect::ReturnThisToHand {} => {
+            // The card whose ability this is, now in its owner's graveyard:
+            // the most recent card there of that name.
+            let def = match state
+                .resolving
+                .as_ref()
+                .map(|resolving| &resolving.item.kind)
+            {
+                Some(StackItemKind::Trigger {
+                    ability: TriggeredAbility::Card { ability },
+                }) => Some(ability.def.clone()),
+                _ => None,
+            };
+            let card = def.and_then(|def| {
+                state
+                    .player(controller)
+                    .graveyard
+                    .iter()
+                    .rev()
+                    .copied()
+                    .find(|id| state.objects.get(id).is_some_and(|card| card.def == def))
+            });
+            if let Some(card) = card {
+                let card = state.move_object(card, Zone::Hand)?;
+                events.push(GameEvent::CardReturnedToHand {
+                    player: controller,
+                    card: state.card_ref(card)?,
+                });
+            }
+        }
         Effect::ReturnToHand { .. } => {
             let permanent = object(effect, targets, 0)?;
             if state.objects.get(&permanent).map(|card| card.zone) == Some(Zone::Graveyard) {
@@ -296,21 +326,10 @@ fn times(
     controller: PlayerId,
     for_each: Option<Count>,
 ) -> Result<u32, InternalError> {
-    let creatures = |with_counter: bool| -> Result<u32, InternalError> {
-        let mut count = 0;
-        for creature in state.creatures_of(controller)? {
-            if !with_counter || state.object(creature)?.plus_counters > 0 {
-                count += 1;
-            }
-        }
-        Ok(count)
-    };
-    Ok(match for_each {
-        None => 1,
-        Some(Count::CreatureYouControl) => creatures(false)?,
-        Some(Count::CreatureYouControlWithCounter) => creatures(true)?,
-        Some(Count::CounterPutThisTurn) => state.player(controller).counters_put_this_turn,
-    })
+    match for_each {
+        None => Ok(1),
+        Some(count) => state.count_for(controller, None, count),
+    }
 }
 
 /// Puts +1/+1 counters on a creature for `controller`. Every effect that

@@ -13,8 +13,8 @@ use super::mana::ManaPool;
 use super::rng::DuelRng;
 use super::triggers::{Happening, fire};
 use crate::cards::{
-    AbilityDef, Affects, CardDef, CardDefId, Condition, Effect, EmblemDef, Keyword, Restricted,
-    StaticAbility,
+    AbilityDef, Affects, CardDef, CardDefId, CardType, Condition, Count, Effect, EmblemDef,
+    Keyword, Restricted, StaticAbility,
 };
 use crate::data;
 
@@ -635,7 +635,7 @@ impl DuelState {
     fn statics_on(
         &self,
         id: ObjectId,
-        mut visit: impl FnMut(&StaticAbility),
+        mut visit: impl FnMut(&StaticAbility, Option<ObjectId>, PlayerId),
     ) -> Result<(), InternalError> {
         let object = self.object(id)?;
         if object.zone != Zone::Battlefield || !self.def(id)?.is_creature() {
@@ -643,7 +643,7 @@ impl DuelState {
         }
         let controller = object.owner;
         for ability in self.emblem_statics(controller) {
-            visit(ability);
+            visit(ability, None, controller);
         }
         for &other in &self.static_sources {
             let holder = self.object(other)?;
@@ -670,7 +670,7 @@ impl DuelState {
                     }
                 };
                 if reaches {
-                    visit(ability);
+                    visit(ability, Some(other), holder.owner);
                 }
             }
         }
@@ -682,27 +682,40 @@ impl DuelState {
     /// off at end of turn.
     pub(crate) fn static_bonus(&self, id: ObjectId) -> Result<(i32, i32), InternalError> {
         let mut anthems = Vec::new();
-        self.statics_on(id, |ability| {
+        self.statics_on(id, |ability, source, controller| {
             if let StaticAbility::Anthem {
                 power,
                 toughness,
                 with_keyword,
+                for_each,
                 ..
             } = ability
             {
-                anthems.push((*power, *toughness, *with_keyword));
+                anthems.push((
+                    *power,
+                    *toughness,
+                    *with_keyword,
+                    *for_each,
+                    source,
+                    controller,
+                ));
             }
         })?;
         let counters = i32::try_from(self.object(id)?.plus_counters).unwrap_or(i32::MAX);
         let mut bonus = (counters, counters);
-        for (power, toughness, with_keyword) in anthems {
+        for (power, toughness, with_keyword, for_each, source, controller) in anthems {
             let applies = match with_keyword {
                 Some(keyword) => self.has_keyword(id, keyword)?,
                 None => true,
             };
             if applies {
-                bonus.0 += power;
-                bonus.1 += toughness;
+                let times = match for_each {
+                    Some(count) => i32::try_from(self.count_for(controller, source, count)?)
+                        .unwrap_or(i32::MAX),
+                    None => 1,
+                };
+                bonus.0 += power.saturating_mul(times);
+                bonus.1 += toughness.saturating_mul(times);
             }
         }
         Ok(bonus)
@@ -727,7 +740,7 @@ impl DuelState {
         let has_counter = object.plus_counters > 0;
         let controller = object.owner;
         let mut keywords = Vec::new();
-        self.statics_on(id, |ability| {
+        self.statics_on(id, |ability, _, _| {
             if let StaticAbility::GrantKeyword {
                 keyword,
                 with_counter,
@@ -768,6 +781,43 @@ impl DuelState {
     }
 
     /// Whether `condition` holds for `player` right now.
+    /// What a "for each..." counts, for an ability `player` controls on
+    /// the permanent `source` (if it is on one). None of it depends on a
+    /// creature's power, so an anthem may use it.
+    pub(crate) fn count_for(
+        &self,
+        player: PlayerId,
+        source: Option<ObjectId>,
+        count: Count,
+    ) -> Result<u32, InternalError> {
+        let mut total: u32 = 0;
+        match count {
+            Count::CounterPutThisTurn => total = self.player(player).counters_put_this_turn,
+            Count::CreatureYouControl | Count::CreatureYouControlWithCounter => {
+                for creature in self.creatures_of(player)? {
+                    if count == Count::CreatureYouControl
+                        || self.object(creature)?.plus_counters > 0
+                    {
+                        total += 1;
+                    }
+                }
+            }
+            Count::EnchantmentYouControl | Count::OtherEnchantment => {
+                for &id in &self.battlefield {
+                    let counted = if count == Count::EnchantmentYouControl {
+                        self.object(id)?.owner == player
+                    } else {
+                        source != Some(id)
+                    };
+                    if counted && self.def(id)?.has_type(CardType::Enchantment) {
+                        total += 1;
+                    }
+                }
+            }
+        }
+        Ok(total)
+    }
+
     /// `source` is the permanent the ability is on, if it is on one.
     pub(crate) fn condition_holds(
         &self,
@@ -999,6 +1049,9 @@ impl DuelState {
         // it is going.
         if from == Zone::Battlefield {
             fire(self, Happening::Left(id))?;
+            if to == Zone::Graveyard {
+                fire(self, Happening::PutIntoGraveyard(id))?;
+            }
         }
         let not_in_zone = || InternalError::new(format!("{id:?} is not in its zone {from:?}"));
         match self.zone_mut(owner, from) {
