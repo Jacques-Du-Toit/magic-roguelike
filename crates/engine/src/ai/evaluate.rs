@@ -1,7 +1,9 @@
 //! How the AI judges a position and a creature. These numbers are the AI's
 //! taste, not game balance; they only decide which legal action it picks.
 
-use crate::cards::{AbilityDef, CardDef, Keyword, Restricted};
+use crate::cards::{
+    AbilityDef, Affects, CardDef, Keyword, Restricted, StaticAbility, Trigger, TriggerSubject,
+};
 use crate::duel::{DuelState, GameResult, InternalError, ObjectId, PlayerId};
 
 /// What a card in hand is worth, in the same units as a creature's value.
@@ -9,10 +11,16 @@ const CARD_IN_HAND: i32 = 3;
 /// What an enchantment that stays on the battlefield is worth for being
 /// there, beyond what it does to creatures: a little more than the card.
 const LASTING_PERMANENT: i32 = 4;
+/// What a creature is worth for an ability that does something most turns:
+/// about a point of power and one of toughness more than its body.
+const ENGINE_ABILITY: i32 = 4;
+/// And for one that needs something else to go right first.
+const SOMETIMES_ABILITY: i32 = 2;
 const WIN: i32 = 1_000_000;
 
 /// How much a creature matters: roughly twice its power plus its toughness,
-/// plus a little for each useful ability. Printed stats and lasting
+/// plus a little for each useful keyword and more for an ability that
+/// keeps working (`ability_value`). Printed stats and lasting
 /// bonuses (anthems, Auras) are used, but not what wears off at end of
 /// turn, so a pump spell is judged by what it achieves, not by the bigger
 /// numbers.
@@ -57,6 +65,7 @@ pub(super) fn creature_value(state: &DuelState, creature: ObjectId) -> Result<i3
     {
         value += 2;
     }
+    value += def.abilities.iter().map(ability_value).sum::<i32>();
     // A creature that can neither attack nor block is worth little.
     if state.is_restricted(creature, Restricted::Attack)?
         && state.is_restricted(creature, Restricted::Block)?
@@ -64,6 +73,64 @@ pub(super) fn creature_value(state: &DuelState, creature: ObjectId) -> Result<i3
         value /= 5;
     }
     Ok(value)
+}
+
+/// What an ability that keeps working adds to a creature on the
+/// battlefield, beyond its body: the reason not to trade a 2/2 that puts a
+/// counter on every creature its controller casts for a plain 3/3.
+///
+/// It is judged by how often the ability does something, not by what it
+/// does: the effects are too varied to price, and how often is most of it.
+fn ability_value(ability: &AbilityDef) -> i32 {
+    match ability {
+        AbilityDef::Triggered {
+            trigger,
+            once_each_turn,
+            condition,
+            ..
+        } => {
+            let value = match trigger {
+                // It has entered, and what is left of this is nothing; nor
+                // is dying something to keep it alive for.
+                Trigger::EntersBattlefield {
+                    subject: TriggerSubject::This,
+                }
+                | Trigger::Dies {
+                    subject: TriggerSubject::This,
+                } => 0,
+                // Most turns, with no more help than a deck gives anyway:
+                // every turn of its controller's, or every creature or
+                // token of theirs that enters.
+                Trigger::BeginningOfUpkeep {}
+                | Trigger::BeginningOfCombat {}
+                | Trigger::BeginningOfEndStep { .. }
+                | Trigger::EntersBattlefield { .. } => ENGINE_ABILITY,
+                // When something else goes right: it attacks or connects,
+                // or its controller gains life, sacrifices, casts the right
+                // spell or loses a creature.
+                Trigger::Attacks {}
+                | Trigger::DealsDamageToOpponent {}
+                | Trigger::GainLife {}
+                | Trigger::Sacrifice {}
+                | Trigger::CastSpell { .. }
+                | Trigger::Dies { .. } => SOMETIMES_ABILITY,
+            };
+            // Capped at once a turn, or waiting on a condition.
+            let held_back = i32::from(*once_each_turn) + i32::from(condition.is_some());
+            (value - held_back).max(0)
+        }
+        AbilityDef::Static(StaticAbility::ExtraCounters { .. }) => ENGINE_ABILITY,
+        // What it gives the other creatures is counted on them, but only
+        // while it lives.
+        AbilityDef::Static(
+            StaticAbility::Anthem { affects, .. } | StaticAbility::GrantKeyword { affects, .. },
+        ) if *affects != Affects::This => SOMETIMES_ABILITY,
+        // Mana and activated abilities are counted in `creature_value`.
+        AbilityDef::Static(_)
+        | AbilityDef::Spell { .. }
+        | AbilityDef::Activated { .. }
+        | AbilityDef::Mana { .. } => 0,
+    }
 }
 
 /// What a life total is worth. Each point matters more the fewer are left.

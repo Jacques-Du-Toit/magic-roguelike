@@ -493,6 +493,65 @@ fn it_keeps_removal_for_something_better_than_a_token() {
 }
 
 #[test]
+fn a_creature_is_worth_more_for_an_ability_that_keeps_working() {
+    let (mut state, me, _) = empty_board(1);
+    let mut value = |card: &str| {
+        let creature = put_on_battlefield(&mut state, me, card);
+        evaluate::creature_value(&state, creature).unwrap()
+    };
+    let bears = value("grizzly_bears");
+    // A 2/2 that puts a counter on every other creature that enters: worth
+    // more than a plain 3/3.
+    assert!(value("good_fortune_unicorn") > value("centaur_courser"));
+    // A 1/1 whose ability was spent when it entered is only a 1/1.
+    assert!(value("elvish_visionary") < bears);
+}
+
+#[test]
+fn it_does_not_send_a_small_creature_at_a_blocker_that_will_not_trade() {
+    // From the owner's playtest of the green-white cube: it attacked with
+    // Llanowar Elves beside a Centaur Courser into a Good-Fortune Unicorn
+    // that had lived through a Lightning Strike by way of Giant Growth,
+    // expecting the Unicorn to trade with the Courser. A player keeps the
+    // Unicorn for its ability and eats the Elves.
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "mountain", 2);
+    put_lands(&mut state, opponent, "forest", 1);
+    let elves = put_on_battlefield(&mut state, me, "llanowar_elves");
+    let courser = put_on_battlefield(&mut state, me, "centaur_courser");
+    let unicorn = put_on_battlefield(&mut state, opponent, "good_fortune_unicorn");
+    let strike = put_in_hand(&mut state, me, "lightning_strike");
+    let growth = put_in_hand(&mut state, opponent, "giant_growth");
+    let at_unicorn = Target::Object { object: unicorn };
+    apply_action(&mut state, me, cast_at(strike, at_unicorn)).unwrap();
+    apply_action(&mut state, me, Action::PassPriority).unwrap();
+    apply_action(&mut state, opponent, cast_at(growth, at_unicorn)).unwrap();
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    // A 5/5 with 3 damage on it.
+    assert_eq!(state.power(unicorn).unwrap(), 5);
+    assert_eq!(state.object(unicorn).unwrap().damage, 3);
+
+    let attacking = Decision::DeclareAttackers { player: me };
+    assert_eq!(state.decision, Some(attacking));
+
+    // What it expects of the defender, were both to attack: the Unicorn
+    // blocks the Elves and lives. Counted as a plain 2/2 it was expected to
+    // trade with the 3/3 and let the Elves through.
+    let mut both = state.clone();
+    crate::duel::test_support::attack(&mut both, &[elves, courser]);
+    crate::duel::test_support::pass_until_other_decision(&mut both);
+    assert_eq!(
+        combat::block_plan(&both, opponent, true).unwrap(),
+        [(unicorn, elves)]
+    );
+
+    // So the Elves stay at home.
+    let_it_declare(&mut state, me, attacking);
+    let attackers = combat::declared_attackers(&state);
+    assert!(!attackers.contains(&elves), "{attackers:?}");
+}
+
+#[test]
 fn it_kills_the_small_blocker_when_it_cannot_kill_the_big_one() {
     // From the owner's M4b playtest: a 2-power attacker blocked by a 4/5
     // and a 2/1 put all its damage on the 4/5, killing nothing.
