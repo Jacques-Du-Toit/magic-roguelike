@@ -33,6 +33,10 @@ pub(crate) enum Happening {
     },
     /// A player's upkeep has begun.
     Upkeep(PlayerId),
+    /// Combat has begun on a player's turn.
+    BeginCombat(PlayerId),
+    /// A player's end step has begun.
+    EndStep(PlayerId),
 }
 
 /// What an ability is on.
@@ -162,6 +166,9 @@ fn triggers_on(
             TriggerSubject::AnotherCreatureYouControl => {
                 (creature_of_controller(object)? && !is_holder(object)).then_some(Some(object))
             }
+            TriggerSubject::TokenYouControl => (state.def(object)?.token
+                && state.object(object)?.owner == controller)
+                .then_some(Some(object)),
         })
     };
     Ok(match (*trigger, happening) {
@@ -173,7 +180,9 @@ fn triggers_on(
         }
         (Trigger::Sacrifice {}, Happening::Sacrificed(_)) => own,
         (Trigger::GainLife {}, Happening::GainedLife(player))
-        | (Trigger::BeginningOfUpkeep {}, Happening::Upkeep(player)) => {
+        | (Trigger::BeginningOfUpkeep {}, Happening::Upkeep(player))
+        | (Trigger::BeginningOfCombat {}, Happening::BeginCombat(player))
+        | (Trigger::BeginningOfEndStep {}, Happening::EndStep(player)) => {
             (player == controller).then_some(None)
         }
         (Trigger::CastSpell { kind }, Happening::CastSpell { player, spell }) => {

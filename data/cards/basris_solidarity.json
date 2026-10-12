@@ -1,0 +1,24 @@
+{
+  "id": "basris_solidarity",
+  "name": "Basri's Solidarity",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Put a +1/+1 counter on each creature you control.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "add_counters_to_your_creatures",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

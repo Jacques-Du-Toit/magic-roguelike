@@ -41,6 +41,7 @@ fn begin_turn(
     state.active_player = player;
     for player_state in &mut state.players {
         player_state.lands_played_this_turn = 0;
+        player_state.counters_put_this_turn = 0;
     }
     state.triggered_this_turn.clear();
     events.push(GameEvent::TurnBegan {
@@ -118,6 +119,7 @@ fn run_from_step(
             }
             Step::BeginCombat => {
                 state.combat = Some(Combat::default());
+                fire(state, Happening::BeginCombat(active))?;
                 return open_priority(state, events);
             }
             Step::DeclareAttackers => {
@@ -154,7 +156,11 @@ fn run_from_step(
                 fire(state, Happening::Upkeep(active))?;
                 return open_priority(state, events);
             }
-            Step::PrecombatMain | Step::EndCombat | Step::End => {
+            Step::End => {
+                fire(state, Happening::EndStep(active))?;
+                return open_priority(state, events);
+            }
+            Step::PrecombatMain | Step::EndCombat => {
                 return open_priority(state, events);
             }
             Step::Cleanup => {

@@ -92,6 +92,10 @@ pub struct PlayerState {
     /// How many times the commander has been cast from the command zone.
     #[serde(default)]
     pub commander_casts: u32,
+    /// The +1/+1 counters this player has put on their own creatures this
+    /// turn.
+    #[serde(default)]
+    pub counters_put_this_turn: u32,
 }
 
 impl PlayerState {
@@ -111,6 +115,7 @@ impl PlayerState {
             command: Vec::new(),
             commander: None,
             commander_casts: 0,
+            counters_put_this_turn: 0,
         }
     }
 }
@@ -639,6 +644,7 @@ impl DuelState {
                     Affects::Enchanted => holder.attached_to == Some(id),
                     Affects::CreaturesYouControl => holder.owner == controller,
                     Affects::OtherCreaturesYouControl => holder.owner == controller && other != id,
+                    Affects::This => other == id,
                     Affects::CreatureTokensYouControl => {
                         holder.owner == controller && self.def(id)?.token
                     }
@@ -856,6 +862,14 @@ impl DuelState {
         });
         if zone == Zone::Battlefield && has_statics {
             self.static_sources.push(id);
+        }
+        // "Enters with N +1/+1 counters on it."
+        let mut object = object;
+        let counters = card_def(&object.def).map_or(0, |def| def.enters_with_counters);
+        if zone == Zone::Battlefield && counters > 0 {
+            object.plus_counters = object.plus_counters.saturating_add(counters);
+            let put = &mut self.players[owner.index()].counters_put_this_turn;
+            *put = put.saturating_add(counters);
         }
         self.objects.insert(id, object);
         match (zone, self.zone_mut(owner, zone)) {

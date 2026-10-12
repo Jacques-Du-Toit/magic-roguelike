@@ -1,0 +1,28 @@
+{
+  "id": "lightwalker",
+  "name": "Lightwalker",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Warrior"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "This creature has flying as long as it has a +1/+1 counter on it.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "this",
+      "keyword": "flying",
+      "with_counter": true
+    }
+  ]
+}

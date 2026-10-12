@@ -66,6 +66,10 @@ pub struct CardDef {
     /// "This land enters tapped." A property, not a replacement effect.
     #[serde(default)]
     pub enters_tapped: bool,
+    /// "This creature enters with N +1/+1 counters on it." A property, like
+    /// `enters_tapped`.
+    #[serde(default)]
+    pub enters_with_counters: u32,
     /// A token, made by an effect and never in a deck. The loader decides
     /// it by folder: true for `data/tokens/`, false for `data/cards/`,
     /// whatever the file says.
@@ -256,6 +260,10 @@ pub enum Trigger {
     },
     /// At the beginning of its controller's upkeep.
     BeginningOfUpkeep {},
+    /// At the beginning of combat on its controller's turn.
+    BeginningOfCombat {},
+    /// At the beginning of its controller's end step.
+    BeginningOfEndStep {},
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -277,6 +285,8 @@ pub enum TriggerSubject {
     /// Any creature the controller controls other than the one the ability
     /// is on.
     AnotherCreatureYouControl,
+    /// Any token the controller controls.
+    TokenYouControl,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -316,6 +326,9 @@ pub enum Affects {
     OtherCreaturesYouControl,
     /// Every creature token the controller controls.
     CreatureTokensYouControl,
+    /// The creature the ability is on ("this creature has flying as long
+    /// as it has a +1/+1 counter on it").
+    This,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -334,6 +347,13 @@ pub enum Effect {
         target: TargetSpec,
         amount: u32,
     },
+    /// Puts `amount` +1/+1 counters on each of the controller's creatures
+    /// that `which` names.
+    AddCountersToYourCreatures {
+        amount: u32,
+        #[serde(default)]
+        which: WhichCreatures,
+    },
     CounterSpell {
         target: TargetSpec,
     },
@@ -343,11 +363,20 @@ pub enum Effect {
     },
     /// The controller creates `count` of the token `token`, a file in
     /// `data/tokens/`.
+    /// With `for_each`, that many for each thing counted.
     CreateToken {
         token: CardDefId,
         #[serde(default = "one")]
         count: u32,
+        #[serde(default)]
+        for_each: Option<Count>,
     },
+    /// Doubles the number of +1/+1 counters on a creature.
+    DoubleCounters {
+        target: TargetSpec,
+    },
+    /// Doubles the +1/+1 counters on each creature the controller controls.
+    DoubleCountersOnYourCreatures {},
     /// `source` deals damage equal to its power to `target`.
     DealPowerDamage {
         source: TargetSpec,
@@ -363,9 +392,12 @@ pub enum Effect {
         #[serde(default)]
         random: bool,
     },
+    /// With `for_each`, `amount` cards for each thing counted.
     DrawCards {
         player: PlayerRef,
         amount: u32,
+        #[serde(default)]
+        for_each: Option<Count>,
     },
     GainLife {
         player: PlayerRef,
@@ -430,6 +462,9 @@ impl Effect {
     pub fn name(&self) -> &'static str {
         match self {
             Effect::AddCounters { .. } => "add_counters",
+            Effect::AddCountersToYourCreatures { .. } => "add_counters_to_your_creatures",
+            Effect::DoubleCounters { .. } => "double_counters",
+            Effect::DoubleCountersOnYourCreatures {} => "double_counters_on_your_creatures",
             Effect::CounterSpell { .. } => "counter_spell",
             Effect::CreateToken { .. } => "create_token",
             Effect::DealDamage { .. } => "deal_damage",
@@ -459,6 +494,7 @@ impl Effect {
             | Effect::CounterSpell { target }
             | Effect::DealDamage { target, .. }
             | Effect::Destroy { target }
+            | Effect::DoubleCounters { target }
             | Effect::GrantKeywordUntilEot { target, .. }
             | Effect::ModifyPtUntilEot { target, .. }
             | Effect::ReturnToHand { target }
@@ -470,6 +506,8 @@ impl Effect {
             | Effect::LoseLife { player, .. }
             | Effect::Mill { player, .. } => player.target().into_iter().collect(),
             Effect::CreateToken { .. }
+            | Effect::AddCountersToYourCreatures { .. }
+            | Effect::DoubleCountersOnYourCreatures {}
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::YourCreaturesGetUntilEot { .. } => Vec::new(),
@@ -488,6 +526,23 @@ fn one() -> u32 {
 pub enum Count {
     /// The creatures the effect's controller controls.
     CreatureYouControl,
+    /// Those of them with a +1/+1 counter.
+    CreatureYouControlWithCounter,
+    /// The +1/+1 counters the controller has put on their own creatures
+    /// this turn.
+    CounterPutThisTurn,
+}
+
+/// Which of the controller's creatures an effect on all of them reaches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum WhichCreatures {
+    #[default]
+    All,
+    /// All but the permanent the effect comes from.
+    Others,
+    /// Those that already have a +1/+1 counter.
+    WithCounter,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -665,6 +720,8 @@ pub enum CardError {
     NoTokens,
     #[error("only lands may have `enters_tapped`")]
     EntersTapped,
+    #[error("only creatures may have `enters_with_counters`")]
+    EntersWithCounters,
     #[error("an Aura must be an Enchantment")]
     AuraNotEnchantment,
     #[error("Auras need `enchant`, and only Auras may have it")]
@@ -751,6 +808,9 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
     if card.enters_tapped && !card.is_land() {
         return Err(CardError::EntersTapped);
     }
+    if card.enters_with_counters > 0 && !card.is_creature() {
+        return Err(CardError::EntersWithCounters);
+    }
 
     if card.is_aura() && !card.has_type(CardType::Enchantment) {
         return Err(CardError::AuraNotEnchantment);
@@ -822,9 +882,8 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
                 Affects::Enchanted => Err(CardError::EnchantedOnNonAura),
                 Affects::CreaturesYouControl
                 | Affects::OtherCreaturesYouControl
-                | Affects::CreatureTokensYouControl => {
-                    Err(CardError::EmblemOnly("a restriction on your creatures"))
-                }
+                | Affects::CreatureTokensYouControl
+                | Affects::This => Err(CardError::EmblemOnly("a restriction on your creatures")),
             }
         }
         AbilityDef::Static(
@@ -858,7 +917,9 @@ pub(crate) fn validate_triggered(trigger: &Trigger, effects: &[Effect]) -> Resul
     let has_subject = matches!(
         trigger,
         Trigger::EntersBattlefield {
-            subject: TriggerSubject::CreatureYouControl | TriggerSubject::AnotherCreatureYouControl
+            subject: TriggerSubject::CreatureYouControl
+                | TriggerSubject::AnotherCreatureYouControl
+                | TriggerSubject::TokenYouControl
         } | Trigger::Dies {
             subject: TriggerSubject::CreatureYouControl | TriggerSubject::AnotherCreatureYouControl
         }
@@ -919,6 +980,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
             && !matches!(target, TargetSpec::CardInYourGraveyard(_)))
         .then_some(target),
         Effect::AddCounters { target, .. }
+        | Effect::DoubleCounters { target }
         | Effect::Destroy { target }
         | Effect::GrantKeywordUntilEot { target, .. }
         | Effect::ModifyPtUntilEot { target, .. }
@@ -931,6 +993,8 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
             }
         }
         Effect::CreateToken { .. }
+        | Effect::AddCountersToYourCreatures { .. }
+        | Effect::DoubleCountersOnYourCreatures {}
         | Effect::Discard { .. }
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }
@@ -948,6 +1012,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
     }
     match effect {
         Effect::AddCounters { amount: 0, .. }
+        | Effect::AddCountersToYourCreatures { amount: 0, .. }
         | Effect::DealDamage { amount: 0, .. }
         | Effect::Discard { amount: 0, .. }
         | Effect::DrawCards { amount: 0, .. }

@@ -18,6 +18,11 @@ enchant: TargetSpec | null,
  */
 enters_tapped: boolean, 
 /**
+ * "This creature enters with N +1/+1 counters on it." A property, like
+ * `enters_tapped`.
+ */
+enters_with_counters: number, 
+/**
  * A token, made by an effect and never in a deck. The loader decides
  * it by folder: true for `data/tokens/`, false for `data/cards/`,
  * whatever the file says.

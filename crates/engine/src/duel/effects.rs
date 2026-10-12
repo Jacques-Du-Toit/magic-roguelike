@@ -7,7 +7,7 @@ use super::ids::{ObjectId, PlayerId};
 use super::stack::permanent_entered;
 use super::state::{Decision, DuelState, StackItemKind, Zone};
 use super::turn::{discard_card, draw_card, mill_card};
-use crate::cards::{Count, Effect, PlayerRef};
+use crate::cards::{Count, Effect, PlayerRef, WhichCreatures};
 
 /// Whether an effect was carried out in full, or has stopped for a choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,17 +34,39 @@ pub(crate) fn apply_effect(
     match *effect {
         Effect::AddCounters { amount, .. } => {
             let permanent = object(effect, targets, 0)?;
-            if state.is_creature(permanent)? {
-                let creature = state.object_mut(permanent)?;
-                creature.plus_counters = creature.plus_counters.saturating_add(amount);
-                events.push(GameEvent::CountersAdded {
-                    permanent,
-                    amount,
-                    counters: creature.plus_counters,
-                });
+            put_counters(state, events, controller, permanent, amount)?;
+        }
+        Effect::AddCountersToYourCreatures { amount, which } => {
+            for creature in state.creatures_of(controller)? {
+                let reached = match which {
+                    WhichCreatures::All => true,
+                    WhichCreatures::Others => creature != source,
+                    WhichCreatures::WithCounter => state.object(creature)?.plus_counters > 0,
+                };
+                if reached {
+                    put_counters(state, events, controller, creature, amount)?;
+                }
             }
         }
-        Effect::CreateToken { ref token, count } => {
+        Effect::DoubleCounters { .. } => {
+            let permanent = object(effect, targets, 0)?;
+            if state.is_on_battlefield(permanent) {
+                let counters = state.object(permanent)?.plus_counters;
+                put_counters(state, events, controller, permanent, counters)?;
+            }
+        }
+        Effect::DoubleCountersOnYourCreatures {} => {
+            for creature in state.creatures_of(controller)? {
+                let counters = state.object(creature)?.plus_counters;
+                put_counters(state, events, controller, creature, counters)?;
+            }
+        }
+        Effect::CreateToken {
+            ref token,
+            count,
+            for_each,
+        } => {
+            let count = count.saturating_mul(times(state, controller, for_each)?);
             for _ in 0..count {
                 let id = state.create_card(controller, token.clone(), Zone::Battlefield);
                 events.push(GameEvent::TokenCreated {
@@ -100,7 +122,12 @@ pub(crate) fn apply_effect(
                 return Ok(Applied::Waiting);
             }
         }
-        Effect::DrawCards { player, amount } => {
+        Effect::DrawCards {
+            player,
+            amount,
+            for_each,
+        } => {
+            let amount = amount.saturating_mul(times(state, controller, for_each)?);
             let player = resolve_player(effect, player, controller, targets)?;
             for _ in 0..amount {
                 draw_card(state, events, player)?;
@@ -139,12 +166,7 @@ pub(crate) fn apply_effect(
             ..
         } => {
             let permanent = object(effect, targets, 0)?;
-            let times = match for_each {
-                None => 1,
-                Some(Count::CreatureYouControl) => {
-                    i32::try_from(state.creatures_of(controller)?.len()).unwrap_or(i32::MAX)
-                }
-            };
+            let times = i32::try_from(times(state, controller, for_each)?).unwrap_or(i32::MAX);
             let (power, toughness) = (power.saturating_mul(times), toughness.saturating_mul(times));
             let creature = state.object_mut(permanent)?;
             creature.power_bonus += power;
@@ -249,6 +271,56 @@ pub(crate) fn apply_effect(
         }
     }
     Ok(Applied::Done)
+}
+
+/// How many times an effect with `for_each` happens: once without it.
+fn times(
+    state: &DuelState,
+    controller: PlayerId,
+    for_each: Option<Count>,
+) -> Result<u32, InternalError> {
+    let creatures = |with_counter: bool| -> Result<u32, InternalError> {
+        let mut count = 0;
+        for creature in state.creatures_of(controller)? {
+            if !with_counter || state.object(creature)?.plus_counters > 0 {
+                count += 1;
+            }
+        }
+        Ok(count)
+    };
+    Ok(match for_each {
+        None => 1,
+        Some(Count::CreatureYouControl) => creatures(false)?,
+        Some(Count::CreatureYouControlWithCounter) => creatures(true)?,
+        Some(Count::CounterPutThisTurn) => state.player(controller).counters_put_this_turn,
+    })
+}
+
+/// Puts +1/+1 counters on a creature for `controller`. Every effect that
+/// adds counters comes through here.
+fn put_counters(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    controller: PlayerId,
+    permanent: ObjectId,
+    amount: u32,
+) -> Result<(), InternalError> {
+    if amount == 0 || !state.is_on_battlefield(permanent) || !state.is_creature(permanent)? {
+        return Ok(());
+    }
+    let creature = state.object_mut(permanent)?;
+    creature.plus_counters = creature.plus_counters.saturating_add(amount);
+    let (counters, owner) = (creature.plus_counters, creature.owner);
+    events.push(GameEvent::CountersAdded {
+        permanent,
+        amount,
+        counters,
+    });
+    if owner == controller {
+        let put = &mut state.players[controller.index()].counters_put_this_turn;
+        *put = put.saturating_add(amount);
+    }
+    Ok(())
 }
 
 /// The player an effect names: the controller, their opponent, or the

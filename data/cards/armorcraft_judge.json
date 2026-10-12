@@ -1,0 +1,36 @@
+{
+  "id": "armorcraft_judge",
+  "name": "Armorcraft Judge",
+  "mana_cost": "{3}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Artificer"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters, draw a card for each creature you control with a +1/+1 counter on it.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1,
+          "for_each": "creature_you_control_with_counter"
+        }
+      ]
+    }
+  ]
+}

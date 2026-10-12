@@ -1,0 +1,36 @@
+{
+  "id": "archangel_of_thune",
+  "name": "Archangel of Thune",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "rarity": "rare",
+  "keywords": [
+    "flying",
+    "lifelink"
+  ],
+  "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhenever you gain life, put a +1/+1 counter on each creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "gain_life"
+      },
+      "effects": [
+        {
+          "type": "add_counters_to_your_creatures",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -204,3 +204,277 @@ fn an_emblem_can_create_a_token_each_upkeep() {
     };
     assert_eq!((soldiers(me), soldiers(me.opponent())), (2, 1));
 }
+
+// ---- The counters package of the green-white pool ----
+
+/// Passes priority until the stack is empty.
+fn settle(state: &mut DuelState) -> Vec<GameEvent> {
+    let mut events = pass_both(state);
+    for _ in 0..40 {
+        if state.stack.is_empty() {
+            break;
+        }
+        events.extend(pass_both(state));
+    }
+    events
+}
+
+fn give_counters(state: &mut DuelState, creature: ObjectId, amount: u32) {
+    state.objects.get_mut(&creature).unwrap().plus_counters = amount;
+}
+
+fn named(state: &DuelState, player: PlayerId, name: &str) -> Vec<ObjectId> {
+    state
+        .permanents_of(player)
+        .filter(|permanent| state.def(permanent.id).unwrap().name == name)
+        .map(|permanent| permanent.id)
+        .collect()
+}
+
+#[test]
+fn snakeskin_veil_gives_a_counter_and_hexproof_for_the_turn() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 1);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    let veil = put_in_hand(&mut state, me, "snakeskin_veil");
+    // Only a creature of mine can be chosen.
+    assert!(legal_actions(&state, me).contains(&cast_at(veil, at(bears))));
+    assert!(!legal_actions(&state, me).contains(&cast_at(veil, at(theirs))));
+    act(&mut state, me, cast_at(veil, at(bears)));
+    settle(&mut state);
+    assert_eq!(counters(&state, bears), 1);
+    assert_eq!(stats(&state, bears), (3, 3));
+    assert!(state.has_keyword(bears, Keyword::Hexproof).unwrap());
+    let turn = state.turn;
+    pass_until(&mut state, turn + 1, Step::PrecombatMain);
+    assert!(!state.has_keyword(bears, Keyword::Hexproof).unwrap());
+    assert_eq!(counters(&state, bears), 1);
+}
+
+#[test]
+fn crowned_ceratok_gives_trample_to_my_creatures_with_a_counter() {
+    let (mut state, me, _) = empty_board(1);
+    let ceratok = put_on_battlefield(&mut state, me, "crowned_ceratok");
+    let plain = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let grown = put_on_battlefield(&mut state, me, "grizzly_bears");
+    give_counters(&mut state, grown, 1);
+    assert!(state.has_keyword(ceratok, Keyword::Trample).unwrap());
+    assert!(state.has_keyword(grown, Keyword::Trample).unwrap());
+    assert!(!state.has_keyword(plain, Keyword::Trample).unwrap());
+}
+
+#[test]
+fn lightwalker_flies_only_while_it_has_a_counter() {
+    let (mut state, me, _) = empty_board(1);
+    let lightwalker = put_on_battlefield(&mut state, me, "lightwalker");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    give_counters(&mut state, bears, 1);
+    assert!(!state.has_keyword(lightwalker, Keyword::Flying).unwrap());
+    give_counters(&mut state, lightwalker, 1);
+    assert!(state.has_keyword(lightwalker, Keyword::Flying).unwrap());
+    // It is about itself: another creature with a counter gets nothing.
+    assert!(!state.has_keyword(bears, Keyword::Flying).unwrap());
+}
+
+#[test]
+fn basris_solidarity_puts_a_counter_on_each_of_my_creatures() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 2);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let knight = put_on_battlefield(&mut state, me, "youthful_knight");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    let solidarity = put_in_hand(&mut state, me, "basris_solidarity");
+    act(&mut state, me, cast(solidarity));
+    settle(&mut state);
+    assert_eq!((counters(&state, bears), counters(&state, knight)), (1, 1));
+    assert_eq!(counters(&state, theirs), 0);
+    assert_eq!(state.player(me).counters_put_this_turn, 2);
+}
+
+#[test]
+fn ridgescale_tusker_puts_a_counter_on_each_other_creature_of_mine() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 5);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let tusker = put_in_hand(&mut state, me, "ridgescale_tusker");
+    act(&mut state, me, cast(tusker));
+    settle(&mut state);
+    let tusker = named(&state, me, "Ridgescale Tusker")[0];
+    assert_eq!(counters(&state, bears), 1);
+    assert_eq!(counters(&state, tusker), 0);
+    assert_eq!(stats(&state, tusker), (5, 5));
+}
+
+#[test]
+fn woodland_champion_grows_with_each_token_of_mine_that_enters() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 2);
+    put_lands(&mut state, me, "forest", 2);
+    put_lands(&mut state, opponent, "plains", 2);
+    let champion = put_on_battlefield(&mut state, me, "woodland_champion");
+    let alarm = put_in_hand(&mut state, me, "raise_the_alarm");
+    let bears = put_in_hand(&mut state, me, "grizzly_bears");
+    let theirs = put_in_hand(&mut state, opponent, "raise_the_alarm");
+    act(&mut state, me, cast(alarm));
+    settle(&mut state);
+    assert_eq!(counters(&state, champion), 2);
+    assert_eq!(stats(&state, champion), (4, 4));
+    // A card is not a token, and the opponent's tokens are not mine.
+    act(&mut state, me, cast(bears));
+    settle(&mut state);
+    act(&mut state, me, Action::PassPriority);
+    act(&mut state, opponent, cast(theirs));
+    settle(&mut state);
+    assert_eq!(named(&state, opponent, "Soldier").len(), 2);
+    assert_eq!(counters(&state, champion), 2);
+}
+
+#[test]
+fn armorcraft_judge_draws_a_card_for_each_creature_of_mine_with_a_counter() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 4);
+    for counters in [1, 3, 0] {
+        let creature = put_on_battlefield(&mut state, me, "grizzly_bears");
+        give_counters(&mut state, creature, counters);
+    }
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    give_counters(&mut state, theirs, 1);
+    let judge = put_in_hand(&mut state, me, "armorcraft_judge");
+    act(&mut state, me, cast(judge));
+    settle(&mut state);
+    assert_eq!(state.player(me).hand.len(), 2);
+
+    // With no counters about, it draws nothing.
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 4);
+    let judge = put_in_hand(&mut state, me, "armorcraft_judge");
+    act(&mut state, me, cast(judge));
+    settle(&mut state);
+    assert_eq!(state.player(me).hand.len(), 0);
+}
+
+#[test]
+fn invigorating_surge_adds_a_counter_and_then_doubles_them() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 6);
+    let fresh = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let grown = put_on_battlefield(&mut state, me, "grizzly_bears");
+    give_counters(&mut state, grown, 2);
+    for target in [fresh, grown] {
+        let surge = put_in_hand(&mut state, me, "invigorating_surge");
+        act(&mut state, me, cast_at(surge, at(target)));
+        settle(&mut state);
+    }
+    assert_eq!(counters(&state, fresh), 2);
+    assert_eq!(counters(&state, grown), 6);
+    assert_eq!(stats(&state, grown), (8, 8));
+}
+
+#[test]
+fn iridescent_hornbeetle_makes_an_insect_for_each_counter_i_put_this_turn() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 2);
+    put_on_battlefield(&mut state, me, "iridescent_hornbeetle");
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    let solidarity = put_in_hand(&mut state, me, "basris_solidarity");
+    act(&mut state, me, cast(solidarity));
+    settle(&mut state);
+    let turn = state.turn;
+    pass_until(&mut state, turn, Step::End);
+    assert!(named(&state, me, "Insect").is_empty());
+    settle(&mut state);
+    assert_eq!(named(&state, me, "Insect").len(), 2);
+
+    // The count starts again each turn: nothing at my next end step.
+    pass_until(&mut state, turn + 2, Step::End);
+    assert_eq!(state.player(me).counters_put_this_turn, 0);
+    settle(&mut state);
+    assert_eq!(named(&state, me, "Insect").len(), 2);
+    state.assert_consistent();
+}
+
+#[test]
+fn cathars_crusade_puts_a_counter_on_everything_whenever_a_creature_of_mine_enters() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 2);
+    put_on_battlefield(&mut state, me, "cathars_crusade");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    let alarm = put_in_hand(&mut state, me, "raise_the_alarm");
+    act(&mut state, me, cast(alarm));
+    settle(&mut state);
+    // Two Soldiers entered, so it triggered twice.
+    assert_eq!(counters(&state, bears), 2);
+    for soldier in named(&state, me, "Soldier") {
+        assert_eq!(stats(&state, soldier), (3, 3));
+    }
+    assert_eq!(counters(&state, theirs), 0);
+}
+
+#[test]
+fn luminarch_aspirant_puts_a_counter_on_a_creature_at_the_start_of_my_combat() {
+    let (mut state, me, opponent) = empty_board(1);
+    let aspirant = put_on_battlefield(&mut state, me, "luminarch_aspirant");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    put_on_battlefield(&mut state, opponent, "hill_giant");
+    pass_until(&mut state, 1, Step::BeginCombat);
+    // Two creatures of mine to choose from.
+    assert!(matches!(
+        state.decision,
+        Some(Decision::ChooseTargets { player, .. }) if player == me
+    ));
+    assert_eq!(legal_actions(&state, me), [aim(aspirant), aim(bears)]);
+    act(&mut state, me, aim(bears));
+    settle(&mut state);
+    assert_eq!(counters(&state, bears), 1);
+
+    // Not in the opponent's combat.
+    pass_until(&mut state, 2, Step::BeginCombat);
+    assert!(matches!(state.decision, Some(Decision::Priority { .. })));
+    assert!(state.stack.is_empty());
+    assert_eq!(counters(&state, bears) + counters(&state, aspirant), 1);
+}
+
+#[test]
+fn kalonian_hydra_enters_with_four_counters_and_doubles_them_when_it_attacks() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 5);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    give_counters(&mut state, bears, 1);
+    let hydra = put_in_hand(&mut state, me, "kalonian_hydra");
+    act(&mut state, me, cast(hydra));
+    settle(&mut state);
+    // A 0/0 that arrives as a 4/4 and stays.
+    let hydra = named(&state, me, "Kalonian Hydra")[0];
+    assert_eq!(counters(&state, hydra), 4);
+    assert_eq!(stats(&state, hydra), (4, 4));
+    assert_eq!(state.player(me).counters_put_this_turn, 4);
+
+    pass_until(&mut state, 3, Step::PrecombatMain);
+    attack(&mut state, &[hydra]);
+    settle(&mut state);
+    assert_eq!(counters(&state, hydra), 8);
+    assert_eq!(counters(&state, bears), 2);
+    state.assert_consistent();
+}
+
+#[test]
+fn archangel_of_thune_puts_a_counter_on_my_creatures_whenever_i_gain_life() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 2);
+    let angel = put_on_battlefield(&mut state, me, "archangel_of_thune");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    let revitalize = put_in_hand(&mut state, me, "revitalize");
+    act(&mut state, me, cast(revitalize));
+    settle(&mut state);
+    assert_eq!((counters(&state, angel), counters(&state, bears)), (1, 1));
+    assert_eq!(counters(&state, theirs), 0);
+    // Its own lifelink sets it off as well: nothing of theirs can block a
+    // flier.
+    attack(&mut state, &[angel]);
+    finish_combat(&mut state);
+    settle(&mut state);
+    assert_eq!((counters(&state, angel), counters(&state, bears)), (2, 2));
+}

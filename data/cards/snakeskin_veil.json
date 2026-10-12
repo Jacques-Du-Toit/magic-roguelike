@@ -1,0 +1,36 @@
+{
+  "id": "snakeskin_veil",
+  "name": "Snakeskin Veil",
+  "mana_cost": "{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Put a +1/+1 counter on target creature you control. It gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "creature": {
+              "controller": "you"
+            }
+          },
+          "amount": 1
+        },
+        {
+          "type": "grant_keyword_until_eot",
+          "target": {
+            "same": {}
+          },
+          "keyword": "hexproof"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "insect_token",
+  "name": "Insect",
+  "mana_cost": "",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Insect"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common"
+}

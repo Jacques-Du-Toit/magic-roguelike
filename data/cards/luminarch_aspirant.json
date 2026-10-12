@@ -1,0 +1,38 @@
+{
+  "id": "luminarch_aspirant",
+  "name": "Luminarch Aspirant",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Cleric"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "rare",
+  "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_combat"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "creature": {
+              "controller": "you"
+            }
+          },
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

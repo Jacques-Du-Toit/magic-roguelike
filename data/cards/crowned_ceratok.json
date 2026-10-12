@@ -1,0 +1,30 @@
+{
+  "id": "crowned_ceratok",
+  "name": "Crowned Ceratok",
+  "mana_cost": "{3}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Rhino"
+  ],
+  "power": 4,
+  "toughness": 3,
+  "rarity": "common",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "Trample\nEach creature you control with a +1/+1 counter on it has trample.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "creatures_you_control",
+      "keyword": "trample",
+      "with_counter": true
+    }
+  ]
+}

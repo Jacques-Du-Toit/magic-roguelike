@@ -548,9 +548,9 @@ mod tests {
         // The commanders: never in a deck, a reward or a shop.
         let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (85, 40));
+        assert_eq!((creatures, others), (94, 44));
         assert_eq!(legends, 7);
-        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 12);
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 13);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -755,7 +755,8 @@ mod tests {
                 },
                 Effect::DrawCards {
                     player: you,
-                    amount: 1
+                    amount: 1,
+                    for_each: None
                 }
             ]
         );
@@ -764,7 +765,8 @@ mod tests {
             spell_effects("divination"),
             [Effect::DrawCards {
                 player: you,
-                amount: 2
+                amount: 2,
+                for_each: None
             }]
         );
     }
@@ -776,7 +778,8 @@ mod tests {
             enters_effects("elvish_visionary"),
             [Effect::DrawCards {
                 player: you,
-                amount: 1
+                amount: 1,
+                for_each: None
             }]
         );
         assert_eq!(
@@ -809,7 +812,8 @@ mod tests {
                 },
                 Effect::DrawCards {
                     player: you,
-                    amount: 1
+                    amount: 1,
+                    for_each: None
                 }
             ]
         );
@@ -950,7 +954,21 @@ mod tests {
 
     /// Spells no enemy or starting deck uses yet. Those in a character's
     /// colours still turn up as rewards.
-    const RUN_STRANGERS: [&str; 11] = [
+    const RUN_STRANGERS: [&str; 24] = [
+        // The counters package.
+        "archangel_of_thune",
+        "armorcraft_judge",
+        "basris_solidarity",
+        "cathars_crusade",
+        "crowned_ceratok",
+        "invigorating_surge",
+        "iridescent_hornbeetle",
+        "kalonian_hydra",
+        "lightwalker",
+        "luminarch_aspirant",
+        "ridgescale_tusker",
+        "snakeskin_veil",
+        "woodland_champion",
         // The go-wide package of the green-white pool.
         "captains_call",
         "collective_blessing",

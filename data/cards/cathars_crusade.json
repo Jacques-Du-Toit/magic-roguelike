@@ -1,0 +1,28 @@
+{
+  "id": "cathars_crusade",
+  "name": "Cathars' Crusade",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Whenever a creature you control enters, put a +1/+1 counter on each creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "add_counters_to_your_creatures",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

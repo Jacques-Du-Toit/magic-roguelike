@@ -1,0 +1,35 @@
+{
+  "id": "ridgescale_tusker",
+  "name": "Ridgescale Tusker",
+  "mana_cost": "{3}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Pangolin",
+    "Beast"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters, put a +1/+1 counter on each other creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "add_counters_to_your_creatures",
+          "amount": 1,
+          "which": "others"
+        }
+      ]
+    }
+  ]
+}

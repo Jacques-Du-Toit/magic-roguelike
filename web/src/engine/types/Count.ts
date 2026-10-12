@@ -4,4 +4,4 @@
  * Something an effect counts when it resolves ("for each creature you
  * control").
  */
-export type Count = "creature_you_control";
+export type Count = "creature_you_control" | "creature_you_control_with_counter" | "counter_put_this_turn";

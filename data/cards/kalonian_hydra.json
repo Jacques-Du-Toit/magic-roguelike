@@ -1,0 +1,35 @@
+{
+  "id": "kalonian_hydra",
+  "name": "Kalonian Hydra",
+  "mana_cost": "{3}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Hydra"
+  ],
+  "power": 0,
+  "toughness": 0,
+  "rarity": "rare",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "Trample\nThis creature enters with four +1/+1 counters on it.\nWhenever this creature attacks, double the number of +1/+1 counters on each creature you control.",
+  "enters_with_counters": 4,
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "attacks"
+      },
+      "effects": [
+        {
+          "type": "double_counters_on_your_creatures"
+        }
+      ]
+    }
+  ]
+}
