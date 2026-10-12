@@ -455,6 +455,39 @@ fn trades_evenly_but_not_at_a_loss() {
 }
 
 #[test]
+fn a_blocker_kills_the_attacker_it_can_rather_than_stop_one_as_big() {
+    let (mut state, me, ai) = empty_board(1);
+    // The Eagle makes the Hawk a 2/2. A 2/4 with reach kills the Hawk and
+    // only stops the Eagle, a 2/3.
+    let hawk = put_on_battlefield(&mut state, me, "healers_hawk");
+    let eagle = put_on_battlefield(&mut state, me, "empyrean_eagle");
+    let spider = put_on_battlefield(&mut state, ai, "giant_spider");
+    assert_eq!(
+        blocks_chosen(&mut state, ai, &[hawk, eagle]),
+        [(spider, hawk)]
+    );
+}
+
+#[test]
+fn a_blocker_stops_the_bigger_attacker_when_the_kill_would_cost_the_game() {
+    let (mut state, me, ai) = empty_board(1);
+    let giant = put_on_battlefield(&mut state, me, "hill_giant");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let spider = put_on_battlefield(&mut state, ai, "giant_spider");
+    // The Spider kills the Bears and only stops the Giant.
+    assert_eq!(
+        blocks_chosen(&mut state.clone(), ai, &[giant, bears]),
+        [(spider, bears)]
+    );
+    // At 3 life the Giant's damage is lethal.
+    state.player_mut(ai).life = 3;
+    assert_eq!(
+        blocks_chosen(&mut state, ai, &[giant, bears]),
+        [(spider, giant)]
+    );
+}
+
+#[test]
 fn blocks_a_menace_creature_with_two_only_to_survive() {
     let (mut state, me, ai) = empty_board(1);
     let brute = put_on_battlefield(&mut state, me, "boggart_brute");

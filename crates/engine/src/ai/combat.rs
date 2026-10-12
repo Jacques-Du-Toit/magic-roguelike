@@ -299,13 +299,43 @@ pub(super) fn block_plan(
     player: PlayerId,
     gang_blocks: bool,
 ) -> Result<Vec<(ObjectId, ObjectId)>, InternalError> {
+    let (plan, survives) = blocks_putting(state, player, gang_blocks, First::BestBlock)?;
+    if survives {
+        return Ok(plan);
+    }
+    // Killing something small may have used up the blocker that had to
+    // stand in front of something big.
+    let (cautious, survives) = blocks_putting(state, player, gang_blocks, First::BiggestAttacker)?;
+    Ok(if survives { cautious } else { plan })
+}
+
+/// Which block is made first, where a blocker could make more than one
+/// worth making.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum First {
+    /// The best block there is: a blocker that could kill one attacker and
+    /// live doesn't merely stop another.
+    BestBlock,
+    /// The best block of the biggest attacker.
+    BiggestAttacker,
+}
+
+/// The blocks of `block_plan` with `first` deciding between the blocks
+/// worth making, and whether the damage that still gets through leaves
+/// `player` alive.
+fn blocks_putting(
+    state: &DuelState,
+    player: PlayerId,
+    gang_blocks: bool,
+    first: First,
+) -> Result<(Vec<(ObjectId, ObjectId)>, bool), InternalError> {
     let mut attackers = Vec::new();
     for attacker in declared_attackers(state) {
         if state.is_creature(attacker)? {
             attackers.push((state.power(attacker)?.max(0), attacker));
         }
     }
-    // Deal with the biggest attackers first.
+    // The biggest attackers first.
     attackers.sort_unstable_by(|a, b| b.cmp(a));
 
     let mut plan: Vec<(ObjectId, ObjectId)> = Vec::new();
@@ -314,16 +344,14 @@ pub(super) fn block_plan(
 
     // Blocks worth making for their own sake. Menace attackers would need
     // two blockers, so they are only blocked to survive (below).
-    for &(_, attacker) in &attackers {
+    // (how good the block is, the attacker's place among the attackers,
+    // the blocker's value, the blocker, the attacker)
+    let mut worth_making: Vec<(u8, usize, i32, ObjectId, ObjectId)> = Vec::new();
+    for (place, &(_, attacker)) in attackers.iter().enumerate() {
         if state.has_keyword(attacker, Keyword::Menace)? {
             continue;
         }
-        // (how good the block is, the blocker's value, the blocker)
-        let mut best: Option<(u8, i32, ObjectId)> = None;
         for blocker in blockers_for(state, player, attacker)? {
-            if used.contains(&blocker) {
-                continue;
-            }
             let (attacker_dies, blocker_dies) = fight(state, attacker, blocker)?;
             let value = creature_value(state, blocker)?;
             let rank = match (attacker_dies, blocker_dies) {
@@ -335,12 +363,20 @@ pub(super) fn block_plan(
                 (true, true) if value <= creature_value(state, attacker)? => 2,
                 _ => continue,
             };
-            if best.is_none_or(|(best_rank, best_value, _)| (rank, value) < (best_rank, best_value))
-            {
-                best = Some((rank, value, blocker));
-            }
+            worth_making.push((rank, place, value, blocker, attacker));
         }
-        if let Some((_, _, blocker)) = best {
+    }
+    // Stable sorts: equal blocks stay in the order they were found in.
+    match first {
+        First::BestBlock => {
+            worth_making.sort_by_key(|&(rank, place, value, ..)| (rank, place, value))
+        }
+        First::BiggestAttacker => {
+            worth_making.sort_by_key(|&(rank, place, value, ..)| (place, rank, value));
+        }
+    }
+    for (_, _, _, blocker, attacker) in worth_making {
+        if !used.contains(&blocker) && !blocked.contains(&attacker) {
             plan.push((blocker, attacker));
             used.insert(blocker);
             blocked.insert(attacker);
@@ -402,5 +438,10 @@ pub(super) fn block_plan(
         }
         blocked.insert(attacker);
     }
-    Ok(plan)
+    let incoming: i32 = attackers
+        .iter()
+        .filter(|(_, attacker)| !blocked.contains(attacker))
+        .map(|(power, _)| power)
+        .sum();
+    Ok((plan, incoming < life))
 }

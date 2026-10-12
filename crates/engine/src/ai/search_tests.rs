@@ -284,6 +284,22 @@ fn it_does_not_attack_into_two_creatures_that_would_gang_up_on_it() {
 }
 
 #[test]
+fn it_does_not_send_a_creature_to_die_beside_one_the_blocker_would_only_stop() {
+    let (mut state, me, opponent) = empty_board(1);
+    // The Eagle makes the Hawk a 2/2. A 2/4 with reach kills the Hawk and
+    // only stops the Eagle, a 2/3: it blocks the Hawk.
+    let hawk = put_on_battlefield(&mut state, me, "healers_hawk");
+    put_on_battlefield(&mut state, me, "empyrean_eagle");
+    put_on_battlefield(&mut state, opponent, "giant_spider");
+    crate::duel::test_support::pass_until_other_decision(&mut state);
+    let attacking = Decision::DeclareAttackers { player: me };
+    assert_eq!(state.decision, Some(attacking));
+    let_it_declare(&mut state, me, attacking);
+    let attackers = combat::declared_attackers(&state);
+    assert!(!attackers.contains(&hawk), "{attackers:?}");
+}
+
+#[test]
 fn it_attacks_when_nothing_can_punish_it() {
     let (mut state, me, opponent) = empty_board(1);
     let baloth = put_on_battlefield(&mut state, me, "rumbling_baloth");
