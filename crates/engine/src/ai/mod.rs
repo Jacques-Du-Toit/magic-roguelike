@@ -81,6 +81,56 @@ pub enum AiKind {
     SearchGuessing,
 }
 
+/// Something the searching AI tried in its imagined games.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Considered {
+    /// What it would do: one action, or a whole attack or set of blocks
+    /// ending in its confirmation.
+    pub play: Vec<Action>,
+    /// Passing with the intention of keeping mana up for the opponent's
+    /// turn.
+    pub holding: bool,
+    /// How it did, added up over the imagined games: higher is better for
+    /// the AI. Divide by `Explanation::worlds` for the average, on a scale
+    /// where a creature is worth about 5 to 15 and winning `win_value`.
+    pub total: i64,
+}
+
+/// Why the AI did what it did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Explanation {
+    pub chosen: Action,
+    /// Everything it weighed, in the order it tried them. Empty when the
+    /// decision took no weighing.
+    pub considered: Vec<Considered>,
+    /// How many imagined games each of those was tried in.
+    pub worlds: u32,
+    /// In words: why nothing was weighed, or how a tie was settled.
+    pub note: Option<&'static str>,
+}
+
+/// Chooses an action as `ai_choose_action_with` does, and says what was
+/// weighed on the way. The choice is the same one.
+pub fn ai_explain(
+    state: &DuelState,
+    player: PlayerId,
+    kind: AiKind,
+) -> Result<Explanation, ActionError> {
+    let (chosen, trace) = search::with_trace(|| ai_choose_action_with(state, player, kind));
+    let worlds = data::embedded()
+        .map_err(|error| InternalError::new(error.to_string()))?
+        .balance
+        .ai
+        .search
+        .worlds;
+    Ok(Explanation {
+        chosen: chosen?,
+        considered: trace.considered,
+        worlds,
+        note: trace.note,
+    })
+}
+
 /// Chooses an action for `player`, who the game must be waiting on, with
 /// the AI asked for.
 pub fn ai_choose_action_with(

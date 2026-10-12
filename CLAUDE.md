@@ -41,6 +41,8 @@ cargo run --release -p sim -- --runs --games 400      # whole runs: how often th
 cargo run --release -p sim -- --versus --games 100    # the new AI against the old on the same decks, both ways
                                                       # round (--ai, --against); add --enemies for the run's decks
 cargo run --release -p sim -- --versus --games 50 --decks deck_a,deck_b,deck_c   # a quick sample: only these decks
+cargo run --release -p sim -- --explain report.json --last 3   # replays a bug report copied from the game and says
+                                # what the AI weighed in its last 3 decisions (Get-Clipboard | Set-Content report.json)
                                 # --ai old|new picks who plays in any mode (new, the searching AI, is the default);
                                 # every sim report ends with how long the AIs took to decide
 

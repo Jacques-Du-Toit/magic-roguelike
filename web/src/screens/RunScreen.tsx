@@ -122,15 +122,16 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
     setNews(describeRunEvents(events, names))
   }
 
+  // Everything needed to play the run again exactly: `sim --explain` does.
+  const runReport = () => ({
+    planeswalker: run.planeswalker,
+    emblem: view.emblem,
+    seed: run.seed,
+    error,
+    inputs: run.inputs,
+  })
   const copyReport = () => {
-    const report = JSON.stringify({
-      planeswalker: run.planeswalker,
-      emblem: view.emblem,
-      seed: run.seed,
-      error,
-      inputs: run.inputs,
-    })
-    void navigator.clipboard.writeText(report).then(() => setCopied(true))
+    void navigator.clipboard.writeText(JSON.stringify(runReport())).then(() => setCopied(true))
   }
 
   const { phase, actions } = view
@@ -146,6 +147,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         deckNames={new Map()}
         speed={speed}
         onSpeed={onSpeed}
+        report={runReport}
         exit={{
           kind: 'run',
           hearts: `${view.hearts} of ${view.max_hearts} hearts`,

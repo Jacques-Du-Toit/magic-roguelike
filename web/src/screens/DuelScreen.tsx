@@ -213,6 +213,11 @@ interface DuelScreenProps {
   speed: Speed
   onSpeed: (speed: Speed) => void
   exit: DuelExit
+  /**
+   * What "Copy bug report" copies, when the duel alone can't be replayed:
+   * a duel of a run needs the whole run's inputs.
+   */
+  report?: () => unknown
 }
 
 export function DuelScreen({
@@ -222,6 +227,7 @@ export function DuelScreen({
   speed,
   onSpeed,
   exit,
+  report: reportOf,
 }: DuelScreenProps) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const { view, actions, busy, effects, info } = snapshot
@@ -421,7 +427,9 @@ export function DuelScreen({
   })
 
   const copyReport = () => {
-    const report = JSON.stringify({ ...info, error: snapshot.error, actions: snapshot.history })
+    const report = JSON.stringify(
+      reportOf ? reportOf() : { ...info, error: snapshot.error, actions: snapshot.history },
+    )
     void navigator.clipboard.writeText(report).then(() => setCopied(true))
   }
 

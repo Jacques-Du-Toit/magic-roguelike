@@ -16,21 +16,92 @@
 //! Decisions it doesn't search (mulligans, scrying, discards, and for now
 //! attacks and blocks) are version 1's.
 
+use std::cell::Cell;
 use std::collections::BTreeSet;
 
 use super::battle;
 use super::combat;
 use super::distinct::distinct;
 use super::{
-    SEARCH_GLANCE, Thinking, VERSION_1, best_land, evaluate, heuristic, land_color, outcome,
+    Considered, SEARCH_GLANCE, Thinking, VERSION_1, best_land, evaluate, heuristic, land_color,
+    outcome,
 };
 use crate::balance::AiSearchBalance;
 use crate::cards::{CardDef, CardType, Color, Keyword, Supertype};
 use crate::data;
 use crate::duel::{
-    Action, Decision, DuelRng, DuelState, InternalError, ObjectId, PlayerId, Zone, apply_trusted,
-    legal_actions, player_view, should_auto_pass,
+    Action, Decision, DuelRng, DuelState, InternalError, ObjectId, PlayerId, Step, Zone,
+    apply_trusted, legal_actions, player_view, should_auto_pass,
 };
+
+/// Whether `player`, with priority, loses nothing by doing later what they
+/// could do now: later in this turn they will be asked again, and what
+/// they can do now they can do then. That is so in combat and in the
+/// opponent's turn, but not in the opponent's end step, which is the last
+/// stop before their own turn, nor in their own main phases, where the
+/// next stop may come too late for a sorcery or a creature.
+fn waiting_costs_nothing(state: &DuelState, player: PlayerId) -> bool {
+    let own_turn = state.active_player == player;
+    match state.step {
+        Step::DeclareAttackers | Step::DeclareBlockers => true,
+        Step::PrecombatMain | Step::PostcombatMain | Step::BeginCombat => !own_turn,
+        Step::Untap
+        | Step::Upkeep
+        | Step::Draw
+        | Step::FirstStrikeDamage
+        | Step::CombatDamage
+        | Step::EndCombat
+        | Step::End
+        | Step::Cleanup => false,
+    }
+}
+
+/// What the AI weighed in its last decision, for `ai_explain`. Nothing is
+/// kept unless an explanation was asked for.
+#[derive(Debug, Default)]
+pub(super) struct Trace {
+    pub(super) considered: Vec<Considered>,
+    pub(super) note: Option<&'static str>,
+}
+
+thread_local! {
+    static TRACE: Cell<Option<Trace>> = const { Cell::new(None) };
+}
+
+fn traced(change: impl FnOnce(&mut Trace)) {
+    TRACE.with(|cell| {
+        if let Some(mut trace) = cell.take() {
+            change(&mut trace);
+            cell.set(Some(trace));
+        }
+    });
+}
+
+/// Records why the decision was made without weighing anything, or how a
+/// tie was settled.
+pub(super) fn note(note: &'static str) {
+    traced(|trace| trace.note = Some(note));
+}
+
+/// Records something that was tried in the imagined games, and how it did
+/// added up over them.
+pub(super) fn consider(play: Vec<Action>, holding: bool, total: i64) {
+    traced(|trace| {
+        trace.considered.push(Considered {
+            play,
+            holding,
+            total,
+        });
+    });
+}
+
+/// Runs a decision and returns it with what was weighed on the way.
+pub(super) fn with_trace<T>(decide: impl FnOnce() -> T) -> (T, Trace) {
+    TRACE.with(|cell| cell.set(Some(Trace::default())));
+    let decided = decide();
+    let trace = TRACE.with(Cell::take).unwrap_or_default();
+    (decided, trace)
+}
 
 pub(super) fn choose(
     state: &DuelState,
@@ -72,14 +143,17 @@ fn priority(
 ) -> Result<Action, InternalError> {
     // It acts where a human player is asked to, and nowhere else.
     if should_auto_pass(state, player, false) {
+        note("it passes here without thinking: a human player isn't asked at this point either");
         return Ok(Action::PassPriority);
     }
     if let Some(land) = best_land(state, player, actions)? {
+        note("it plays a land whenever it can, before anything else");
         return Ok(Action::PlayLand { card: land });
     }
     let baseline = outcome(state, player, None, SEARCH_GLANCE)?;
     let ranked = ranked_by_glance(state, player, actions, Some(baseline))?;
     if ranked.is_empty() {
+        note("it has nothing to cast or use");
         return Ok(Action::PassPriority);
     }
     let preferred = heuristic(state, player, decision, actions, SEARCH_GLANCE)?;
@@ -210,6 +284,36 @@ fn best_in_rollouts(
         totals.push(imagined.total(player, settings, candidate.holding, |game| {
             apply_trusted(game, player, &candidate.action).map(|_| ())
         })?);
+    }
+    for (candidate, &total) in candidates.iter().zip(&totals) {
+        consider(vec![candidate.action.clone()], candidate.holding, total);
+    }
+    // Something that can be done as well later is done later: an instant
+    // held back shows the opponent nothing until they have committed.
+    if waiting_costs_nothing(state, player) {
+        let best_total = totals.iter().copied().max();
+        let certain_win = i64::from(settings.win_value) * i64::from(settings.worlds);
+        let passing = candidates
+            .iter()
+            .zip(&totals)
+            .find(|(candidate, _)| candidate.action == Action::PassPriority && !candidate.holding);
+        if let Some((_, &pass_total)) = passing
+            && Some(pass_total) == best_total
+            && pass_total < certain_win
+        {
+            note(
+                "passing does as well as anything in the imagined games, and it can still act \
+                 later this turn, so it waits",
+            );
+            return Ok(Action::PassPriority);
+        }
+    }
+    let top = totals.iter().copied().max();
+    if totals.iter().filter(|total| Some(**total) == top).count() > 1 {
+        note(
+            "the best plays came out level in the imagined games, so it does what its quick \
+             look ahead prefers, or else the first of them",
+        );
     }
     let mut best: Option<(&Candidate, i64)> = None;
     for (candidate, total) in candidates.iter().zip(totals) {

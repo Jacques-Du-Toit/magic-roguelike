@@ -16,7 +16,7 @@ use std::cell::Cell;
 use super::combat;
 use super::distinct;
 use super::evaluate;
-use super::search::{Imagined, fnv1a};
+use super::search::{Imagined, consider, fnv1a, note};
 use super::{VERSION_1, settle};
 use crate::balance::AiSearchBalance;
 use crate::duel::{
@@ -184,7 +184,10 @@ fn remembered_or(
 ) -> Result<Plan, InternalError> {
     let remembered = REMEMBERED.with(Cell::take);
     let plan = match remembered {
-        Some((remembered_key, plan)) if remembered_key == key && fits(&plan) => plan,
+        Some((remembered_key, plan)) if remembered_key == key && fits(&plan) => {
+            note("it is carrying out the attack or the blocks it settled on a step ago");
+            plan
+        }
         _ => work_out()?,
     };
     REMEMBERED.with(|cell| cell.set(Some((key, plan.clone()))));
@@ -271,12 +274,19 @@ fn attack_plan(
     };
     let imagined = Imagined::new(before, player, settings)?;
     let score = |plan: &[ObjectId]| {
-        imagined.total(player, settings, false, |game| {
+        let total = imagined.total(player, settings, false, |game| {
             for &creature in plan {
                 apply_trusted(game, player, &Action::Attack { creature })?;
             }
             apply_trusted(game, player, &Action::ConfirmAttackers).map(|_| ())
-        })
+        })?;
+        let mut play: Vec<Action> = plan
+            .iter()
+            .map(|&creature| Action::Attack { creature })
+            .collect();
+        play.push(Action::ConfirmAttackers);
+        consider(play, false, total);
+        Ok::<i64, InternalError>(total)
     };
 
     let preferred = tidy(&combat::attack_plan(before, player, able)?);
@@ -413,10 +423,17 @@ fn block_plan(
     };
     let imagined = Imagined::new(before, player, settings)?;
     let score = |plan: &[(ObjectId, ObjectId)]| {
-        imagined.total(player, settings, false, |game| {
+        let total = imagined.total(player, settings, false, |game| {
             declare_blocks(game, player, plan)?;
             apply_trusted(game, player, &Action::ConfirmBlockers).map(|_| ())
-        })
+        })?;
+        let mut play: Vec<Action> = plan
+            .iter()
+            .map(|&(blocker, attacker)| Action::Block { blocker, attacker })
+            .collect();
+        play.push(Action::ConfirmBlockers);
+        consider(play, false, total);
+        Ok::<i64, InternalError>(total)
     };
 
     let mut blockers: Vec<ObjectId> = possible.iter().map(|(blocker, _)| *blocker).collect();

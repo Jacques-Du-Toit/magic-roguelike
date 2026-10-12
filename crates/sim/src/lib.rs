@@ -1,6 +1,7 @@
 //! Headless simulation: AI-vs-AI games across every pairing of the decks in
 //! `data/decks/`, for finding engine errors and measuring balance.
 
+pub mod explain;
 pub mod game;
 pub mod report;
 pub mod runs;
@@ -28,6 +29,7 @@ Usage: sim [--games N] [--seed S] [--decks A,B,...] [--ai AI]
        sim --versus [--enemies] [--games N] [--seed S] [--decks A,B,...] [--ai AI] [--against AI]
        sim --runs [--games N] [--seed S] [--ai AI]
        sim --replay P1_DECK P2_DECK [--seed S] [--ai AI] [--against AI]
+       sim --explain FILE [--last N]
 
 Plays N AI-vs-AI games (default 100) for every pairing of the decks in
 data/decks, mirror matches included, and prints a report. Game i of each
@@ -62,7 +64,12 @@ how often the act is won and where runs end.
 did, e.g. to look into a game the report flagged. P1 is played by --ai and
 P2 by --against (by --ai too, if --against is not given).
 
-Every report ends with how long the AIs took to decide.";
+Every report ends with how long the AIs took to decide.
+
+--explain replays a bug report copied from the game (Copy bug report, on
+the duel or run screen, saved to FILE; `-` reads it from standard input)
+and prints the AI's last N decisions (default 3) in that duel: the
+position, what it chose, and everything it weighed with its score.";
 
 /// The name an AI goes by on the command line and in the reports.
 pub fn ai_name(ai: AiKind) -> &'static str {
@@ -106,6 +113,11 @@ pub struct Options {
     pub against: Option<AiKind>,
     /// Only these decks (or planeswalkers and enemies); empty for all.
     pub decks: Vec<String>,
+    /// A bug report from the game to replay and explain: a file, or `-`
+    /// for standard input.
+    pub explain: Option<String>,
+    /// How many of the AI's last decisions `explain` shows.
+    pub last: usize,
 }
 
 impl Default for Options {
@@ -120,6 +132,8 @@ impl Default for Options {
             ai: AiKind::Search,
             against: None,
             decks: Vec::new(),
+            explain: None,
+            last: 3,
         }
     }
 }
@@ -159,6 +173,13 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
                     .filter(|name| !name.is_empty())
                     .map(str::to_string)
                     .collect();
+            }
+            "--explain" => options.explain = Some(value("--explain")?.to_string()),
+            "--last" => {
+                let text = value("--last")?;
+                options.last = text
+                    .parse()
+                    .map_err(|_| format!("--last: `{text}` is not a whole number"))?;
             }
             "--replay" => {
                 let p1 = value("--replay")?.to_string();
@@ -496,6 +517,19 @@ pub fn run_report(options: &Options) -> Result<(String, bool), String> {
 
 /// Runs the simulation (or the one replayed game).
 pub fn run_output(options: &Options) -> Result<Output, String> {
+    if let Some(file) = &options.explain {
+        let report = if file == "-" {
+            std::io::read_to_string(std::io::stdin())
+        } else {
+            std::fs::read_to_string(file)
+        }
+        .map_err(|error| format!("can't read `{file}`: {error}"))?;
+        return Ok(Output {
+            report: explain::explain(&report, options.last)?,
+            timing: String::new(),
+            failed: false,
+        });
+    }
     let data = data::embedded().map_err(|error| error.to_string())?;
     let limits = &data.balance.sim;
     if let Some((p1, p2)) = &options.replay {

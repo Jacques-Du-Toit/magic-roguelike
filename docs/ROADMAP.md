@@ -292,6 +292,14 @@ What the new AI still plays badly:
 - Its imagined opponent is v1, which never bluffs or holds mana on purpose, so it can walk into a counterspell or a trick more often than a person would.
 - Self-mill decks (Rot Farmers, deck H) still deck themselves: it doesn't count its library.
 
+**After the owner's M4b playtest (2026-10-12):** the new AI "seems a lot better". What he saw, and what was done:
+
+- It cast Shock after attacking and before blocks, and Ambush Viper before attackers were declared, giving information away for nothing. Fixed: an instant or flash creature that does as well later is held back (`DECISIONS.md` #53), with a test for each case. New against old is unchanged by it: 67.8% +/- 1.5 over 3600 games.
+- It used Sure Strike after blocks, which was right.
+- A 2-power attacker blocked by a 4/5 and a 2/1 seemed to put all its damage on the 4/5. Not reproduced: in that plain shape the AI kills the 2/1, whichever was declared first, and a test pins that. Something else was different in the game played.
+- It cast Titanic Growth on the owner's creature in his end step. Not understood, and not reproducible from memory. Open; a full hand about to discard is a guess.
+- For cases like the last two there is now `sim --explain` (`DECISIONS.md` #54): press "Copy bug report" when the AI does something odd, save it to a file, and the sim replays the game and prints what the AI weighed. The duel screen of a run copies the whole run's report, which is what replays.
+
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
 - [ ] Draft node, Event node, Treasure node, card upgrades.

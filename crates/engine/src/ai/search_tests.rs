@@ -455,3 +455,109 @@ fn it_kills_the_small_blocker_when_it_cannot_kill_the_big_one() {
         assert!(!state.is_on_battlefield(small), "big first: {big_first}");
     }
 }
+
+// ---- Timing of instants ----
+
+#[test]
+fn it_waits_with_an_instant_that_does_as_well_later() {
+    // From the owner's M4b playtest: it Shocked a creature after attacking
+    // and before blocks, which only told the defender more.
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "mountain", 2);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let shock = put_in_hand(&mut state, me, "shock");
+    // A creature worth a Shock that takes no part in this combat.
+    let lions = put_on_battlefield(&mut state, opponent, "savannah_lions");
+    state.objects.get_mut(&lions).unwrap().tapped = true;
+    let at_lions = cast_at(shock, Target::Object { object: lions });
+
+    crate::duel::test_support::attack(&mut state, &[bears]);
+    assert_eq!(state.step, Step::DeclareAttackers);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    // It would cast it, and version 1 does at once.
+    assert_eq!(old(&state, me), at_lions);
+    let explanation = ai_explain(&state, me, AiKind::Search).unwrap();
+    assert_eq!(explanation.chosen, Action::PassPriority);
+    assert!(explanation.note.unwrap().contains("so it waits"));
+    // Both were weighed and came out level.
+    let total = |action: &Action| {
+        explanation
+            .considered
+            .iter()
+            .find(|considered| considered.play == [action.clone()] && !considered.holding)
+            .unwrap()
+            .total
+    };
+    assert_eq!(total(&Action::PassPriority), total(&at_lions));
+
+    // In its second main phase there is no later, and it casts it.
+    pass_until(&mut state, 1, Step::PostcombatMain);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), at_lions);
+}
+
+#[test]
+fn it_does_not_wait_to_win() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "mountain", 2);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let shock = put_in_hand(&mut state, me, "shock");
+    state.player_mut(opponent).life = 2;
+    let blocker = put_on_battlefield(&mut state, opponent, "angelic_wall");
+    crate::duel::test_support::attack(&mut state, &[bears]);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    let _ = blocker;
+    assert_eq!(
+        new(&state, me),
+        cast_at(shock, Target::Player { player: opponent })
+    );
+}
+
+/// The opponent's turn 2, with the AI holding an Ambush Viper (a 2/1 with
+/// flash and deathtouch) and two Forests. Returns the Viper.
+fn viper_in_the_opponents_turn() -> (DuelState, PlayerId, PlayerId, ObjectId) {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 2);
+    put_lands(&mut state, opponent, "forest", 2);
+    let viper = put_in_hand(&mut state, me, "ambush_viper");
+    pass_until(&mut state, 2, Step::PrecombatMain);
+    (state, me, opponent, viper)
+}
+
+#[test]
+fn it_keeps_a_flash_creature_back_until_the_attack_is_declared() {
+    // From the owner's M4b playtest: it cast Ambush Viper before attackers
+    // were declared, so the attack was made knowing about the deathtouch.
+    let (mut state, me, opponent, viper) = viper_in_the_opponents_turn();
+    let baloth = put_on_battlefield(&mut state, opponent, "rumbling_baloth");
+    // The opponent casts a creature in their main phase; the AI may respond.
+    let bears = put_in_hand(&mut state, opponent, "grizzly_bears");
+    apply_action(&mut state, opponent, cast(bears)).unwrap();
+    apply_action(&mut state, opponent, Action::PassPriority).unwrap();
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert!(legal_actions(&state, me).contains(&cast(viper)));
+    assert_eq!(new(&state, me), Action::PassPriority);
+    apply_action(&mut state, me, Action::PassPriority).unwrap();
+
+    // The 4/4 attacks. Now the Viper comes down, to block and kill it.
+    crate::duel::test_support::attack(&mut state, &[baloth]);
+    if state.decision == Some(Decision::Priority { player: opponent }) {
+        apply_action(&mut state, opponent, Action::PassPriority).unwrap();
+    }
+    assert_eq!(state.step, Step::DeclareAttackers);
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), cast(viper));
+}
+
+#[test]
+fn it_casts_the_flash_creature_at_the_end_of_a_turn_with_no_attack() {
+    let (mut state, me, opponent, viper) = viper_in_the_opponents_turn();
+    let _ = opponent;
+    pass_until(&mut state, 2, Step::End);
+    // The active player passes first.
+    if state.decision == Some(Decision::Priority { player: opponent }) {
+        apply_action(&mut state, opponent, Action::PassPriority).unwrap();
+    }
+    assert_eq!(state.decision, Some(Decision::Priority { player: me }));
+    assert_eq!(new(&state, me), cast(viper));
+}
