@@ -118,7 +118,12 @@ fn play(
             let ai = ais[player.index()];
             let thinking = Instant::now();
             let choice = ai_choose_action_with(duel, player, ai);
-            timing.decision(ai, thinking.elapsed());
+            timing.decision(ai, thinking.elapsed(), || {
+                format!(
+                    "{planeswalker} seed {seed}, duel turn {} ({:?}), {:?}",
+                    duel.turn, duel.step, duel.decision
+                )
+            });
             let action = choice.map_err(|error| format!("AI: {error}"))?;
             apply_duel_action(&mut state, player, action).map_err(|error| error.to_string())?;
             continue;

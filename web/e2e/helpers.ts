@@ -80,6 +80,8 @@ interface Hint {
   attacker?: number
   source?: number
   sacrifice?: number | null
+  /** Who a point of combat damage goes to or comes back from. */
+  target?: { type: 'player'; player: string } | { type: 'object'; object: number }
   targets?: ({ type: 'player'; player: string } | { type: 'object'; object: number })[]
 }
 
@@ -164,6 +166,16 @@ export async function followHint(page: Page): Promise<void> {
     case 'reset_declaration':
       await button('Reset').click()
       break
+    case 'assign_damage':
+    case 'unassign_damage': {
+      // The + or - beside that blocker (or the player) in the damage panel.
+      const target = action.target
+      if (!target) throw new Error(`${action.type} names no target`)
+      const key = target.type === 'player' ? `p:${target.player}` : `o:${target.object}`
+      const name = action.type === 'assign_damage' ? /^One more damage/ : /^One less damage/
+      await page.locator(`[data-share="${key}"]`).getByRole('button', { name }).click()
+      break
+    }
     case 'pass_priority':
     case 'confirm_attackers':
     case 'confirm_blockers':

@@ -47,7 +47,11 @@ export function DamagePanel({
           const name = targetName(share.target)
           const isPlayer = share.target.type === 'player'
           return (
-            <li key={targetKey(share.target)} data-testid="damage-share">
+            <li
+              key={targetKey(share.target)}
+              data-testid="damage-share"
+              data-share={targetKey(share.target)}
+            >
               <span className="damage-name">
                 {isPlayer && share.target.type === 'player'
                   ? share.target.player === HUMAN

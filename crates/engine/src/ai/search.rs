@@ -19,6 +19,7 @@
 use std::collections::BTreeSet;
 
 use super::battle;
+use super::combat;
 use super::distinct::distinct;
 use super::{
     SEARCH_GLANCE, Thinking, VERSION_1, best_land, evaluate, heuristic, land_color, outcome,
@@ -310,16 +311,82 @@ fn play_out(
             apply_trusted(game, player, &Action::PassPriority)?;
             continue;
         }
-        let actions = legal_actions(game, player);
         let how = Thinking {
             lookahead: settings.rollout_lookahead,
             gang_blocks: settings.rollout_gang_blocks,
             card_values: true,
         };
+        // Like the searching AI itself, the imagined players act only
+        // where a human would be asked. Version 1 proper thinks again at
+        // every step of every turn, and in imagined games that was most
+        // of the work.
+        if should_auto_pass(game, player, false) {
+            apply_trusted(game, player, &Action::PassPriority)?;
+            continue;
+        }
+        if declare_at_once(game, player, decision, how)? {
+            continue;
+        }
+        let actions = legal_actions(game, player);
         let action = heuristic(game, player, decision, &actions, how)?;
         apply_trusted(game, player, &action)?;
     }
     Ok(())
+}
+
+/// In an imagined game, declares version 1's whole attack or all its
+/// blocks in one go. Version 1 itself declares a creature at a time and
+/// works its plan out again at every step; the plan depends only on the
+/// board, so this comes to the same declaration for a fraction of the
+/// work on a crowded battlefield. Returns whether it declared anything.
+fn declare_at_once(
+    game: &mut DuelState,
+    player: PlayerId,
+    decision: Decision,
+    how: Thinking,
+) -> Result<bool, InternalError> {
+    let has_declared = |game: &DuelState, blocks: bool| {
+        game.combat.as_ref().is_some_and(|combat| {
+            if blocks {
+                combat.attackers.iter().any(|a| !a.blockers.is_empty())
+            } else {
+                !combat.attackers.is_empty()
+            }
+        })
+    };
+    match decision {
+        Decision::DeclareAttackers { .. } if !has_declared(game, false) => {
+            let mut able: Vec<ObjectId> = legal_actions(game, player)
+                .iter()
+                .filter_map(|action| match action {
+                    Action::Attack { creature } => Some(*creature),
+                    _ => None,
+                })
+                .collect();
+            able.sort_unstable();
+            for creature in combat::attack_plan(game, player, &able)? {
+                apply_trusted(game, player, &Action::Attack { creature })?;
+            }
+            apply_trusted(game, player, &Action::ConfirmAttackers)?;
+            Ok(true)
+        }
+        Decision::DeclareBlockers { .. } if !has_declared(game, true) => {
+            let plan = combat::block_plan(game, player, how.gang_blocks)?;
+            let mut declared = game.clone();
+            for &(blocker, attacker) in &plan {
+                apply_trusted(&mut declared, player, &Action::Block { blocker, attacker })?;
+            }
+            // Blocks that can't be confirmed are left to the step-by-step
+            // way, which takes them back.
+            if !legal_actions(&declared, player).contains(&Action::ConfirmBlockers) {
+                return Ok(false);
+            }
+            apply_trusted(&mut declared, player, &Action::ConfirmBlockers)?;
+            *game = declared;
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
 }
 
 /// A seed for the AI's own dice, made from everything `player` can see and

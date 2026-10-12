@@ -38,15 +38,19 @@ cargo run -p sim -- --games 100 # headless AI-vs-AI simulation: 100 games for ev
 cargo run -p sim -- --replay deck_a deck_c --seed 7   # one game, move by move
 cargo run --release -p sim -- --enemies --games 400   # the run's starting decks against its enemy decks
 cargo run --release -p sim -- --runs --games 400      # whole runs: how often the act is won
-cargo run --release -p sim -- --versus --games 100    # one AI against another (--ai, --against) on the same decks,
-                                                      # both ways round; add --enemies for the run's decks
+cargo run --release -p sim -- --versus --games 100    # the new AI against the old on the same decks, both ways
+                                                      # round (--ai, --against); add --enemies for the run's decks
 cargo run --release -p sim -- --versus --games 50 --decks deck_a,deck_b,deck_c   # a quick sample: only these decks
+                                # --ai old|new picks who plays in any mode (new, the searching AI, is the default);
                                 # every sim report ends with how long the AIs took to decide
 
 # Card data (from repo root; needs the network the first time, then uses its cache)
 node tools/scryfall.mjs add "Card Name"   # writes data/cards/<id>.json from Scryfall, abilities left to write by hand
 node tools/scryfall.mjs check             # every card's name, cost, types, stats, keywords and text against Scryfall
 node --test tools/scryfall.test.mjs       # the tool's own tests
+
+# AI speed in WebAssembly (from repo root, after npm run wasm in web/)
+node tools/ai-timing.mjs 4                # plays 4 whole runs through the wasm handle and times every AI decision
 
 # WASM build (from repo root)
 wasm-pack build crates/engine-wasm --target web --out-dir ../../web/src/wasm

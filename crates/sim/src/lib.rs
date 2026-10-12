@@ -35,8 +35,9 @@ pairing uses seed S + i (S defaults to 1), so a run can be repeated exactly.
 In the report's game i (counting from 0), the first-named deck is P1 when i
 is even and P2 when i is odd.
 
---ai chooses the AI that plays: `old`, the heuristic one, or `new`, the one
-that searches by imagined games. `new-knowing` and `new-guessing` are `new`
+--ai chooses the AI that plays: `new` (the default), the one that searches
+by imagined games and that the game is played against, or `old`, the
+heuristic one it is measured against. `new-knowing` and `new-guessing` are `new`
 with and without knowledge of the opponent's decklist, whatever
 data/balance.json says.
 --decks keeps only the pairings between the decks named, for a quick sample.
@@ -116,7 +117,7 @@ impl Default for Options {
             enemies: false,
             runs: false,
             versus: false,
-            ai: AiKind::Heuristic,
+            ai: AiKind::Search,
             against: None,
             decks: Vec::new(),
         }
@@ -274,7 +275,16 @@ fn play_games(
         };
         let mut ais = [second_ai; 2];
         ais[first_seat.index()] = first_ai;
-        play_safely(config.clone(), first_seed + u64::from(game), ais)
+        let seed = first_seed + u64::from(game);
+        let (result, mut took) = play_safely(config.clone(), seed, ais);
+        took.name_game(&format!(
+            "{} v {} ({} v {}), seed {seed}",
+            pairing.first,
+            pairing.second,
+            ai_name(first_ai),
+            ai_name(second_ai)
+        ));
+        (result, took)
     });
     (0..options.games)
         .zip(results)
@@ -613,6 +623,7 @@ mod tests {
             )),
             Ok(Some(Options {
                 versus: true,
+                ai: AiKind::Heuristic,
                 against: Some(AiKind::Heuristic),
                 decks: vec!["deck_a".to_string(), "deck_c".to_string()],
                 ..Options::default()
@@ -630,7 +641,7 @@ mod tests {
 
     #[test]
     fn a_replay_tells_the_story_of_one_game() {
-        let options = parse_args(&args("--replay deck_a deck_c --seed 3"))
+        let options = parse_args(&args("--replay deck_a deck_c --seed 3 --ai old"))
             .unwrap()
             .unwrap();
         let (text, failed) = run_report(&options).unwrap();
@@ -642,7 +653,7 @@ mod tests {
         assert!(text.trim_end().lines().last().unwrap().contains("wins"));
         assert_eq!(run_report(&options).unwrap().0, text);
 
-        let unknown = parse_args(&args("--replay deck_a deck_z"))
+        let unknown = parse_args(&args("--replay deck_a deck_z --ai old"))
             .unwrap()
             .unwrap();
         assert_eq!(
@@ -676,10 +687,11 @@ mod tests {
         let options = Options {
             games: 2,
             enemies: true,
+            ai: AiKind::Heuristic,
             ..Options::default()
         };
         assert_eq!(
-            parse_args(&args("--enemies --games 2")),
+            parse_args(&args("--enemies --games 2 --ai old")),
             Ok(Some(options.clone()))
         );
         let stats = run(&options).unwrap();
@@ -704,7 +716,7 @@ mod tests {
 
     #[test]
     fn whole_runs_can_be_played_and_reported() {
-        let options = parse_args(&args("--runs --games 2 --seed 5"))
+        let options = parse_args(&args("--runs --games 2 --seed 5 --ai old"))
             .unwrap()
             .unwrap();
         assert!(options.runs);
@@ -717,7 +729,7 @@ mod tests {
 
     #[test]
     fn decks_can_be_left_out_for_a_quick_sample() {
-        let options = parse_args(&args("--games 2 --decks deck_a,deck_c"))
+        let options = parse_args(&args("--games 2 --decks deck_a,deck_c --ai old"))
             .unwrap()
             .unwrap();
         let pairings: Vec<(String, String)> = run(&options)
@@ -740,6 +752,7 @@ mod tests {
         let one_enemy = Options {
             games: 1,
             enemies: true,
+            ai: AiKind::Heuristic,
             decks: vec![enemy.clone()],
             ..Options::default()
         };
@@ -752,14 +765,16 @@ mod tests {
         };
         assert_eq!(run(&one_each).unwrap().len(), 1);
 
-        let unknown = parse_args(&args("--decks deck_z")).unwrap().unwrap();
+        let unknown = parse_args(&args("--decks deck_z --ai old"))
+            .unwrap()
+            .unwrap();
         let error = run(&unknown).unwrap_err();
         assert!(error.starts_with("--decks: no `deck_z`"), "{error}");
     }
 
     #[test]
     fn one_ai_plays_another_both_ways_round_on_fresh_seeds() {
-        let options = parse_args(&args("--versus --games 4 --decks deck_a,deck_c"))
+        let options = parse_args(&args("--versus --ai old --games 4 --decks deck_a,deck_c"))
             .unwrap()
             .unwrap();
         let stats = run_versus(&options).unwrap();
@@ -830,14 +845,16 @@ mod tests {
 
     #[test]
     fn every_report_comes_with_the_time_the_ais_took() {
-        let options = parse_args(&args("--games 2 --decks deck_a"))
+        let options = parse_args(&args("--games 2 --decks deck_a --ai old"))
             .unwrap()
             .unwrap();
         let output = run_output(&options).unwrap();
         assert!(output.timing.contains("\n2 games, "), "{}", output.timing);
         assert!(output.timing.contains("old"), "{}", output.timing);
 
-        let runs = parse_args(&args("--runs --games 1")).unwrap().unwrap();
+        let runs = parse_args(&args("--runs --games 1 --ai old"))
+            .unwrap()
+            .unwrap();
         let output = run_output(&runs).unwrap();
         assert!(output.timing.contains("old"), "{}", output.timing);
         assert!(!output.timing.contains("\n0 games"), "{}", output.timing);
@@ -915,6 +932,7 @@ mod tests {
     fn a_small_run_covers_every_pairing_without_errors() {
         let options = Options {
             games: 2,
+            ai: AiKind::Heuristic,
             ..Options::default()
         };
         let stats = run(&options).unwrap();

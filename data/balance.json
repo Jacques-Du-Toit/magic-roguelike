@@ -17,7 +17,7 @@
       "min_hand_size": 5
     },
     "search": {
-      "worlds": 6,
+      "worlds": 4,
       "candidates": 4,
       "targets_per_spell": 2,
       "attack_plans": 10,

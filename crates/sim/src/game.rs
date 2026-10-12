@@ -332,7 +332,12 @@ fn play(
         let ai = ais[player.index()];
         let thinking = Instant::now();
         let choice = ai_choose_action_with(&state, player, ai);
-        timing.decision(ai, thinking.elapsed());
+        timing.decision(ai, thinking.elapsed(), || {
+            format!(
+                "turn {} ({:?}), {:?}",
+                state.turn, state.step, state.decision
+            )
+        });
         let action = choice.map_err(|error| format!("turn {}: AI: {error}", state.turn))?;
         let events = apply_action(&mut state, player, action.clone())
             .map_err(|error| format!("turn {}: {action:?}: {error}", state.turn))?;

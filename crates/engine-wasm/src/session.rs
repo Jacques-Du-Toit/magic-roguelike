@@ -2,7 +2,6 @@
 //! Rust with JSON strings in and out, so it can be tested natively; `lib.rs`
 //! wraps it for wasm-bindgen.
 
-use engine::ai_choose_action;
 use engine::cards::CardDef;
 use engine::data;
 use engine::decks::{DeckDef, DeckId};
@@ -14,6 +13,7 @@ use engine::run::{
     ENEMY, ModifierId, PLAYER, PlaneswalkerId, RunAction, RunConfig, RunEvent, RunState, RunView,
     apply_duel_action, apply_run_action, new_run, run_content, run_view,
 };
+use engine::{AiKind, ai_choose_action_with};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -21,6 +21,9 @@ use ts_rs::TS;
 pub const HUMAN: PlayerId = PlayerId::P1;
 /// The AI's seat.
 pub const AI: PlayerId = PlayerId::P2;
+/// The AI the game is played against, and the one behind `duel_suggest`:
+/// the searching one. (Version 1 stays in the engine as its baseline.)
+pub const GAME_AI: AiKind = AiKind::Search;
 
 /// What one action did: the events, already redacted for the human, and the
 /// human's view of the duel afterwards.
@@ -114,7 +117,8 @@ impl Session {
 
     /// Lets the AI take one action. Returns a `DuelUpdate`.
     pub fn ai_step(&mut self) -> Result<String, String> {
-        let action = ai_choose_action(&self.state, AI).map_err(|error| error.to_string())?;
+        let action =
+            ai_choose_action_with(&self.state, AI, GAME_AI).map_err(|error| error.to_string())?;
         self.act(AI, action)
     }
 
@@ -225,13 +229,15 @@ impl RunSession {
     /// It looks only at what the human may see. For hints and for tests
     /// that click through whole runs.
     pub fn duel_suggest(&self) -> Result<String, String> {
-        let action = ai_choose_action(self.duel()?, PLAYER).map_err(|error| error.to_string())?;
+        let action = ai_choose_action_with(self.duel()?, PLAYER, GAME_AI)
+            .map_err(|error| error.to_string())?;
         to_json(&action)
     }
 
     /// Lets the enemy take one action in the duel. Returns a `DuelUpdate`.
     pub fn duel_ai_step(&mut self) -> Result<String, String> {
-        let action = ai_choose_action(self.duel()?, ENEMY).map_err(|error| error.to_string())?;
+        let action = ai_choose_action_with(self.duel()?, ENEMY, GAME_AI)
+            .map_err(|error| error.to_string())?;
         self.duel_act(ENEMY, action)
     }
 
@@ -263,7 +269,7 @@ mod tests {
 
     /// Takes the human's turn with the AI's brain, through the JSON API.
     fn human_step(session: &mut Session) -> DuelUpdate {
-        let action = ai_choose_action(&session.state, HUMAN).unwrap();
+        let action = ai_choose_action_with(&session.state, HUMAN, AiKind::Heuristic).unwrap();
         assert!(actions(session).contains(&action));
         update(&session.apply(&to_json(&action).unwrap()).unwrap())
     }
@@ -441,7 +447,7 @@ mod tests {
             match duel.waiting_on() {
                 None => return,
                 Some(player) if player == PLAYER => {
-                    let action = ai_choose_action(duel, PLAYER).unwrap();
+                    let action = ai_choose_action_with(duel, PLAYER, GAME_AI).unwrap();
                     assert_eq!(session.duel_suggest().unwrap(), to_json(&action).unwrap());
                     let legal: Vec<Action> =
                         serde_json::from_str(&session.duel_legal_actions().unwrap()).unwrap();

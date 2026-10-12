@@ -11,13 +11,14 @@ use engine::AiKind;
 use crate::ai_name;
 
 /// One AI's thinking, added up.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AiTiming {
     /// Every action it was asked for, a forced pass included.
     pub decisions: u64,
     pub thinking: Duration,
-    /// Its slowest single decision.
+    /// Its slowest single decision, and where that was.
     pub worst: Duration,
+    pub worst_at: String,
     /// How many sides of a game it played: two in a game against itself.
     pub seats: u64,
 }
@@ -31,11 +32,25 @@ pub struct Timing {
 }
 
 impl Timing {
-    pub fn decision(&mut self, ai: AiKind, took: Duration) {
+    /// Counts one decision. `at` says where it was, and is only asked for
+    /// when the decision is the slowest so far.
+    pub fn decision(&mut self, ai: AiKind, took: Duration, at: impl FnOnce() -> String) {
         let entry = self.ais.entry(ai).or_default();
         entry.decisions += 1;
         entry.thinking += took;
-        entry.worst = entry.worst.max(took);
+        if took > entry.worst {
+            entry.worst = took;
+            entry.worst_at = at();
+        }
+    }
+
+    /// Says which game the slowest decisions counted so far were in.
+    pub fn name_game(&mut self, game: &str) {
+        for timing in self.ais.values_mut() {
+            if !timing.worst_at.is_empty() {
+                timing.worst_at = format!("{game}, {}", timing.worst_at);
+            }
+        }
     }
 
     /// Counts one game played by `ais`, one per seat.
@@ -57,7 +72,10 @@ impl Timing {
             let entry = self.ais.entry(*ai).or_default();
             entry.decisions += theirs.decisions;
             entry.thinking += theirs.thinking;
-            entry.worst = entry.worst.max(theirs.worst);
+            if theirs.worst > entry.worst {
+                entry.worst = theirs.worst;
+                entry.worst_at.clone_from(&theirs.worst_at);
+            }
             entry.seats += theirs.seats;
         }
     }
@@ -96,6 +114,16 @@ impl Timing {
             out,
             "ms per game is one AI's thinking for its side of one game."
         );
+        for (ai, timing) in &self.ais {
+            if !timing.worst_at.is_empty() {
+                let _ = writeln!(
+                    out,
+                    "Slowest decision of `{}`: {}.",
+                    ai_name(*ai),
+                    timing.worst_at
+                );
+            }
+        }
         let _ = writeln!(
             out,
             "{} games, {} ms each on one core. The whole run took {:.1} s on {threads} threads.",
@@ -114,23 +142,37 @@ mod tests {
     #[test]
     fn decisions_and_games_add_up_per_ai() {
         let mut timing = Timing::default();
-        timing.decision(AiKind::Heuristic, Duration::from_millis(2));
-        timing.decision(AiKind::Heuristic, Duration::from_millis(6));
+        timing.decision(AiKind::Heuristic, Duration::from_millis(2), || {
+            "turn 1".to_string()
+        });
+        timing.decision(AiKind::Heuristic, Duration::from_millis(6), || {
+            "turn 2".to_string()
+        });
+        timing.decision(AiKind::Heuristic, Duration::from_millis(1), || {
+            "turn 3".to_string()
+        });
+        timing.name_game("deck_a v deck_b, seed 7");
         timing.game([AiKind::Heuristic; 2]);
         timing.played(Duration::from_millis(10));
         let mut total = Timing::default();
         total.merge(&timing);
         total.merge(&timing);
-        let old = total.ais[&AiKind::Heuristic];
-        assert_eq!((old.decisions, old.seats), (4, 4));
-        assert_eq!(old.thinking, Duration::from_millis(16));
+        let old = &total.ais[&AiKind::Heuristic];
+        assert_eq!((old.decisions, old.seats), (6, 4));
+        assert_eq!(old.thinking, Duration::from_millis(18));
+        assert_eq!(old.worst_at, "deck_a v deck_b, seed 7, turn 2");
         assert_eq!(old.worst, Duration::from_millis(6));
         assert_eq!((total.games, total.playing), (2, Duration::from_millis(20)));
 
         let text = total.format(Duration::from_secs(3), 8);
         assert!(text.contains("old"), "{text}");
-        // 16 ms over 4 decisions, and over 4 seats.
-        assert!(text.contains("4.000"), "{text}");
+        // 18 ms over 6 decisions, and over 4 seats.
+        assert!(text.contains("3.000"), "{text}");
+        assert!(text.contains("4.500"), "{text}");
+        assert!(
+            text.contains("Slowest decision of `old`: deck_a v deck_b, seed 7, turn 2."),
+            "{text}"
+        );
         assert!(text.contains("6.000"), "{text}");
         assert!(
             text.contains("2 games, 10.000 ms each on one core"),
