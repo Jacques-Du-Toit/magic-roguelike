@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M4** (M4a is done: the owner played a whole run on 2026-10-12. The commander prototype and M4b, the better AI, are built and waiting to be played)
+**Active milestone: M4** (M4a, the commander prototype and M4b are done and played. Next: the green-white cube, before the rest of M4c; three acts come last. `DECISIONS.md` #55, #56)
 
 ---
 
@@ -142,6 +142,8 @@ Built in four parts, each ending in something to play:
 - **M4b — better AI.** Rollouts on copies of the game; double-blocks; holding mana for instants. Shown with the sim, old against new.
 - **M4c — three acts.** Acts, Draft, Event and Treasure nodes, upgrades, relics, bosses, new characters, a land collection with adjustable basics, consumables. Before it starts: play a commander prototype and decide whether characters become commanders.
 - **M4d — the cube to 250–300.** Archetype packages, the rules they need (asked for one at a time), balance passes.
+
+**Reordered on 2026-10-12 (`DECISIONS.md` #55, #56).** Commanders stay. The cube now comes before the rest of M4c, one character at a time, starting with a green-white commander built around creatures and a pool of overlapping archetype packages for it. The first act is made better with it (the new nodes, upgrades and so on, as they are decided); three acts are built last. Balance waits for the card pool.
 
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
