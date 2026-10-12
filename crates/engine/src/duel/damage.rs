@@ -38,6 +38,8 @@ pub(crate) fn change_life(
         life: player_state.life,
     });
     if change > 0 {
+        let gained = &mut state.player_mut(player).life_gained_this_turn;
+        *gained = gained.saturating_add(change.unsigned_abs());
         fire(state, Happening::GainedLife(player))?;
     }
     Ok(())

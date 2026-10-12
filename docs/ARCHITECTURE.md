@@ -304,6 +304,10 @@ Built so far: `add_counters` (+1/+1 counters on a creature; they last as long as
 
 More built for the green-white pool: `add_counters_to_your_creatures` (with `which`: `all`, `others` or `with_counter`), `double_counters` (one creature) and `double_counters_on_your_creatures`. Every counter an effect adds goes through one function (`put_counters` in `effects.rs`), which also keeps each player's count of counters put on their own creatures this turn. A creature card may have `"enters_with_counters": 4`, a property like `enters_tapped`.
 
+Built with the lifegain package: `gain_life_equal_to` (`"stat": "power"` or `"toughness"`, `"of": "this"` or `"triggering"`), which reads the creature as it is, or as it was when the ability triggered if it has since left the battlefield (the number is remembered on the waiting ability and the stack item). A triggered ability may have a `condition` (`{ "type": "life_gained_this_turn", "at_least": 3 }` or `{ "type": "life_above_starting", "at_least": 5 }`), checked when it would trigger and again when it resolves; so may an activated ability, which can also be `"sorcery_speed": true`; and so may a `grant_keyword`. `beginning_of_end_step` takes `"each_player": true`. `{ "kind": "static", "type": "extra_counters", "amount": 1 }` is Conclave Mentor's "that many plus one instead": the one replacement effect, applied in `put_counters` and to "enters with" counters, and nowhere else.
+
+A card file may say `"altered": true`: its text is ours, not the printed one, and `tools/scryfall.mjs check` then compares everything but the oracle text.
+
 `draw_cards` and `create_token` take `for_each` too (`creature_you_control`, `creature_you_control_with_counter`, `counter_put_this_turn`). `modify_pt_until_eot` takes `"for_each": "creature_you_control"` for "+1/+1 for each creature you control", counted when it resolves.
 
 Effects on a player name one: `controller`, `opponent`, or a targeted one, `target_player` or `target_opponent`.

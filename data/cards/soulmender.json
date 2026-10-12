@@ -1,0 +1,34 @@
+{
+  "id": "soulmender",
+  "name": "Soulmender",
+  "mana_cost": "{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Cleric"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common",
+  "oracle_text": "{T}: You gain 1 life.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

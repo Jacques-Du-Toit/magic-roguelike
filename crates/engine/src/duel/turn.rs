@@ -42,6 +42,7 @@ fn begin_turn(
     for player_state in &mut state.players {
         player_state.lands_played_this_turn = 0;
         player_state.counters_put_this_turn = 0;
+        player_state.life_gained_this_turn = 0;
     }
     state.triggered_this_turn.clear();
     events.push(GameEvent::TurnBegan {

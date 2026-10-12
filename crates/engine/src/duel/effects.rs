@@ -6,8 +6,9 @@ use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::stack::permanent_entered;
 use super::state::{Decision, DuelState, StackItemKind, Zone};
+use super::triggers::stat_of;
 use super::turn::{discard_card, draw_card, mill_card};
-use crate::cards::{Count, Effect, PlayerRef, WhichCreatures};
+use crate::cards::{Count, Effect, PlayerRef, StatOf, WhichCreatures};
 
 /// Whether an effect was carried out in full, or has stopped for a choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,6 +138,17 @@ pub(crate) fn apply_effect(
             let player = resolve_player(effect, player, controller, targets)?;
             let amount = i32::try_from(amount).unwrap_or(i32::MAX);
             change_life(state, events, player, amount, LifeCause::Other)?;
+        }
+        Effect::GainLifeEqualTo { stat, of } => {
+            // As it is now, or as it was when the ability triggered.
+            let item = state.resolving.as_ref().map(|resolving| &resolving.item);
+            let object = match of {
+                StatOf::This => Some(source),
+                StatOf::Triggering => item.and_then(|item| item.subject),
+            };
+            let remembered = item.and_then(|item| item.amount);
+            let amount = stat_of(state, stat, object)?.or(remembered).unwrap_or(0);
+            change_life(state, events, controller, amount.max(0), LifeCause::Other)?;
         }
         Effect::GrantKeywordUntilEot { keyword, .. } => {
             let permanent = object(effect, targets, 0)?;
@@ -308,6 +320,9 @@ fn put_counters(
     if amount == 0 || !state.is_on_battlefield(permanent) || !state.is_creature(permanent)? {
         return Ok(());
     }
+    // "That many plus one instead", for its controller's creatures. This is
+    // the only replacement effect, and the only place it applies.
+    let amount = amount.saturating_add(state.extra_counters(state.object(permanent)?.owner));
     let creature = state.object_mut(permanent)?;
     creature.plus_counters = creature.plus_counters.saturating_add(amount);
     let (counters, owner) = (creature.plus_counters, creature.owner);

@@ -1,0 +1,63 @@
+{
+  "id": "resplendent_angel",
+  "name": "Resplendent Angel",
+  "mana_cost": "{1}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "rare",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nAt the beginning of each end step, if you gained 5 or more life this turn, create a 4/4 white Angel creature token with flying and vigilance.\n{3}{W}{W}{W}: Until end of turn, this creature gets +2/+2 and gains lifelink.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_end_step",
+        "each_player": true
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "angel_vigilance_token"
+        }
+      ],
+      "condition": {
+        "type": "life_gained_this_turn",
+        "at_least": 5
+      }
+    },
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{3}{W}{W}{W}"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "this": {}
+          },
+          "power": 2,
+          "toughness": 2
+        },
+        {
+          "type": "grant_keyword_until_eot",
+          "target": {
+            "this": {}
+          },
+          "keyword": "lifelink"
+        }
+      ]
+    }
+  ]
+}

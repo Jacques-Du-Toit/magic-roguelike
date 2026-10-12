@@ -1,0 +1,41 @@
+{
+  "id": "conclave_mentor",
+  "name": "Conclave Mentor",
+  "mana_cost": "{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Centaur",
+    "Cleric"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on that creature instead.\nWhen this creature dies, you gain life equal to its power.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "extra_counters",
+      "amount": 1
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life_equal_to",
+          "stat": "power",
+          "of": "this"
+        }
+      ]
+    }
+  ]
+}

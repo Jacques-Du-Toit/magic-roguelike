@@ -8,7 +8,7 @@
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::state::{AbilityRef, DuelState, PendingTrigger, TriggeredAbility};
-use crate::cards::{AbilityDef, CastKind, Keyword, Trigger, TriggerSubject};
+use crate::cards::{AbilityDef, CastKind, Effect, Keyword, Stat, StatOf, Trigger, TriggerSubject};
 
 /// Something abilities can trigger on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,14 +56,20 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
         for (index, ability) in state.def(id)?.abilities.iter().enumerate() {
             let AbilityDef::Triggered {
                 trigger,
+                effects,
                 once_each_turn,
+                condition,
                 ..
             } = ability
             else {
                 continue;
             };
+            if condition.is_some_and(|condition| !state.condition_holds(controller, condition)) {
+                continue;
+            }
             let holder = Holder::Permanent(id);
             if let Some(subject) = triggers_on(state, trigger, happening, holder, controller)? {
+                let amount = amount_now(state, effects, id, subject)?;
                 let ability = AbilityRef {
                     source: id,
                     def: object.def.clone(),
@@ -74,6 +80,7 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
                         ability: TriggeredAbility::Card { ability },
                         controller,
                         subject,
+                        amount,
                     },
                     *once_each_turn,
                 ));
@@ -95,6 +102,7 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
                     },
                     controller,
                     subject: None,
+                    amount: None,
                 },
                 false,
             ));
@@ -104,13 +112,18 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
         for (index, ability) in emblem.def.abilities.iter().enumerate() {
             let AbilityDef::Triggered {
                 trigger,
+                effects,
                 once_each_turn,
+                condition,
                 ..
             } = ability
             else {
                 continue;
             };
             let controller = emblem.controller;
+            if condition.is_some_and(|condition| !state.condition_holds(controller, condition)) {
+                continue;
+            }
             if let Some(subject) =
                 triggers_on(state, trigger, happening, Holder::Emblem, controller)?
             {
@@ -122,6 +135,7 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
                         },
                         controller,
                         subject,
+                        amount: amount_now(state, effects, emblem.id, subject)?,
                     },
                     *once_each_turn,
                 ));
@@ -138,6 +152,42 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
         state.pending_triggers.push(trigger);
     }
     Ok(())
+}
+
+/// The power or toughness a "gain life equal to..." effect among `effects`
+/// reads, as it is at this moment, if there is such an effect and the
+/// creature is on the battlefield.
+fn amount_now(
+    state: &DuelState,
+    effects: &[Effect],
+    source: ObjectId,
+    subject: Option<ObjectId>,
+) -> Result<Option<i32>, InternalError> {
+    for effect in effects {
+        if let Effect::GainLifeEqualTo { stat, of } = *effect {
+            let object = match of {
+                StatOf::This => Some(source),
+                StatOf::Triggering => subject,
+            };
+            return stat_of(state, stat, object);
+        }
+    }
+    Ok(None)
+}
+
+/// A creature's power or toughness, while it is on the battlefield.
+pub(crate) fn stat_of(
+    state: &DuelState,
+    stat: Stat,
+    object: Option<ObjectId>,
+) -> Result<Option<i32>, InternalError> {
+    let Some(object) = object.filter(|object| state.is_on_battlefield(*object)) else {
+        return Ok(None);
+    };
+    Ok(Some(match stat {
+        Stat::Power => state.power(object)?,
+        Stat::Toughness => state.toughness(object)?,
+    }))
 }
 
 /// Whether an ability with `trigger`, on `holder` and controlled by
@@ -181,9 +231,11 @@ fn triggers_on(
         (Trigger::Sacrifice {}, Happening::Sacrificed(_)) => own,
         (Trigger::GainLife {}, Happening::GainedLife(player))
         | (Trigger::BeginningOfUpkeep {}, Happening::Upkeep(player))
-        | (Trigger::BeginningOfCombat {}, Happening::BeginCombat(player))
-        | (Trigger::BeginningOfEndStep {}, Happening::EndStep(player)) => {
+        | (Trigger::BeginningOfCombat {}, Happening::BeginCombat(player)) => {
             (player == controller).then_some(None)
+        }
+        (Trigger::BeginningOfEndStep { each_player }, Happening::EndStep(player)) => {
+            (each_player || player == controller).then_some(None)
         }
         (Trigger::CastSpell { kind }, Happening::CastSpell { player, spell }) => {
             let def = state.def(spell)?;

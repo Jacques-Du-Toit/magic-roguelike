@@ -1,0 +1,36 @@
+{
+  "id": "centaur_healer",
+  "name": "Centaur Healer",
+  "mana_cost": "{1}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Centaur",
+    "Cleric"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, you gain 3 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 3
+        }
+      ]
+    }
+  ]
+}

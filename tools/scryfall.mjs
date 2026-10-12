@@ -143,7 +143,8 @@ export function differences(file, card) {
   compare('power', file.power ?? null, expected.power ?? null)
   compare('toughness', file.toughness ?? null, expected.toughness ?? null)
   compare('keywords', sorted(file.keywords), expected.keywords)
-  compare('oracle_text', file.oracle_text ?? '', expected.oracle_text)
+  // A card marked `altered` has our own wording on purpose.
+  if (!file.altered) compare('oracle_text', file.oracle_text ?? '', expected.oracle_text)
   return found
 }
 

@@ -49,6 +49,7 @@ cargo run --release -p sim -- --explain report.json --last 3   # replays a bug r
 # Card data (from repo root; needs the network the first time, then uses its cache)
 node tools/scryfall.mjs add "Card Name"   # writes data/cards/<id>.json from Scryfall, abilities left to write by hand
 node tools/scryfall.mjs check             # every card's name, cost, types, stats, keywords and text against Scryfall
+                                          # (a card marked "altered" keeps its own text)
 node --test tools/scryfall.test.mjs       # the tool's own tests
 
 # AI speed in WebAssembly (from repo root, after npm run wasm in web/)

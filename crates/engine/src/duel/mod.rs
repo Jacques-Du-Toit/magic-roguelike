@@ -26,6 +26,8 @@ mod graveyard_tests;
 mod ids;
 #[cfg(test)]
 mod keyword_tests;
+#[cfg(test)]
+mod lifegain_tests;
 mod mana;
 mod mulligan;
 mod rng;

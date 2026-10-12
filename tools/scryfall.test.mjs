@@ -89,6 +89,13 @@ test('a matching file has no differences, whatever its rarity or abilities', () 
   assert.deepEqual(differences({ ...file, colors: ['W'], keywords: ['flying'] }, overseer), [])
 })
 
+test('an altered card keeps its own text, and everything else is still checked', () => {
+  const file = { ...newCardFile(overseer), oracle_text: 'Our own wording.' }
+  assert.equal(differences(file, overseer).length, 1)
+  assert.deepEqual(differences({ ...file, altered: true }, overseer), [])
+  assert.match(differences({ ...file, altered: true, toughness: 9 }, overseer)[0], /^toughness/)
+})
+
 test('each field that differs is reported', () => {
   const file = { ...newCardFile(overseer), mana_cost: '{1}{W}', toughness: 2, keywords: [] }
   const found = differences(file, overseer)

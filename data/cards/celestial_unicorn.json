@@ -1,0 +1,35 @@
+{
+  "id": "celestial_unicorn",
+  "name": "Celestial Unicorn",
+  "mana_cost": "{2}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Unicorn"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "gain_life"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "this": {}
+          },
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ use super::damage::creature_dies;
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::{pay_cost, plan_payment};
-use super::stack::{chosen_specs, target_choices};
+use super::stack::{chosen_specs, has_sorcery_timing, target_choices};
 use super::state::{AbilityRef, DuelState, StackItem, StackItemKind, TriggeredAbility, Zone};
 use super::triggers::{Happening, fire};
 use crate::cards::{AbilityDef, ActivationCost, Effect, Keyword, SacrificeCost};
@@ -17,7 +17,7 @@ fn activated(
     index: usize,
 ) -> Result<(&'static ActivationCost, &'static [Effect]), InternalError> {
     match state.def(source)?.abilities.get(index) {
-        Some(AbilityDef::Activated { cost, effects }) => Ok((cost, effects)),
+        Some(AbilityDef::Activated { cost, effects, .. }) => Ok((cost, effects)),
         _ => Err(InternalError::new(format!(
             "{source:?} has no activated ability {index}"
         ))),
@@ -35,9 +35,21 @@ pub(crate) fn legal_activations(
         let source = permanent.id;
         let def = state.def(source)?;
         for (index, ability) in def.abilities.iter().enumerate() {
-            let AbilityDef::Activated { cost, effects } = ability else {
+            let AbilityDef::Activated {
+                cost,
+                effects,
+                condition,
+                sorcery_speed,
+            } = ability
+            else {
                 continue;
             };
+            if *sorcery_speed && !has_sorcery_timing(state, player) {
+                continue;
+            }
+            if condition.is_some_and(|condition| !state.condition_holds(player, condition)) {
+                continue;
+            }
             if cost.tap {
                 // A creature can't tap for a cost the turn it arrives.
                 let sick = def.is_creature()
@@ -101,6 +113,7 @@ pub(crate) fn activate(
         },
         targets: targets.to_vec(),
         subject: None,
+        amount: None,
     });
     events.push(GameEvent::AbilityActivated {
         player,

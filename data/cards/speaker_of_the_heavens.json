@@ -1,0 +1,42 @@
+{
+  "id": "speaker_of_the_heavens",
+  "name": "Speaker of the Heavens",
+  "mana_cost": "{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Cleric"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "rare",
+  "keywords": [
+    "lifelink",
+    "vigilance"
+  ],
+  "oracle_text": "Vigilance, lifelink (Attacking doesn't cause this creature to tap. Damage dealt by this creature also causes you to gain that much life.)\n{T}: Create a 4/4 white Angel creature token with flying. Activate only if you have at least 7 life more than your starting life total and only as a sorcery.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "angel_token"
+        }
+      ],
+      "condition": {
+        "type": "life_above_starting",
+        "at_least": 7
+      },
+      "sorcery_speed": true
+    }
+  ]
+}

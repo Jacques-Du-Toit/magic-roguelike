@@ -1,0 +1,29 @@
+{
+  "id": "angelic_chorus",
+  "name": "Angelic Chorus",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Whenever a creature you control enters, you gain life equal to its toughness.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "gain_life_equal_to",
+          "stat": "toughness",
+          "of": "triggering"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "nyx_fleece_ram",
+  "name": "Nyx-Fleece Ram",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Enchantment",
+    "Creature"
+  ],
+  "subtypes": [
+    "Sheep"
+  ],
+  "power": 0,
+  "toughness": 5,
+  "rarity": "uncommon",
+  "oracle_text": "At the beginning of your upkeep, you gain 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_upkeep"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -23,6 +23,11 @@ enters_tapped: boolean,
  */
 enters_with_counters: number, 
 /**
+ * Our text differs from the printed card's on purpose. The Scryfall
+ * check then leaves the oracle text alone.
+ */
+altered: boolean, 
+/**
  * A token, made by an effect and never in a deck. The loader decides
  * it by folder: true for `data/tokens/`, false for `data/cards/`,
  * whatever the file says.

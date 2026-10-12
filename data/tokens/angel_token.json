@@ -1,0 +1,20 @@
+{
+  "id": "angel_token",
+  "name": "Angel",
+  "mana_cost": "",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ]
+}

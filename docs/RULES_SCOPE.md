@@ -42,7 +42,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Priority passing, stack LIFO | In | Real priority in engine. |
 | Arena-style auto-pass | In | Engine reports whether the player has a meaningful action; the UI auto-passes on that. Hold-priority toggle in the UI. |
 | Instants, flash | In | |
-| Activated abilities | In | Built in M4a with mana, tap and sacrifice-a-creature costs. Pay-life costs when a card needs one. |
+| Activated abilities | In | Built in M4a with mana, tap and sacrifice-a-creature costs. Pay-life costs when a card needs one. "Activate only as a sorcery" and "activate only if..." are built. |
 | Mana abilities don't use the stack | In | |
 | Triggered abilities | In | |
 | Ordering simultaneous triggers (APNAP; player orders own) | Simplified | Auto-order: APNAP, then by source `ObjectId`. Manual ordering later. |
@@ -124,6 +124,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 | Simple damage prevention ("prevent the next N") | Later | |
 | "Enters tapped" | In | Treated as a property, not a general replacement. |
 | "If X would die, exile instead" and general replacements | Out (for now) | |
+| "If +1/+1 counters would be put on a creature you control, that many plus one instead" | In, as a named exception | Conclave Mentor (`DECISIONS.md` #61). One check where counters are put; several add up. No choice of order, and no other "instead" card comes with it: each is asked about on its own. |
 
 ## Misc
 

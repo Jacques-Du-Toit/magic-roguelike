@@ -1,0 +1,20 @@
+{
+  "id": "griffin_token",
+  "name": "Griffin",
+  "mana_cost": "",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Griffin"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "keywords": [
+    "flying"
+  ]
+}

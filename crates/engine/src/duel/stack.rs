@@ -12,8 +12,8 @@ use super::state::{
 };
 use super::triggers::{Happening, fire};
 use crate::cards::{
-    AbilityDef, CardDef, CardType, ControlledBy, CreatureFilter, Effect, GraveyardKind, Keyword,
-    SpellKind, TargetSpec,
+    AbilityDef, CardDef, CardType, Condition, ControlledBy, CreatureFilter, Effect, GraveyardKind,
+    Keyword, SpellKind, TargetSpec,
 };
 
 /// Every spell the player could cast right now, as concrete actions: one
@@ -276,6 +276,7 @@ pub(crate) fn cast_spell(
         kind: StackItemKind::Spell,
         targets: targets.to_vec(),
         subject: None,
+        amount: None,
     });
     events.push(GameEvent::SpellCast {
         player,
@@ -311,7 +312,13 @@ pub(crate) fn resolve_top(
             spell_effects(def).to_vec()
         }
         StackItemKind::Trigger { ability } => {
-            let effects = ability_effects(state, ability)?;
+            let mut effects = ability_effects(state, ability)?;
+            // "If you gained 3 or more life this turn": checked again now.
+            if ability_condition(state, ability)?
+                .is_some_and(|condition| !state.condition_holds(item.controller, condition))
+            {
+                effects.clear();
+            }
             state.stack.pop();
             effects
         }
@@ -548,6 +555,7 @@ fn push_trigger(
         },
         targets,
         subject: trigger.subject,
+        amount: trigger.amount,
     });
 }
 
@@ -584,6 +592,31 @@ pub(crate) fn choose_targets(
         push_trigger(state, events, trigger, targets.to_vec());
     }
     Ok(())
+}
+
+/// The condition a triggered ability has to meet, if it has one.
+fn ability_condition(
+    state: &DuelState,
+    ability: &TriggeredAbility,
+) -> Result<Option<Condition>, InternalError> {
+    let (abilities, index) = match ability {
+        TriggeredAbility::Keyword { .. } => return Ok(None),
+        TriggeredAbility::Card { ability } => (&card_def(&ability.def)?.abilities, ability.index),
+        TriggeredAbility::Emblem { emblem, index } => {
+            match state
+                .emblems
+                .iter()
+                .find(|candidate| candidate.id == *emblem)
+            {
+                Some(emblem) => (&emblem.def.abilities, *index),
+                None => return Ok(None),
+            }
+        }
+    };
+    Ok(match abilities.get(index) {
+        Some(AbilityDef::Triggered { condition, .. }) => *condition,
+        _ => None,
+    })
 }
 
 /// The effects of a triggered ability.

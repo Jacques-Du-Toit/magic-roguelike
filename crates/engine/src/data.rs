@@ -548,9 +548,9 @@ mod tests {
         // The commanders: never in a deck, a reward or a shop.
         let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (94, 44));
+        assert_eq!((creatures, others), (102, 47));
         assert_eq!(legends, 7);
-        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 13);
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 16);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -954,7 +954,19 @@ mod tests {
 
     /// Spells no enemy or starting deck uses yet. Those in a character's
     /// colours still turn up as rewards.
-    const RUN_STRANGERS: [&str; 24] = [
+    const RUN_STRANGERS: [&str; 35] = [
+        // The lifegain package, and Conclave Mentor.
+        "angelic_chorus",
+        "celestial_unicorn",
+        "centaur_healer",
+        "conclave_mentor",
+        "griffin_aerie",
+        "nyx_fleece_ram",
+        "resplendent_angel",
+        "soulmender",
+        "speaker_of_the_heavens",
+        "twinblade_paladin",
+        "unflinching_courage",
         // The counters package.
         "archangel_of_thune",
         "armorcraft_judge",

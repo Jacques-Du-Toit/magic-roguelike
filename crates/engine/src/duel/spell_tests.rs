@@ -691,6 +691,7 @@ fn simultaneous_triggers_go_on_the_stack_active_player_first_then_by_source() {
         },
         controller,
         subject: None,
+        amount: None,
     };
     state.pending_triggers = vec![trigger(opponent, 905), trigger(me, 909), trigger(me, 903)];
     let mut events = Vec::new();

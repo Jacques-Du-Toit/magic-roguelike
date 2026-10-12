@@ -12,7 +12,8 @@ use super::ids::{CardId, ObjectId, PlayerId};
 use super::mana::ManaPool;
 use super::rng::DuelRng;
 use crate::cards::{
-    AbilityDef, Affects, CardDef, CardDefId, Effect, EmblemDef, Keyword, Restricted, StaticAbility,
+    AbilityDef, Affects, CardDef, CardDefId, Condition, Effect, EmblemDef, Keyword, Restricted,
+    StaticAbility,
 };
 use crate::data;
 
@@ -68,6 +69,11 @@ pub struct DuelState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerState {
     pub life: i32,
+    /// The life total the duel began with.
+    pub starting_life: i32,
+    /// Life gained so far this turn, either player's turn.
+    #[serde(default)]
+    pub life_gained_this_turn: u32,
     pub opening_hand_size: u8,
     /// The top of the library is the end of the list.
     pub library: Vec<ObjectId>,
@@ -102,6 +108,8 @@ impl PlayerState {
     pub(crate) fn new(life: i32, opening_hand_size: u8) -> PlayerState {
         PlayerState {
             life,
+            starting_life: life,
+            life_gained_this_turn: 0,
             opening_hand_size,
             library: Vec::new(),
             hand: Vec::new(),
@@ -195,6 +203,10 @@ pub struct PendingTrigger {
     /// What set it off, when that is something other than the permanent
     /// the ability is on: the creature that entered or died.
     pub subject: Option<ObjectId>,
+    /// For "gain life equal to its power": the number as it was when the
+    /// ability triggered, in case the creature is gone when it resolves.
+    #[serde(default)]
+    pub amount: Option<i32>,
 }
 
 /// An emblem in the command zone. It has an object id so that its abilities
@@ -368,6 +380,9 @@ pub struct StackItem {
     pub targets: Vec<Target>,
     /// For a triggered ability, what set it off (see `PendingTrigger`).
     pub subject: Option<ObjectId>,
+    /// See `PendingTrigger::amount`.
+    #[serde(default)]
+    pub amount: Option<i32>,
 }
 
 impl StackItem {
@@ -638,7 +653,9 @@ impl DuelState {
                 let affects = match ability {
                     StaticAbility::Anthem { affects, .. }
                     | StaticAbility::GrantKeyword { affects, .. } => *affects,
-                    StaticAbility::Restriction { .. } => continue,
+                    StaticAbility::Restriction { .. } | StaticAbility::ExtraCounters { .. } => {
+                        continue;
+                    }
                 };
                 let reaches = match affects {
                     Affects::Enchanted => holder.attached_to == Some(id),
@@ -705,14 +722,17 @@ impl DuelState {
     fn given_keywords(&self, id: ObjectId) -> Result<Vec<Keyword>, InternalError> {
         let object = self.object(id)?;
         let has_counter = object.plus_counters > 0;
+        let controller = object.owner;
         let mut keywords = Vec::new();
         self.statics_on(id, |ability| {
             if let StaticAbility::GrantKeyword {
                 keyword,
                 with_counter,
+                condition,
                 ..
             } = ability
                 && (has_counter || !with_counter)
+                && condition.is_none_or(|condition| self.condition_holds(controller, condition))
             {
                 keywords.push(*keyword);
             }
@@ -741,6 +761,34 @@ impl DuelState {
             }
         }
         Ok(keywords)
+    }
+
+    /// Whether `condition` holds for `player` right now.
+    pub(crate) fn condition_holds(&self, player: PlayerId, condition: Condition) -> bool {
+        let player = self.player(player);
+        match condition {
+            Condition::LifeGainedThisTurn { at_least } => player.life_gained_this_turn >= at_least,
+            Condition::LifeAboveStarting { at_least } => {
+                player.life >= player.starting_life.saturating_add(at_least)
+            }
+        }
+    }
+
+    /// How many more +1/+1 counters a creature of `player`'s gets whenever
+    /// any are put on it ("that many plus one instead").
+    pub(crate) fn extra_counters(&self, player: PlayerId) -> u32 {
+        let mut extra: u32 = 0;
+        for permanent in self.permanents_of(player) {
+            let Ok(def) = card_def(&permanent.def) else {
+                continue;
+            };
+            for ability in &def.abilities {
+                if let AbilityDef::Static(StaticAbility::ExtraCounters { amount }) = ability {
+                    extra = extra.saturating_add(*amount);
+                }
+            }
+        }
+        extra
     }
 
     /// Adds an emblem to the command zone.
@@ -867,6 +915,7 @@ impl DuelState {
         let mut object = object;
         let counters = card_def(&object.def).map_or(0, |def| def.enters_with_counters);
         if zone == Zone::Battlefield && counters > 0 {
+            let counters = counters.saturating_add(self.extra_counters(owner));
             object.plus_counters = object.plus_counters.saturating_add(counters);
             let put = &mut self.players[owner.index()].counters_put_this_turn;
             *put = put.saturating_add(counters);

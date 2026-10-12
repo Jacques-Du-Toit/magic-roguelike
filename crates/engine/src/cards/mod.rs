@@ -70,6 +70,10 @@ pub struct CardDef {
     /// `enters_tapped`.
     #[serde(default)]
     pub enters_with_counters: u32,
+    /// Our text differs from the printed card's on purpose. The Scryfall
+    /// check then leaves the oracle text alone.
+    #[serde(default)]
+    pub altered: bool,
     /// A token, made by an effect and never in a deck. The loader decides
     /// it by folder: true for `data/tokens/`, false for `data/cards/`,
     /// whatever the file says.
@@ -190,12 +194,22 @@ pub enum AbilityDef {
         /// choosing its targets.
         #[serde(default)]
         optional: bool,
+        /// "If you gained 3 or more life this turn": it only triggers, and
+        /// only resolves, while this holds for its controller.
+        #[serde(default)]
+        condition: Option<Condition>,
     },
     /// An ability its controller may use whenever they have priority, by
     /// paying its cost. It uses the stack.
     Activated {
         cost: ActivationCost,
         effects: Vec<Effect>,
+        /// "Activate only if...": what must hold for its controller.
+        #[serde(default)]
+        condition: Option<Condition>,
+        /// "Activate only as a sorcery."
+        #[serde(default)]
+        sorcery_speed: bool,
     },
     Static(StaticAbility),
     /// A mana ability; it doesn't use the stack.
@@ -204,6 +218,16 @@ pub enum AbilityDef {
         #[ts(type = "string")]
         produces: ManaCost,
     },
+}
+
+/// Something about a player that an ability depends on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Condition {
+    /// They have gained at least this much life this turn.
+    LifeGainedThisTurn { at_least: u32 },
+    /// Their life is at least this much above their starting life total.
+    LifeAboveStarting { at_least: i32 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -262,8 +286,11 @@ pub enum Trigger {
     BeginningOfUpkeep {},
     /// At the beginning of combat on its controller's turn.
     BeginningOfCombat {},
-    /// At the beginning of its controller's end step.
-    BeginningOfEndStep {},
+    /// At the beginning of its controller's end step, or of each player's.
+    BeginningOfEndStep {
+        #[serde(default)]
+        each_player: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -311,7 +338,14 @@ pub enum StaticAbility {
         /// "With a +1/+1 counter on it": only those that have one.
         #[serde(default)]
         with_counter: bool,
+        /// "As long as...": only while this holds for their controller.
+        #[serde(default)]
+        condition: Option<Condition>,
     },
+    /// "If one or more +1/+1 counters would be put on a creature you
+    /// control, that many plus `amount` are put on it instead." The one
+    /// replacement effect there is; see `put_counters`.
+    ExtraCounters { amount: u32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -403,6 +437,13 @@ pub enum Effect {
         player: PlayerRef,
         amount: u32,
     },
+    /// The controller gains life equal to the power or toughness of the
+    /// permanent the ability is on, or of the creature that set it off: as
+    /// it is now, or as it last was on the battlefield.
+    GainLifeEqualTo {
+        stat: Stat,
+        of: StatOf,
+    },
     GrantKeywordUntilEot {
         target: TargetSpec,
         keyword: Keyword,
@@ -473,6 +514,7 @@ impl Effect {
             Effect::Discard { .. } => "discard",
             Effect::DrawCards { .. } => "draw_cards",
             Effect::GainLife { .. } => "gain_life",
+            Effect::GainLifeEqualTo { .. } => "gain_life_equal_to",
             Effect::GrantKeywordUntilEot { .. } => "grant_keyword_until_eot",
             Effect::LoseLife { .. } => "lose_life",
             Effect::Mill { .. } => "mill",
@@ -508,6 +550,7 @@ impl Effect {
             Effect::CreateToken { .. }
             | Effect::AddCountersToYourCreatures { .. }
             | Effect::DoubleCountersOnYourCreatures {}
+            | Effect::GainLifeEqualTo { .. }
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::YourCreaturesGetUntilEot { .. } => Vec::new(),
@@ -531,6 +574,23 @@ pub enum Count {
     /// The +1/+1 counters the controller has put on their own creatures
     /// this turn.
     CounterPutThisTurn,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum Stat {
+    Power,
+    Toughness,
+}
+
+/// Whose power or toughness an amount is read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum StatOf {
+    /// The permanent the ability is on.
+    This,
+    /// The creature that set the ability off.
+    Triggering,
 }
 
 /// Which of the controller's creatures an effect on all of them reaches.
@@ -850,12 +910,18 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
                     return Err(CardError::NotOnASpell(spec.name()));
                 }
             }
+            if effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::GainLifeEqualTo { .. }))
+            {
+                return Err(CardError::NotOnASpell("gain_life_equal_to"));
+            }
             validate_effects(effects)
         }
         AbilityDef::Triggered {
             trigger, effects, ..
         } => validate_triggered(trigger, effects),
-        AbilityDef::Activated { cost, effects } => {
+        AbilityDef::Activated { cost, effects, .. } => {
             if cost.mana.is_empty() && !cost.tap && cost.sacrifice.is_none() {
                 return Err(CardError::FreeAbility);
             }
@@ -894,6 +960,12 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             }
             Ok(())
         }
+        AbilityDef::Static(StaticAbility::ExtraCounters { amount }) => {
+            if *amount == 0 {
+                return Err(CardError::ZeroAmount("extra_counters"));
+            }
+            Ok(())
+        }
         AbilityDef::Mana { cost, produces } => {
             if !cost.tap {
                 return Err(CardError::ManaCost);
@@ -927,7 +999,16 @@ pub(crate) fn validate_triggered(trigger: &Trigger, effects: &[Effect]) -> Resul
     let uses_triggering = effects
         .iter()
         .flat_map(Effect::targets)
-        .any(|spec| spec == TargetSpec::Triggering {});
+        .any(|spec| spec == TargetSpec::Triggering {})
+        || effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::GainLifeEqualTo {
+                    of: StatOf::Triggering,
+                    ..
+                }
+            )
+        });
     if uses_triggering && !has_subject {
         return Err(CardError::NothingTriggering);
     }
@@ -995,6 +1076,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         Effect::CreateToken { .. }
         | Effect::AddCountersToYourCreatures { .. }
         | Effect::DoubleCountersOnYourCreatures {}
+        | Effect::GainLifeEqualTo { .. }
         | Effect::Discard { .. }
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }

@@ -80,6 +80,9 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
             AbilityDef::Static(StaticAbility::Restriction { .. }) => {
                 return Err(EmblemError::UnsupportedAbility("restriction"));
             }
+            AbilityDef::Static(StaticAbility::ExtraCounters { .. }) => {
+                return Err(EmblemError::UnsupportedAbility("extra_counters"));
+            }
             AbilityDef::Static(StaticAbility::Anthem {
                 affects,
                 power,
