@@ -18,7 +18,7 @@ pub mod decks;
 pub mod duel;
 pub mod run;
 
-pub use ai::ai_choose_action;
+pub use ai::{AiKind, ai_choose_action, ai_choose_action_with};
 pub use duel::{
     apply_action, has_meaningful_action, legal_actions, new_duel, player_view, redact_events,
     result, should_auto_pass,

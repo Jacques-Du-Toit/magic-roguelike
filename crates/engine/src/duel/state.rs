@@ -143,7 +143,25 @@ pub struct GameObject {
     pub plus_counters: u32,
     /// It doesn't untap during its controller's next untap step.
     pub skip_untap: bool,
+    /// The definition `def` names, remembered so that it isn't looked up by
+    /// name every time a rule needs it.
+    #[serde(skip)]
+    found_def: FoundDef,
 }
+
+/// A card definition found once and kept beside the id that names it. It
+/// is no part of the state: it is left out of saves and of comparisons, and
+/// an object without one (or with a stale one) is looked up by id.
+#[derive(Debug, Clone, Copy, Default)]
+struct FoundDef(Option<&'static CardDef>);
+
+impl PartialEq for FoundDef {
+    fn eq(&self, _: &FoundDef) -> bool {
+        true
+    }
+}
+
+impl Eq for FoundDef {}
 
 /// A spell or ability in the middle of resolving. Its targets were checked
 /// when it began to resolve; `steps` are the effects still to carry out.
@@ -315,6 +333,7 @@ impl Combat {
 impl GameObject {
     fn new(id: ObjectId, card: CardId, def: CardDefId, owner: PlayerId, zone: Zone) -> GameObject {
         GameObject {
+            found_def: FoundDef(card_def(&def).ok()),
             id,
             card,
             def,
@@ -545,7 +564,11 @@ impl DuelState {
 
     /// The card definition behind an object.
     pub(crate) fn def(&self, id: ObjectId) -> Result<&'static CardDef, InternalError> {
-        card_def(&self.object(id)?.def)
+        let object = self.object(id)?;
+        match object.found_def.0 {
+            Some(def) if def.id == object.def => Ok(def),
+            _ => card_def(&object.def),
+        }
     }
 
     /// The object as an event or view shows it, face up.

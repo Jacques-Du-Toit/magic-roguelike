@@ -15,10 +15,13 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    match sim::run_report(&options) {
-        Ok((report, failed)) => {
-            print!("{report}");
-            if failed {
+    match sim::run_output(&options) {
+        Ok(output) => {
+            print!("{}", output.report);
+            if !output.timing.is_empty() {
+                print!("\n{}", output.timing);
+            }
+            if output.failed {
                 ExitCode::FAILURE
             } else {
                 ExitCode::SUCCESS

@@ -38,6 +38,10 @@ cargo run -p sim -- --games 100 # headless AI-vs-AI simulation: 100 games for ev
 cargo run -p sim -- --replay deck_a deck_c --seed 7   # one game, move by move
 cargo run --release -p sim -- --enemies --games 400   # the run's starting decks against its enemy decks
 cargo run --release -p sim -- --runs --games 400      # whole runs: how often the act is won
+cargo run --release -p sim -- --versus --games 100    # one AI against another (--ai, --against) on the same decks,
+                                                      # both ways round; add --enemies for the run's decks
+cargo run --release -p sim -- --versus --games 50 --decks deck_a,deck_b,deck_c   # a quick sample: only these decks
+                                # every sim report ends with how long the AIs took to decide
 
 # Card data (from repo root; needs the network the first time, then uses its cache)
 node tools/scryfall.mjs add "Card Name"   # writes data/cards/<id>.json from Scryfall, abilities left to write by hand

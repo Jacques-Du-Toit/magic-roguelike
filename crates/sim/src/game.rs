@@ -1,6 +1,7 @@
 //! Playing one AI-vs-AI game and recording what the report needs.
 
-use engine::ai_choose_action;
+use std::time::Instant;
+
 use engine::balance::SimBalance;
 use engine::cards::CardDefId;
 use engine::data::{self, CardDatabase};
@@ -8,6 +9,9 @@ use engine::duel::{
     Action, DuelConfig, DuelState, GameEvent, GameResult, ObjectId, PlayerId, Target, WinReason,
     Zone, apply_action, new_duel,
 };
+use engine::{AiKind, ai_choose_action_with};
+
+use crate::timing::Timing;
 
 /// How a game ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,10 +52,15 @@ pub struct PlayerRecord {
 }
 
 /// Plays one game and describes it move by move. Returns the text and
-/// whether the game hit an error.
-pub fn replay(config: DuelConfig, seed: u64, limits: &SimBalance) -> (String, bool) {
+/// whether the game hit an error. `ais` are the AIs of P1 and P2.
+pub fn replay(
+    config: DuelConfig,
+    seed: u64,
+    limits: &SimBalance,
+    ais: [AiKind; 2],
+) -> (String, bool) {
     let mut text = String::new();
-    match write_replay(&mut text, config, seed, limits) {
+    match write_replay(&mut text, config, seed, limits, ais) {
         Ok(()) => (text, false),
         Err(error) => {
             text.push_str(&format!("ERROR: {error}\n"));
@@ -65,6 +74,7 @@ fn write_replay(
     config: DuelConfig,
     seed: u64,
     limits: &SimBalance,
+    ais: [AiKind; 2],
 ) -> Result<(), String> {
     let cards = &data::embedded().map_err(|error| error.to_string())?.cards;
     let name = |def: &CardDefId| cards.get(def).map_or("?", |card| card.name.as_str());
@@ -92,7 +102,8 @@ fn write_replay(
         let player = state
             .waiting_on()
             .ok_or("the game has no result and waits on nobody")?;
-        let action = ai_choose_action(&state, player).map_err(|error| format!("AI: {error}"))?;
+        let action = ai_choose_action_with(&state, player, ais[player.index()])
+            .map_err(|error| format!("AI: {error}"))?;
 
         // Describe the action while the objects it names still exist.
         let line = match &action {
@@ -260,9 +271,41 @@ fn count_lands(state: &DuelState, cards: &CardDatabase, player: PlayerId) -> Lan
     lands
 }
 
-/// Plays one game with the AI on both sides. Any engine or AI error ends
-/// the game and is returned as text.
+/// Plays one game with the old AI on both sides. Any engine or AI error
+/// ends the game and is returned as text.
 pub fn play_game(config: DuelConfig, seed: u64, limits: &SimBalance) -> Result<GameRecord, String> {
+    play_game_with(
+        config,
+        seed,
+        limits,
+        [AiKind::Heuristic; 2],
+        &mut Timing::default(),
+    )
+}
+
+/// Plays one game with `ais` as P1 and P2, adding how long they took to
+/// `timing`.
+pub fn play_game_with(
+    config: DuelConfig,
+    seed: u64,
+    limits: &SimBalance,
+    ais: [AiKind; 2],
+    timing: &mut Timing,
+) -> Result<GameRecord, String> {
+    let started = Instant::now();
+    let result = play(config, seed, limits, ais, timing);
+    timing.game(ais);
+    timing.played(started.elapsed());
+    result
+}
+
+fn play(
+    config: DuelConfig,
+    seed: u64,
+    limits: &SimBalance,
+    ais: [AiKind; 2],
+    timing: &mut Timing,
+) -> Result<GameRecord, String> {
     let cards = &data::embedded().map_err(|error| error.to_string())?.cards;
     let mut state = new_duel(config, seed).map_err(|error| error.to_string())?;
     let mut players = [PlayerRecord::default(), PlayerRecord::default()];
@@ -286,8 +329,11 @@ pub fn play_game(config: DuelConfig, seed: u64, limits: &SimBalance) -> Result<G
                 state.turn
             )
         })?;
-        let action = ai_choose_action(&state, player)
-            .map_err(|error| format!("turn {}: AI: {error}", state.turn))?;
+        let ai = ais[player.index()];
+        let thinking = Instant::now();
+        let choice = ai_choose_action_with(&state, player, ai);
+        timing.decision(ai, thinking.elapsed());
+        let action = choice.map_err(|error| format!("turn {}: AI: {error}", state.turn))?;
         let events = apply_action(&mut state, player, action.clone())
             .map_err(|error| format!("turn {}: {action:?}: {error}", state.turn))?;
 

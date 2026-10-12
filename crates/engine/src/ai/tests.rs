@@ -4,7 +4,7 @@ use crate::duel::test_support::{
     attack, cast, cast_at, config, empty_board, empty_hand, pass_until_other_decision, put_in_hand,
     put_lands, put_on_battlefield,
 };
-use crate::duel::{GameEvent, Target, new_duel};
+use crate::duel::{GameEvent, Target, apply_action, new_duel};
 
 fn choose(state: &DuelState, player: PlayerId) -> Action {
     ai_choose_action(state, player).unwrap()
@@ -773,4 +773,50 @@ fn plays_whole_games_with_decks_drawn_from_the_whole_pool() {
         "only {} of {spells} spells were ever cast",
         cast_cards.len()
     );
+}
+
+/// The search applies actions without the legality check and the safety
+/// copy; that must give exactly the game `apply_action` gives.
+#[test]
+fn the_trusted_way_of_applying_an_action_gives_the_same_game() {
+    for seed in 0..4 {
+        let mut state = new_duel(config("deck_d", "deck_g"), seed).unwrap();
+        for _ in 0..50_000 {
+            let Some(player) = state.waiting_on() else {
+                break;
+            };
+            let action = choose(&state, player);
+            let mut trusted = state.clone();
+            let trusted_events = apply_trusted(&mut trusted, player, &action).unwrap();
+            let events = apply_action(&mut state, player, action).unwrap();
+            assert_eq!(trusted_events, events);
+            assert_eq!(trusted, state);
+        }
+        assert!(state.result.is_some());
+    }
+}
+
+/// An object remembers its card definition, which a save leaves out: a
+/// restored state is the same state and plays on the same.
+#[test]
+fn a_state_restored_from_a_save_plays_on_the_same() {
+    let mut state = new_duel(config("deck_a", "deck_e"), 5).unwrap();
+    for _ in 0..150 {
+        step(&mut state);
+    }
+    assert!(state.result.is_none());
+    let json = serde_json::to_string(&state).unwrap();
+    let mut restored: DuelState = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored, state);
+    for _ in 0..50_000 {
+        if state.result.is_some() {
+            break;
+        }
+        let (_, action, events) = step(&mut state);
+        let (_, restored_action, restored_events) = step(&mut restored);
+        assert_eq!(restored_action, action);
+        assert_eq!(restored_events, events);
+    }
+    assert_eq!(restored, state);
+    assert!(state.result.is_some());
 }

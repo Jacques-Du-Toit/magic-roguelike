@@ -115,6 +115,19 @@ pub fn apply_action(
     Ok(events)
 }
 
+/// Applies an action the caller already knows to be legal (one taken from
+/// `legal_actions`), straight onto `state`. For the AI's search, which
+/// plays thousands of imagined games on copies it throws away: it skips the
+/// legality check and the safety copy that `apply_action` makes. After an
+/// error the state is not to be used.
+pub(crate) fn apply_trusted(
+    state: &mut DuelState,
+    player: PlayerId,
+    action: &Action,
+) -> Result<Vec<GameEvent>, InternalError> {
+    perform(state, player, action)
+}
+
 /// The outcome of the duel, once it has ended.
 pub fn result(state: &DuelState) -> Option<GameResult> {
     state.result

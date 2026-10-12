@@ -4,23 +4,30 @@
 pub mod game;
 pub mod report;
 pub mod runs;
+pub mod timing;
+pub mod versus;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::thread;
+use std::time::Instant;
 
+use engine::AiKind;
 use engine::data;
 use engine::decks::{DeckDef, DeckId};
 use engine::duel::{DuelConfig, PlayerId};
 use engine::run::{Loadout, duel_config, starting_deck};
 
-use game::{GameRecord, play_game};
+use game::{GameRecord, play_game_with};
 use report::{PairingStats, format_report};
+use timing::Timing;
+use versus::{VersusStats, format_versus};
 
 pub const USAGE: &str = "\
-Usage: sim [--games N] [--seed S]
-       sim --enemies [--games N] [--seed S]
-       sim --runs [--games N] [--seed S]
-       sim --replay P1_DECK P2_DECK [--seed S]
+Usage: sim [--games N] [--seed S] [--decks A,B,...] [--ai AI]
+       sim --enemies [--games N] [--seed S] [--decks A,B,...] [--ai AI]
+       sim --versus [--enemies] [--games N] [--seed S] [--decks A,B,...] [--ai AI] [--against AI]
+       sim --runs [--games N] [--seed S] [--ai AI]
+       sim --replay P1_DECK P2_DECK [--seed S] [--ai AI] [--against AI]
 
 Plays N AI-vs-AI games (default 100) for every pairing of the decks in
 data/decks, mirror matches included, and prints a report. Game i of each
@@ -28,17 +35,44 @@ pairing uses seed S + i (S defaults to 1), so a run can be repeated exactly.
 In the report's game i (counting from 0), the first-named deck is P1 when i
 is even and P2 when i is odd.
 
+--ai chooses the AI that plays: `old`, the heuristic one.
+--decks keeps only the pairings between the decks named, for a quick sample.
+With --enemies it names planeswalkers and enemies: a pairing is kept unless
+its planeswalker or its enemy is left out of a list that names others.
+
 --enemies plays each planeswalker's starting deck, with its commander and its
 usual starting emblem, against every enemy deck of the run, with its emblems
 and its commander if it has one, instead of the test decks.
 The planeswalker is always P1, as the human is in a run.
+
+--versus plays the --ai AI against the --against AI (default `old`) on the
+same pairings: N games with --ai on the first-named deck, then N more, on
+the seeds that follow, with the two AIs swapped. It reports how often --ai
+wins, and how much each deck gains from being played by it.
 
 --runs plays N whole runs with each planeswalker instead: the AI plays both
 sides of every duel and a simple policy makes the run's choices. It reports
 how often the act is won and where runs end.
 
 --replay plays one game with seed S instead and prints what each player
-did, e.g. to look into a game the report flagged.";
+did, e.g. to look into a game the report flagged. P1 is played by --ai and
+P2 by --against (by --ai too, if --against is not given).
+
+Every report ends with how long the AIs took to decide.";
+
+/// The name an AI goes by on the command line and in the reports.
+pub fn ai_name(ai: AiKind) -> &'static str {
+    match ai {
+        AiKind::Heuristic => "old",
+    }
+}
+
+fn parse_ai(flag: &str, text: &str) -> Result<AiKind, String> {
+    match text {
+        "old" => Ok(AiKind::Heuristic),
+        _ => Err(format!("{flag}: `{text}` is not an AI (try `old`)")),
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Options {
@@ -52,6 +86,14 @@ pub struct Options {
     pub enemies: bool,
     /// Play whole runs.
     pub runs: bool,
+    /// Play `ai` against `against` on the same decks.
+    pub versus: bool,
+    /// The AI that plays, or in `versus` the one being tried.
+    pub ai: AiKind,
+    /// The other AI of `versus` and of a replay.
+    pub against: Option<AiKind>,
+    /// Only these decks (or planeswalkers and enemies); empty for all.
+    pub decks: Vec<String>,
 }
 
 impl Default for Options {
@@ -62,6 +104,10 @@ impl Default for Options {
             replay: None,
             enemies: false,
             runs: false,
+            versus: false,
+            ai: AiKind::Heuristic,
+            against: None,
+            decks: Vec::new(),
         }
     }
 }
@@ -92,6 +138,16 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
             }
             "--enemies" => options.enemies = true,
             "--runs" => options.runs = true,
+            "--versus" => options.versus = true,
+            "--ai" => options.ai = parse_ai("--ai", value("--ai")?)?,
+            "--against" => options.against = Some(parse_ai("--against", value("--against")?)?),
+            "--decks" => {
+                options.decks = value("--decks")?
+                    .split(',')
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_string)
+                    .collect();
+            }
             "--replay" => {
                 let p1 = value("--replay")?.to_string();
                 let p2 = value("--replay")?.to_string();
@@ -103,10 +159,14 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
     Ok(Some(options))
 }
 
+fn threads() -> usize {
+    thread::available_parallelism().map_or(1, |cores| cores.get())
+}
+
 /// Runs `count` jobs across the machine's cores and returns their results
 /// in job order, so the output doesn't depend on timing.
 fn in_parallel<T: Send>(count: u32, job: impl Fn(u32) -> T + Sync) -> Vec<Option<T>> {
-    let workers = thread::available_parallelism().map_or(1, |cores| cores.get());
+    let workers = threads();
     let job = &job;
     let mut results: Vec<Option<T>> = (0..count).map(|_| None).collect();
     thread::scope(|scope| {
@@ -134,13 +194,22 @@ fn in_parallel<T: Send>(count: u32, job: impl Fn(u32) -> T + Sync) -> Vec<Option
     results
 }
 
-/// Plays one game, turning a panic into an error message.
-fn play_safely(config: DuelConfig, seed: u64) -> Result<GameRecord, String> {
-    let limits = &data::embedded()
-        .map_err(|error| error.to_string())?
-        .balance
-        .sim;
-    match catch_unwind(AssertUnwindSafe(|| play_game(config, seed, limits))) {
+/// Plays one game, turning a panic into an error message. The second part
+/// is how long the AIs took.
+fn play_safely(
+    config: DuelConfig,
+    seed: u64,
+    ais: [AiKind; 2],
+) -> (Result<GameRecord, String>, Timing) {
+    let mut timing = Timing::default();
+    let limits = match data::embedded() {
+        Ok(data) => &data.balance.sim,
+        Err(error) => return (Err(error.to_string()), timing),
+    };
+    let played = catch_unwind(AssertUnwindSafe(|| {
+        play_game_with(config, seed, limits, ais, &mut timing)
+    }));
+    let result = match played {
         Ok(result) => result,
         Err(panic) => {
             let message = panic
@@ -150,68 +219,157 @@ fn play_safely(config: DuelConfig, seed: u64) -> Result<GameRecord, String> {
                 .unwrap_or_else(|| "unknown panic".to_string());
             Err(format!("panic: {message}"))
         }
-    }
+    };
+    (result, timing)
 }
 
-/// Plays the games of one pairing. `setup` gives each game its config and
-/// the seat of the first-named deck.
-fn play_pairing(
-    stats: &mut PairingStats,
+/// Two decks that play each other.
+struct Pairing {
+    first: String,
+    second: String,
+    /// The duel's setup and the seat of the first-named deck. Game `i` uses
+    /// entry `i` modulo their number: the test decks swap seats every game,
+    /// so that neither is helped by any difference between the seats.
+    setups: Vec<(DuelConfig, PlayerId)>,
+}
+
+/// One game of a pairing, as it turned out.
+struct Played {
+    seed: u64,
+    first_seat: PlayerId,
+    result: Result<GameRecord, String>,
+}
+
+/// Plays `options.games` games of a pairing, the first on `first_seed`,
+/// with `first_ai` on the first-named deck.
+fn play_games(
+    pairing: &Pairing,
     options: &Options,
-    setup: impl Fn(u32) -> (DuelConfig, PlayerId) + Sync,
-) {
+    first_seed: u64,
+    first_ai: AiKind,
+    second_ai: AiKind,
+    timing: &mut Timing,
+) -> Vec<Played> {
+    let setup = |game: u32| {
+        let index = game as usize % pairing.setups.len().max(1);
+        pairing.setups.get(index)
+    };
     let results = in_parallel(options.games, |game| {
-        play_safely(setup(game).0, options.seed + u64::from(game))
+        let Some((config, first_seat)) = setup(game) else {
+            return (
+                Err("the pairing has no setup".to_string()),
+                Timing::default(),
+            );
+        };
+        let mut ais = [second_ai; 2];
+        ais[first_seat.index()] = first_ai;
+        play_safely(config.clone(), first_seed + u64::from(game), ais)
     });
-    for (game, result) in (0..options.games).zip(results) {
-        let seed = options.seed + u64::from(game);
-        match result {
-            Some(Ok(record)) => stats.add(&record, setup(game).1),
-            Some(Err(message)) => stats.add_error(seed, message),
-            None => stats.add_error(seed, "the game was never played".to_string()),
-        }
+    (0..options.games)
+        .zip(results)
+        .map(|(game, result)| {
+            let (result, took) = result.unwrap_or_else(|| {
+                (
+                    Err("the game was never played".to_string()),
+                    Timing::default(),
+                )
+            });
+            timing.merge(&took);
+            Played {
+                seed: first_seed + u64::from(game),
+                first_seat: setup(game).map_or(PlayerId::P1, |(_, seat)| *seat),
+                result,
+            }
+        })
+        .collect()
+}
+
+/// Whether `--decks` leaves `name` in, among the names of its `kind` (a
+/// list that names none of them leaves all of them in).
+fn wanted(options: &Options, name: &str, kind: &[&str]) -> bool {
+    let named: Vec<&String> = options
+        .decks
+        .iter()
+        .filter(|deck| kind.contains(&deck.as_str()))
+        .collect();
+    named.is_empty() || named.iter().any(|deck| *deck == name)
+}
+
+fn check_deck_names(options: &Options, known: &[&str]) -> Result<(), String> {
+    match options
+        .decks
+        .iter()
+        .find(|deck| !known.contains(&deck.as_str()))
+    {
+        Some(unknown) => Err(format!(
+            "--decks: no `{unknown}` (there are: {})",
+            known.join(", ")
+        )),
+        None => Ok(()),
     }
 }
 
-/// Plays every pairing and returns its statistics, in deck order.
-pub fn run(options: &Options) -> Result<Vec<PairingStats>, String> {
+/// The pairings to play: the test decks against each other, or the
+/// planeswalkers against the run's enemies.
+fn pairings(options: &Options) -> Result<Vec<Pairing>, String> {
     if options.enemies {
-        return run_enemies(options);
+        return enemy_pairings(options);
     }
     let data = data::embedded().map_err(|error| error.to_string())?;
-    let decks: Vec<&DeckDef> = data.decks.values().collect();
+    let ids: Vec<&str> = data.decks.keys().map(|id| id.0.as_str()).collect();
+    check_deck_names(options, &ids)?;
+    let decks: Vec<&DeckDef> = data
+        .decks
+        .values()
+        .filter(|deck| wanted(options, &deck.id.0, &ids))
+        .collect();
     let mut all = Vec::new();
     for (index, first) in decks.iter().enumerate() {
-        for second in &decks[index..] {
-            let mut stats = PairingStats::new(&first.id.0, &second.id.0);
-            // The decks swap seats every game, so neither is helped by any
-            // difference between the seats.
-            play_pairing(&mut stats, options, |game| {
-                if game.is_multiple_of(2) {
+        for second in decks.iter().skip(index) {
+            all.push(Pairing {
+                first: first.id.0.clone(),
+                second: second.id.0.clone(),
+                setups: vec![
                     (
                         DuelConfig::from_decks(first, second, &data.balance.duel),
                         PlayerId::P1,
-                    )
-                } else {
+                    ),
                     (
                         DuelConfig::from_decks(second, first, &data.balance.duel),
                         PlayerId::P2,
-                    )
-                }
+                    ),
+                ],
             });
-            all.push(stats);
         }
     }
     Ok(all)
 }
 
-/// Plays each planeswalker's starting deck against every enemy of the run,
-/// set up exactly as the run sets a duel up.
-fn run_enemies(options: &Options) -> Result<Vec<PairingStats>, String> {
+/// Each planeswalker's starting deck against every enemy of the run, set
+/// up exactly as the run sets a duel up.
+fn enemy_pairings(options: &Options) -> Result<Vec<Pairing>, String> {
     let data = data::embedded().map_err(|error| error.to_string())?;
+    let planeswalkers: Vec<&str> = data
+        .run
+        .planeswalkers
+        .iter()
+        .map(|planeswalker| planeswalker.id.as_str())
+        .collect();
+    let enemies: Vec<&str> = data
+        .run
+        .enemies
+        .iter()
+        .map(|enemy| enemy.id.as_str())
+        .collect();
+    check_deck_names(options, &[planeswalkers.clone(), enemies.clone()].concat())?;
     let mut all = Vec::new();
     for planeswalker in &data.run.planeswalkers {
         for enemy in &data.run.enemies {
+            if !wanted(options, planeswalker.id.as_str(), &planeswalkers)
+                || !wanted(options, enemy.id.as_str(), &enemies)
+            {
+                continue;
+            }
             let emblem = data
                 .run
                 .emblem(&planeswalker.emblem)
@@ -226,17 +384,97 @@ fn run_enemies(options: &Options) -> Result<Vec<PairingStats>, String> {
             )
             .map_err(|error| error.to_string())?;
             let opponent = Loadout::enemy(enemy, &data.cards).map_err(|error| error.to_string())?;
-            let config = duel_config(player, opponent, &data.balance);
-            let mut stats = PairingStats::new(&planeswalker.id.0, &enemy.id.0);
-            play_pairing(&mut stats, options, |_| (config.clone(), PlayerId::P1));
-            all.push(stats);
+            all.push(Pairing {
+                first: planeswalker.id.0.clone(),
+                second: enemy.id.0.clone(),
+                setups: vec![(duel_config(player, opponent, &data.balance), PlayerId::P1)],
+            });
         }
     }
     Ok(all)
 }
-/// Runs the simulation (or the one replayed game) and returns the text to
-/// print and whether any game failed.
+
+/// Plays every pairing and returns its statistics, in deck order.
+pub fn run(options: &Options) -> Result<Vec<PairingStats>, String> {
+    run_timed(options, &mut Timing::default())
+}
+
+fn run_timed(options: &Options, timing: &mut Timing) -> Result<Vec<PairingStats>, String> {
+    let mut all = Vec::new();
+    for pairing in pairings(options)? {
+        let mut stats = PairingStats::new(&pairing.first, &pairing.second);
+        for played in play_games(
+            &pairing,
+            options,
+            options.seed,
+            options.ai,
+            options.ai,
+            timing,
+        ) {
+            match played.result {
+                Ok(record) => stats.add(&record, played.first_seat),
+                Err(message) => stats.add_error(played.seed, message),
+            }
+        }
+        all.push(stats);
+    }
+    Ok(all)
+}
+
+/// Plays `options.ai` against `options.against` on every pairing, each way
+/// round, and returns the statistics in deck order.
+pub fn run_versus(options: &Options) -> Result<Vec<VersusStats>, String> {
+    versus_timed(options, &mut Timing::default())
+}
+
+fn versus_timed(options: &Options, timing: &mut Timing) -> Result<Vec<VersusStats>, String> {
+    let old = options.against.unwrap_or(AiKind::Heuristic);
+    let mut all = Vec::new();
+    for pairing in pairings(options)? {
+        let mut stats = VersusStats::new(&pairing.first, &pairing.second);
+        // The second way round is played on fresh seeds: on the same ones,
+        // an AI against itself would win exactly half of the games, which
+        // would say nothing about how much chance moves the numbers.
+        let ways = [
+            (options.ai, old, options.seed),
+            (old, options.ai, options.seed + u64::from(options.games)),
+        ];
+        for (side, (first_ai, second_ai, first_seed)) in ways.into_iter().enumerate() {
+            for played in play_games(&pairing, options, first_seed, first_ai, second_ai, timing) {
+                let new_seat = if side == 0 {
+                    played.first_seat
+                } else {
+                    played.first_seat.opponent()
+                };
+                match played.result {
+                    Ok(record) => stats.sides[side].add(&record, new_seat),
+                    Err(message) => stats.errors.push((played.seed, message)),
+                }
+            }
+        }
+        all.push(stats);
+    }
+    Ok(all)
+}
+
+/// What a run of the sim prints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Output {
+    /// The same every time for the same options.
+    pub report: String,
+    /// How long the AIs took: different every time.
+    pub timing: String,
+    pub failed: bool,
+}
+
+/// Runs the simulation (or the one replayed game) and returns the report
+/// and whether any game failed.
 pub fn run_report(options: &Options) -> Result<(String, bool), String> {
+    run_output(options).map(|output| (output.report, output.failed))
+}
+
+/// Runs the simulation (or the one replayed game).
+pub fn run_output(options: &Options) -> Result<Output, String> {
     let data = data::embedded().map_err(|error| error.to_string())?;
     let limits = &data.balance.sim;
     if let Some((p1, p2)) = &options.replay {
@@ -246,22 +484,44 @@ pub fn run_report(options: &Options) -> Result<(String, bool), String> {
                 .ok_or_else(|| format!("no deck `{id}` in data/decks"))
         };
         let config = DuelConfig::from_decks(deck(p1)?, deck(p2)?, &data.balance.duel);
-        return Ok(game::replay(config, options.seed, limits));
+        let ais = [options.ai, options.against.unwrap_or(options.ai)];
+        let (report, failed) = game::replay(config, options.seed, limits, ais);
+        return Ok(Output {
+            report,
+            timing: String::new(),
+            failed,
+        });
     }
-    if options.runs {
-        return run_runs(options);
-    }
-    let stats = run(options)?;
-    let failed = stats.iter().any(|pairing| !pairing.errors.is_empty());
-    Ok((
-        format_report(&stats, options.games, options.seed, limits),
+    let started = Instant::now();
+    let mut timing = Timing::default();
+    let (report, failed) = if options.runs {
+        run_runs(options, &mut timing)?
+    } else if options.versus {
+        let stats = versus_timed(options, &mut timing)?;
+        let failed = stats.iter().any(|pairing| !pairing.errors.is_empty());
+        let old = options.against.unwrap_or(AiKind::Heuristic);
+        (
+            format_versus(&stats, options.ai, old, options.games, options.seed, limits),
+            failed,
+        )
+    } else {
+        let stats = run_timed(options, &mut timing)?;
+        let failed = stats.iter().any(|pairing| !pairing.errors.is_empty());
+        (
+            format_report(&stats, options.games, options.seed, limits),
+            failed,
+        )
+    };
+    Ok(Output {
+        report,
+        timing: timing.format(started.elapsed(), threads()),
         failed,
-    ))
+    })
 }
 
 /// Plays whole runs with every planeswalker and returns the report and
 /// whether any run failed.
-fn run_runs(options: &Options) -> Result<(String, bool), String> {
+fn run_runs(options: &Options, timing: &mut Timing) -> Result<(String, bool), String> {
     let data = data::embedded().map_err(|error| error.to_string())?;
     let mut text = format!(
         "Whole runs, seeds {} to {}.\n\n",
@@ -273,15 +533,25 @@ fn run_runs(options: &Options) -> Result<(String, bool), String> {
         let id = planeswalker.id.as_str();
         let played = in_parallel(options.games, |game| {
             let seed = options.seed + u64::from(game);
-            match catch_unwind(AssertUnwindSafe(|| runs::play_run(id, seed))) {
+            let mut took = Timing::default();
+            let result = match catch_unwind(AssertUnwindSafe(|| {
+                runs::play_run_with(id, seed, [options.ai; 2], &mut took)
+            })) {
                 Ok(result) => result,
                 Err(_) => Err("panic".to_string()),
-            }
+            };
+            (result, took)
         });
         let results: Vec<(u64, Result<runs::RunRecord, String>)> = (0..options.games)
             .zip(played)
             .map(|(game, result)| {
-                let result = result.unwrap_or_else(|| Err("the run was never played".to_string()));
+                let (result, took) = result.unwrap_or_else(|| {
+                    (
+                        Err("the run was never played".to_string()),
+                        Timing::default(),
+                    )
+                });
+                timing.merge(&took);
                 (options.seed + u64::from(game), result)
             })
             .collect();
@@ -295,7 +565,7 @@ fn run_runs(options: &Options) -> Result<(String, bool), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::Outcome;
+    use crate::game::{Outcome, play_game};
 
     fn args(text: &str) -> Vec<String> {
         text.split_whitespace().map(str::to_string).collect()
@@ -303,24 +573,17 @@ mod tests {
 
     #[test]
     fn arguments_have_defaults_and_can_be_set() {
-        assert_eq!(
-            parse_args(&[]),
-            Ok(Some(Options {
-                games: 100,
-                seed: 1,
-                replay: None,
-                enemies: false,
-                runs: false
-            }))
-        );
+        let defaults = parse_args(&[]).unwrap().unwrap();
+        assert_eq!(defaults, Options::default());
+        assert_eq!((defaults.games, defaults.seed), (100, 1));
+        assert!(!defaults.enemies && !defaults.runs && !defaults.versus);
+        assert_eq!(defaults.decks, Vec::<String>::new());
         assert_eq!(
             parse_args(&args("--games 1000 --seed 42")),
             Ok(Some(Options {
                 games: 1000,
                 seed: 42,
-                replay: None,
-                enemies: false,
-                runs: false
+                ..Options::default()
             }))
         );
         assert_eq!(parse_args(&args("--seed 7")).unwrap().unwrap().games, 100);
@@ -328,12 +591,25 @@ mod tests {
         assert_eq!(
             parse_args(&args("--replay deck_b deck_c --seed 9")),
             Ok(Some(Options {
-                games: 100,
                 seed: 9,
                 replay: Some(("deck_b".to_string(), "deck_c".to_string())),
-                enemies: false,
-                runs: false
+                ..Options::default()
             }))
+        );
+        assert_eq!(
+            parse_args(&args(
+                "--versus --ai old --against old --decks deck_a,deck_c"
+            )),
+            Ok(Some(Options {
+                versus: true,
+                against: Some(AiKind::Heuristic),
+                decks: vec!["deck_a".to_string(), "deck_c".to_string()],
+                ..Options::default()
+            }))
+        );
+        assert_eq!(
+            parse_args(&args("--ai clever")),
+            Err("--ai: `clever` is not an AI (try `old`)".to_string())
         );
         assert_eq!(
             parse_args(&args("--replay deck_b")),
@@ -426,6 +702,107 @@ mod tests {
         assert!(report.starts_with("Whole runs, seeds 5 to 6."), "{report}");
         assert!(report.contains("warden: 2 runs") && report.contains("firebrand: 2 runs"));
         assert_eq!(run_report(&options).unwrap().0, report);
+    }
+
+    #[test]
+    fn decks_can_be_left_out_for_a_quick_sample() {
+        let options = parse_args(&args("--games 2 --decks deck_a,deck_c"))
+            .unwrap()
+            .unwrap();
+        let pairings: Vec<(String, String)> = run(&options)
+            .unwrap()
+            .into_iter()
+            .map(|pairing| (pairing.first_deck, pairing.second_deck))
+            .collect();
+        let pair = |first: &str, second: &str| (first.to_string(), second.to_string());
+        assert_eq!(
+            pairings,
+            [
+                pair("deck_a", "deck_a"),
+                pair("deck_a", "deck_c"),
+                pair("deck_c", "deck_c")
+            ]
+        );
+
+        // With --enemies a list may name planeswalkers, enemies or both.
+        let enemy = data::embedded().unwrap().run.enemies[0].id.0.clone();
+        let one_enemy = Options {
+            games: 1,
+            enemies: true,
+            decks: vec![enemy.clone()],
+            ..Options::default()
+        };
+        let stats = run(&one_enemy).unwrap();
+        assert_eq!(stats.len(), 2);
+        assert!(stats.iter().all(|pairing| pairing.second_deck == enemy));
+        let one_each = Options {
+            decks: vec![enemy, "warden".to_string()],
+            ..one_enemy
+        };
+        assert_eq!(run(&one_each).unwrap().len(), 1);
+
+        let unknown = parse_args(&args("--decks deck_z")).unwrap().unwrap();
+        let error = run(&unknown).unwrap_err();
+        assert!(error.starts_with("--decks: no `deck_z`"), "{error}");
+    }
+
+    #[test]
+    fn one_ai_plays_another_both_ways_round_on_fresh_seeds() {
+        let options = parse_args(&args("--versus --games 4 --decks deck_a,deck_c"))
+            .unwrap()
+            .unwrap();
+        let stats = run_versus(&options).unwrap();
+        assert_eq!(stats.len(), 3);
+        for pairing in &stats {
+            assert_eq!(pairing.errors, []);
+            assert_eq!(pairing.sides[0].games, 4);
+            assert_eq!(pairing.sides[1].games, 4);
+        }
+        assert_eq!(run_versus(&options).unwrap(), stats);
+
+        // The AI with the first-named deck plays seeds 1 to 4 exactly as the
+        // plain report does; the other way round uses seeds 5 to 8.
+        let plain = run(&Options {
+            versus: false,
+            ..options.clone()
+        })
+        .unwrap();
+        assert_eq!(stats[1].sides[0].new_wins, plain[1].first_deck_wins);
+        let later = run(&Options {
+            versus: false,
+            seed: 5,
+            ..options.clone()
+        })
+        .unwrap();
+        assert_eq!(stats[1].sides[1].new_wins, later[1].second_deck_wins);
+
+        let output = run_output(&options).unwrap();
+        assert!(!output.failed);
+        assert!(
+            output
+                .report
+                .contains("the `old` AI against the `old` AI, 4 games each way round"),
+            "{}",
+            output.report
+        );
+        assert!(output.timing.starts_with("Timing"), "{}", output.timing);
+        // Three pairings, both ways round, four games each.
+        assert!(output.timing.contains("\n24 games, "), "{}", output.timing);
+    }
+
+    #[test]
+    fn every_report_comes_with_the_time_the_ais_took() {
+        let options = parse_args(&args("--games 2 --decks deck_a"))
+            .unwrap()
+            .unwrap();
+        let output = run_output(&options).unwrap();
+        assert!(output.timing.contains("\n2 games, "), "{}", output.timing);
+        assert!(output.timing.contains("old"), "{}", output.timing);
+
+        let runs = parse_args(&args("--runs --games 1")).unwrap().unwrap();
+        let output = run_output(&runs).unwrap();
+        assert!(output.timing.contains("old"), "{}", output.timing);
+        assert!(!output.timing.contains("\n0 games"), "{}", output.timing);
     }
 
     #[test]

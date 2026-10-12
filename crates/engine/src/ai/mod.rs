@@ -25,12 +25,31 @@ use crate::cards::{Color, ManaCost};
 use crate::data;
 use crate::duel::{
     Action, ActionError, Decision, DuelState, InternalError, ObjectId, PlayerId, Step,
-    apply_action, legal_actions, scry_card,
+    apply_trusted, legal_actions, scry_card,
 };
 
 /// How many choices of targets, one after another, the AI thinks through
 /// when it imagines a spell resolving.
 const LOOKAHEAD: u8 = 2;
+
+/// Which of the engine's AIs makes a decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AiKind {
+    /// Version 1: the heuristics described at the top of this file.
+    Heuristic,
+}
+
+/// Chooses an action for `player`, who the game must be waiting on, with
+/// the AI asked for.
+pub fn ai_choose_action_with(
+    state: &DuelState,
+    player: PlayerId,
+    kind: AiKind,
+) -> Result<Action, ActionError> {
+    match kind {
+        AiKind::Heuristic => ai_choose_action(state, player),
+    }
+}
 
 /// Chooses an action for `player`, who the game must be waiting on.
 pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, ActionError> {
@@ -138,6 +157,15 @@ fn priority(
     if let Some(land) = best_land(state, player, actions)? {
         return Ok(Action::PlayLand { card: land });
     }
+    // With nothing to cast or use there is nothing to weigh.
+    if !actions.iter().any(|action| {
+        matches!(
+            action,
+            Action::CastSpell { .. } | Action::ActivateAbility { .. }
+        )
+    }) {
+        return Ok(Action::PassPriority);
+    }
 
     let baseline = outcome(state, player, None, LOOKAHEAD)?;
     let mut best: Option<(&Action, i32)> = None;
@@ -213,7 +241,7 @@ fn outcome(
     let mut copy = state.clone();
     let settled = (|| {
         if let Some(action) = action {
-            apply_action(&mut copy, player, action.clone())?;
+            apply_trusted(&mut copy, player, action)?;
         }
         settle(&mut copy, lookahead)
     })();
@@ -241,7 +269,7 @@ fn settle(state: &mut DuelState, lookahead: u8) -> Result<(), ActionError> {
                 lookahead -= 1;
                 let actions = legal_actions(state, player);
                 let choice = best_choice(state, player, &actions, lookahead)?;
-                apply_action(state, player, choice)?;
+                apply_trusted(state, player, &choice)?;
                 continue;
             }
             _ => return Ok(()),
@@ -258,7 +286,7 @@ fn settle(state: &mut DuelState, lookahead: u8) -> Result<(), ActionError> {
         if state.stack.is_empty() && !damage_to_come {
             return Ok(());
         }
-        apply_action(state, player, Action::PassPriority)?;
+        apply_trusted(state, player, &Action::PassPriority)?;
     }
     Ok(())
 }

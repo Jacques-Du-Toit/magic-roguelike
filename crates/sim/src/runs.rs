@@ -3,13 +3,16 @@
 //! is winnable, which single duels can't show.
 
 use std::fmt::Write;
+use std::time::Instant;
 
-use engine::ai_choose_action;
 use engine::duel::DuelRng;
 use engine::run::{
     DuelKind, DuelOutcome, NodeKind, Phase, PlaneswalkerId, RunAction, RunConfig, RunEvent,
     RunState, apply_duel_action, apply_run_action, new_run, run_legal_actions,
 };
+use engine::{AiKind, ai_choose_action_with};
+
+use crate::timing::Timing;
 
 /// What happened in one run.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -63,8 +66,36 @@ fn choose(state: &RunState, actions: &[RunAction], choices: &mut DuelRng) -> Run
     pick.or(actions.last()).cloned().unwrap_or(RunAction::Leave)
 }
 
-/// Plays one run to its end.
+/// Plays one run to its end, with the old AI on both sides of every duel.
 pub fn play_run(planeswalker: &str, seed: u64) -> Result<RunRecord, String> {
+    play_run_with(
+        planeswalker,
+        seed,
+        [AiKind::Heuristic; 2],
+        &mut Timing::default(),
+    )
+}
+
+/// Plays one run to its end. `ais` play the player's side and the enemy's
+/// side of every duel; how long they took is added to `timing`.
+pub fn play_run_with(
+    planeswalker: &str,
+    seed: u64,
+    ais: [AiKind; 2],
+    timing: &mut Timing,
+) -> Result<RunRecord, String> {
+    let started = Instant::now();
+    let result = play(planeswalker, seed, ais, timing);
+    timing.played(started.elapsed());
+    result
+}
+
+fn play(
+    planeswalker: &str,
+    seed: u64,
+    ais: [AiKind; 2],
+    timing: &mut Timing,
+) -> Result<RunRecord, String> {
     let config = RunConfig {
         planeswalker: PlaneswalkerId(planeswalker.to_string()),
         emblem: None,
@@ -84,7 +115,11 @@ pub fn play_run(planeswalker: &str, seed: u64) -> Result<RunRecord, String> {
             let player = duel
                 .waiting_on()
                 .ok_or("a duel has no result and waits on nobody")?;
-            let action = ai_choose_action(duel, player).map_err(|error| format!("AI: {error}"))?;
+            let ai = ais[player.index()];
+            let thinking = Instant::now();
+            let choice = ai_choose_action_with(duel, player, ai);
+            timing.decision(ai, thinking.elapsed());
+            let action = choice.map_err(|error| format!("AI: {error}"))?;
             apply_duel_action(&mut state, player, action).map_err(|error| error.to_string())?;
             continue;
         }
@@ -108,6 +143,7 @@ pub fn play_run(planeswalker: &str, seed: u64) -> Result<RunRecord, String> {
                         DuelKind::Elite => 1,
                         DuelKind::Boss => 2,
                     };
+                    timing.game(ais);
                     record.duels[index] += 1;
                     record.wins[index] += u32::from(outcome == DuelOutcome::Won);
                 }
