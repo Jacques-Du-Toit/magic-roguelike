@@ -123,10 +123,15 @@ pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelC
                                 .push(CardInstance::new(land.clone()));
                         }
                     }
+                    ModifierEffect::StartingToken { token, count } => {
+                        players[owner]
+                            .starting_permanents
+                            .extend((0..*count).map(|_| CardInstance::new(token.clone())));
+                    }
                     // Collected into one emblem per modifier below.
                     ModifierEffect::Abilities { .. } => {}
-                    // Acts on the run, not the duel.
-                    ModifierEffect::GoldPerWin { .. } => {}
+                    // These act on the run, not the duel.
+                    ModifierEffect::GoldPerWin { .. } | ModifierEffect::ShopDiscount { .. } => {}
                 }
             }
             if let Some(emblem) = modifier.emblem() {
@@ -254,10 +259,16 @@ mod tests {
         assert_eq!(player.opening_hand_size, 8);
         // The boss's own +5 and the boon's -5.
         assert_eq!(boss.starting_life, 20);
-        // The Firebrand's spells have more red symbols than black.
-        assert_eq!(player.starting_permanents.len(), 1);
-        assert_eq!(player.starting_permanents[0].card_id.as_str(), "mountain");
-        // The passive and the three relics with abilities.
+        // The Firebrand's spells have more red symbols than black: a land
+        // from the boon and one from the Surveyor's Map, after the Rally
+        // Horn's Soldier.
+        let starting: Vec<&str> = player
+            .starting_permanents
+            .iter()
+            .map(|card| card.card_id.as_str())
+            .collect();
+        assert_eq!(starting, ["mountain", "soldier_token", "mountain"]);
+        // The passive and the relics with abilities.
         let names: Vec<&str> = player.emblems.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(
             names,
@@ -265,12 +276,16 @@ mod tests {
                 "Battle Fury",
                 "War Banner",
                 "Sentinel's Horn",
-                "Soothing Spring"
+                "Soothing Spring",
+                "Whetstone",
+                "Pilgrim's Flask",
+                "Beast Tamer's Whistle",
+                "Votive Candle"
             ]
         );
         let state = new_duel(config, 3).unwrap();
         assert_eq!(state.player(PlayerId::P1).hand.len(), 8);
-        assert_eq!(state.permanents_of(PlayerId::P1).count(), 1);
+        assert_eq!(state.permanents_of(PlayerId::P1).count(), 3);
     }
 
     #[test]

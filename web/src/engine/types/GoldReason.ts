@@ -3,4 +3,4 @@
 /**
  * Why gold changed hands.
  */
-export type GoldReason = "duel_won" | "duel_lost" | "duel_drawn" | "relic" | "purchase" | "removal";
+export type GoldReason = "duel_won" | "duel_lost" | "duel_drawn" | "relic" | "purchase" | "removal" | "treasure";

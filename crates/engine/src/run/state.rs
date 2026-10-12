@@ -40,6 +40,7 @@ pub enum NodeKind {
     Rest,
     Shop,
     Draft,
+    Treasure,
     Boss,
 }
 
@@ -106,6 +107,12 @@ pub enum Phase {
     Draft {
         choices: Vec<CardDefId>,
         picks_left: u8,
+    },
+    /// A treasure is open: take one of `relics`, or `gold` instead.
+    /// `relics` is empty when the player owns every relic.
+    Treasure {
+        relics: Vec<ModifierId>,
+        gold: u32,
     },
     /// Before the boss: each remaining heart buys one boon.
     Boons {
@@ -204,6 +211,12 @@ pub enum RunAction {
     TakeDraft {
         choice: usize,
     },
+    /// At a treasure: take `relics[choice]`.
+    TakeTreasure {
+        choice: usize,
+    },
+    /// At a treasure: take the gold instead of a relic.
+    TakeGold,
     /// Leave a rest site, a shop or a draft.
     Leave,
     /// Before the boss: spend a pick on a boon.
@@ -232,6 +245,7 @@ pub enum GoldReason {
     Relic,
     Purchase,
     Removal,
+    Treasure,
 }
 
 /// Something that happened in the run, in order.

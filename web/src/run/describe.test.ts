@@ -58,6 +58,18 @@ describe('describeRunEvents', () => {
     ])
   })
 
+  it('tells what a treasure gave', () => {
+    const gold: RunEvent[] = [
+      { type: 'travelled', node: 9, kind: 'treasure' },
+      { type: 'gold_changed', change: 40, gold: 130, reason: 'treasure' },
+    ]
+    expect(describeRunEvents(gold, names())).toEqual(['+40 gold from the treasure.'])
+    const relic: RunEvent[] = [{ type: 'relic_gained', relic: 'rally_horn' }]
+    expect(describeRunEvents(relic, names())).toEqual([
+      'You gain a relic: Rally Horn. You start each duel with a 1/1 Soldier token on the battlefield.',
+    ])
+  })
+
   it('says a drawn boss duel is fought again', () => {
     const drawn = (kind: 'normal' | 'boss'): RunEvent[] => [
       { type: 'duel_ended', enemy: 'pyre_tyrant', kind, outcome: 'drawn' },

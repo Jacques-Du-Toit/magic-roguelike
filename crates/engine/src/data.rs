@@ -176,6 +176,9 @@ impl GameData {
 
         let balance: Balance = parse("balance.json", files.balance)?;
         balance::validate(&balance)?;
+        for boon in &balance.run.boons {
+            run::validate_modifier_tokens(boon, &cards)?;
+        }
 
         let planeswalkers: Vec<PlaneswalkerDef> =
             parse("run/planeswalkers.json", files.run.planeswalkers)?;
@@ -967,7 +970,7 @@ mod tests {
         use crate::run::EnemyTier;
         let run = &data().run;
         assert_eq!(run.planeswalkers.len(), 2);
-        assert_eq!(run.relics.len(), 5);
+        assert_eq!(run.relics.len(), 12);
         assert_eq!(data().balance.run.boons.len(), 4);
         let count = |tier| run.enemies_of(tier).count();
         assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 7));
@@ -1173,8 +1176,91 @@ mod tests {
         );
         assert_eq!(
             load_with(PLANESWALKERS, &gold_passive, RELICS, ENEMIES),
-            Err(DataError::Run(RunDataError::GoldOnNonRelic(
+            Err(DataError::Run(RunDataError::RunEffectOnNonRelic(
                 "ranger_passive".to_string()
+            )))
+        );
+        // Lower prices are a relic's business too, and stay within reason.
+        let relic_with = |effect: &str| {
+            format!(
+                r#"[{{ "id": "stone", "name": "Stone", "text": "Something.",
+                "effects": [{effect}] }}]"#
+            )
+        };
+        let discount =
+            |percent: u32| format!(r#"{{ "type": "shop_discount", "percent": {percent} }}"#);
+        assert_eq!(
+            load_with(
+                PLANESWALKERS,
+                &EMBLEMS.replace(
+                    r#"{ "type": "starting_life", "who": "owner", "change": 1 }"#,
+                    &discount(20),
+                ),
+                RELICS,
+                ENEMIES
+            ),
+            Err(DataError::Run(RunDataError::RunEffectOnNonRelic(
+                "ranger_passive".to_string()
+            )))
+        );
+        assert_eq!(
+            load(PLANESWALKERS, &relic_with(&discount(20)), ENEMIES),
+            Ok(())
+        );
+        for percent in [0, 101] {
+            assert_eq!(
+                load(PLANESWALKERS, &relic_with(&discount(percent)), ENEMIES),
+                Err(DataError::Run(RunDataError::BadDiscount(
+                    "stone".to_string()
+                )))
+            );
+        }
+        // A token a relic starts a duel with, or creates, has to exist.
+        let unknown = |token: &str| {
+            Err(DataError::Run(RunDataError::UnknownToken {
+                id: "stone".to_string(),
+                token: CardDefId(token.to_string()),
+            }))
+        };
+        assert_eq!(
+            load(
+                PLANESWALKERS,
+                &relic_with(r#"{ "type": "starting_token", "token": "soldier_token" }"#),
+                ENEMIES
+            ),
+            unknown("soldier_token")
+        );
+        // A card is not a token.
+        assert_eq!(
+            load(
+                PLANESWALKERS,
+                &relic_with(r#"{ "type": "starting_token", "token": "grizzly_bears" }"#),
+                ENEMIES
+            ),
+            unknown("grizzly_bears")
+        );
+        assert_eq!(
+            load(
+                PLANESWALKERS,
+                &relic_with(
+                    r#"{ "type": "abilities", "abilities": [{ "kind": "triggered",
+                    "trigger": { "type": "beginning_of_upkeep" },
+                    "effects": [{ "type": "create_token", "token": "ghost_token" }] }] }"#
+                ),
+                ENEMIES
+            ),
+            unknown("ghost_token")
+        );
+        assert_eq!(
+            load(
+                PLANESWALKERS,
+                &relic_with(
+                    r#"{ "type": "starting_token", "token": "soldier_token", "count": 0 }"#
+                ),
+                ENEMIES
+            ),
+            Err(DataError::Run(RunDataError::ZeroChange(
+                "stone".to_string()
             )))
         );
         let bad_relic = r#"[{ "id": "stone", "name": "Stone", "text": "Nothing.",

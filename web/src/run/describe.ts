@@ -40,6 +40,7 @@ export const NODE_LABEL: Record<NodeKind, { name: string; symbol: string; about:
   rest: { name: 'Rest', symbol: '⛺', about: 'Restore a heart or remove a card.' },
   shop: { name: 'Shop', symbol: '◈', about: 'Buy cards, a land or a relic, or pay to remove a card.' },
   draft: { name: 'Draft', symbol: '❖', about: 'Open a pack of five cards and keep up to two.' },
+  treasure: { name: 'Treasure', symbol: '✦', about: 'Take one of two relics, or gold instead.' },
   boss: { name: 'Boss', symbol: '♛', about: 'Beat the boss to win the act.' },
 }
 
@@ -77,6 +78,8 @@ export function describeRunEvent(event: RunEvent, names: RunNames): string | nul
           return `You pay ${amount}.`
         case 'removal':
           return `You pay ${amount} for the removal.`
+        case 'treasure':
+          return `+${amount} from the treasure.`
       }
       return null
     }

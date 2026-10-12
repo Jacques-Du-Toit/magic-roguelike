@@ -177,7 +177,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         <>
           <RunMap view={view} onTravel={(node) => send({ type: 'travel', node })} />
           <ul className="map-legend">
-            {(['duel', 'elite', 'draft', 'rest', 'shop', 'boss'] as const).map((kind) => (
+            {(['duel', 'elite', 'draft', 'treasure', 'rest', 'shop', 'boss'] as const).map((kind) => (
               <li key={kind}>
                 <span aria-hidden="true">{NODE_LABEL[kind].symbol}</span>{' '}
                 <strong>{NODE_LABEL[kind].name}</strong> {NODE_LABEL[kind].about}
@@ -236,6 +236,46 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         </>
       )
       break
+    case 'treasure': {
+      const gold = can('take_gold')
+      title = phase.relics.length > 0 ? 'Treasure: choose one' : 'Treasure'
+      body = (
+        <>
+          {phase.relics.length === 0 && (
+            <p className="muted">You already have every relic there is.</p>
+          )}
+          <div className="card-grid choice-row" data-testid="treasure">
+            {phase.relics.map((id, choice) => {
+              const relic = relicDef(names, id)
+              return (
+                <div key={id} className="run-card relic-ware" data-testid="treasure-relic">
+                  <div className="relic-card">
+                    <span className="muted">Relic</span>
+                    <strong>{relic?.name ?? id}</strong>
+                    <span>{relic?.text}</span>
+                  </div>
+                  <button type="button" onClick={() => send({ type: 'take_treasure', choice })}>
+                    Take
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <div className="button-row">
+            <button
+              type="button"
+              className={phase.relics.length === 0 ? 'primary' : undefined}
+              disabled={!gold}
+              onClick={() => gold && send(gold)}
+              data-testid="take-gold"
+            >
+              {phase.relics.length > 0 ? `Take ${phase.gold} gold instead` : `Take ${phase.gold} gold`}
+            </button>
+          </div>
+        </>
+      )
+      break
+    }
     case 'rest': {
       const heal = can('rest_heal')
       title = 'Rest site: choose one'
@@ -507,7 +547,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
           <section className="panel">
             <h2>Relics</h2>
             {view.relics.length === 0 ? (
-              <p className="muted">None yet. Elites and shops have them.</p>
+              <p className="muted">None yet. Elites, treasures and shops have them.</p>
             ) : (
               <ul className="modifiers">
                 {view.relics.map((id) => {

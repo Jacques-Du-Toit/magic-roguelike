@@ -21,6 +21,7 @@ mod view;
 pub use defs::{
     EnemyDef, EnemyId, EnemyTier, ModifierDef, ModifierEffect, ModifierId, ModifierKind,
     PlaneswalkerDef, PlaneswalkerId, RunData, RunDataError, Who, validate, validate_modifier,
+    validate_modifier_tokens,
 };
 pub use flow::{apply_duel_action, apply_run_action, current_enemy, new_run, run_legal_actions};
 pub use lands::{basic_land, basic_lands, color_weights, main_color};

@@ -4,7 +4,11 @@ use super::*;
 use crate::ai_choose_action;
 use crate::cards::CardDefId;
 use crate::data;
-use crate::duel::{DuelRng, GameEvent, GameResult, WinReason};
+use crate::duel::test_support::{cast, empty_hand, pass_both, pass_until, put_in_hand, put_lands};
+use crate::duel::{
+    Action, Decision, DuelRng, DuelState, GameEvent, GameResult, PlayerId, Step, WinReason,
+    apply_action,
+};
 
 fn run(planeswalker: &str, seed: u64) -> RunState {
     new_run(
@@ -77,22 +81,22 @@ fn play_duel(state: &mut RunState) -> Vec<GameEvent> {
     panic!("the duel did not end");
 }
 
-/// Walks the map, taking a node of kind `stop_at` as soon as one is on
-/// offer, and stops having travelled there. Duels on the way are won, rewards skipped, other nodes left.
-fn travel_to(state: &mut RunState, stop_at: NodeKind) -> bool {
+/// Walks the map until a node of kind `wanted` is on offer, and returns it
+/// without going there. Duels on the way are won, rewards skipped, other
+/// nodes left, and a treasure's gold taken.
+fn walk_to(state: &mut RunState, wanted: NodeKind) -> Option<NodeId> {
     for _ in 0..40 {
         match state.phase.clone() {
             Phase::Map => {
                 let options = travels(state);
-                let node = options
+                let found = options
                     .iter()
                     .copied()
-                    .find(|node| kind_of(state, *node) == stop_at)
-                    .unwrap_or(options[0]);
-                act(state, RunAction::Travel { node });
-                if kind_of(state, node) == stop_at {
-                    return true;
+                    .find(|node| kind_of(state, *node) == wanted);
+                if found.is_some() {
+                    return found;
                 }
+                act(state, RunAction::Travel { node: options[0] });
             }
             Phase::Duel { .. } => {
                 finish(state, win());
@@ -103,10 +107,37 @@ fn travel_to(state: &mut RunState, stop_at: NodeKind) -> bool {
             Phase::Rest | Phase::Shop { .. } | Phase::Draft { .. } => {
                 act(state, RunAction::Leave);
             }
-            Phase::Boons { .. } | Phase::Over { .. } => return false,
+            Phase::Treasure { .. } => {
+                act(state, RunAction::TakeGold);
+            }
+            Phase::Boons { .. } | Phase::Over { .. } => return None,
         }
     }
-    false
+    None
+}
+
+/// Walks the map, taking a node of kind `stop_at` as soon as one is on
+/// offer, and stops having travelled there.
+fn travel_to(state: &mut RunState, stop_at: NodeKind) -> bool {
+    match walk_to(state, stop_at) {
+        Some(node) => {
+            act(state, RunAction::Travel { node });
+            true
+        }
+        None => false,
+    }
+}
+
+/// A run with a node of the wanted kind on offer, and that node. Tries
+/// seeds until the map allows it.
+fn run_before(planeswalker: &str, wanted: NodeKind) -> (RunState, NodeId) {
+    for seed in 0..200 {
+        let mut state = run(planeswalker, seed);
+        if let Some(node) = walk_to(&mut state, wanted) {
+            return (state, node);
+        }
+    }
+    panic!("no seed leads to a {wanted:?} node");
 }
 
 /// A run that has just arrived at a node of the wanted kind. Tries seeds
@@ -467,7 +498,9 @@ fn losing_the_last_heart_ends_the_run() {
         let node = travels(&state)[0];
         act(&mut state, RunAction::Travel { node });
         if state.duel.is_none() {
-            act(&mut state, RunAction::Leave);
+            // The last action on offer always moves on.
+            let leave = run_legal_actions(&state).pop().unwrap();
+            act(&mut state, leave);
             continue;
         }
         let events = finish(&mut state, loss());
@@ -848,6 +881,452 @@ fn every_path_passes_a_draft() {
     }
 }
 
+// ---- Treasure ----
+
+fn relic_id(id: &str) -> ModifierId {
+    ModifierId(id.to_string())
+}
+
+fn every_relic() -> Vec<ModifierId> {
+    let relics = &data::embedded().unwrap().run.relics;
+    relics.iter().map(|relic| relic.id.clone()).collect()
+}
+
+#[test]
+fn a_treasure_offers_two_relics_or_gold_and_one_is_taken() {
+    let treasure = &data::embedded().unwrap().balance.run.treasure;
+    let (mut arrived, node) = run_before("warden", NodeKind::Treasure);
+    arrived.relics = vec![relic_id("war_banner")];
+    let events = act(&mut arrived, RunAction::Travel { node });
+    assert_eq!(
+        events,
+        [RunEvent::Travelled {
+            node,
+            kind: NodeKind::Treasure
+        }]
+    );
+    let Phase::Treasure { relics, gold } = arrived.phase.clone() else {
+        panic!("expected a treasure, got {:?}", arrived.phase);
+    };
+    assert_eq!((relics.len(), gold), (2, 40));
+    assert_eq!(
+        (relics.len(), gold),
+        (usize::from(treasure.relics), treasure.gold)
+    );
+    // Two different relics, neither the one already owned.
+    assert_ne!(relics[0], relics[1]);
+    assert!(!relics.contains(&relic_id("war_banner")));
+    assert!(relics.iter().all(|relic| every_relic().contains(relic)));
+    assert_eq!(
+        run_legal_actions(&arrived),
+        [
+            RunAction::TakeTreasure { choice: 0 },
+            RunAction::TakeTreasure { choice: 1 },
+            RunAction::TakeGold,
+        ]
+    );
+    // It can't be walked away from with nothing, or emptied.
+    for refused in [RunAction::Leave, RunAction::TakeTreasure { choice: 2 }] {
+        assert_eq!(
+            apply_run_action(&mut arrived, refused.clone()),
+            Err(RunError::IllegalAction(refused))
+        );
+    }
+    let before = arrived.gold;
+
+    let mut took_relic = arrived.clone();
+    let events = act(&mut took_relic, RunAction::TakeTreasure { choice: 1 });
+    assert_eq!(
+        events,
+        [RunEvent::RelicGained {
+            relic: relics[1].clone()
+        }]
+    );
+    assert_eq!(
+        took_relic.relics,
+        [relic_id("war_banner"), relics[1].clone()]
+    );
+    assert_eq!(took_relic.gold, before);
+    assert_eq!(took_relic.phase, Phase::Map);
+    assert_eq!(travels(&took_relic), arrived.map.node(node).unwrap().next);
+
+    let mut took_gold = arrived.clone();
+    let events = act(&mut took_gold, RunAction::TakeGold);
+    assert_eq!(
+        events,
+        [RunEvent::GoldChanged {
+            change: 40,
+            gold: before + 40,
+            reason: GoldReason::Treasure
+        }]
+    );
+    assert_eq!(took_gold.relics, [relic_id("war_banner")]);
+    assert_eq!(took_gold.phase, Phase::Map);
+}
+
+#[test]
+fn a_treasure_offers_the_relics_that_are_left_and_always_the_gold() {
+    let all = every_relic();
+    let (before, node) = run_before("firebrand", NodeKind::Treasure);
+
+    // One relic left: that one, or the gold.
+    let mut one_left = before.clone();
+    one_left.relics = all[1..].to_vec();
+    act(&mut one_left, RunAction::Travel { node });
+    assert_eq!(
+        one_left.phase,
+        Phase::Treasure {
+            relics: vec![all[0].clone()],
+            gold: 40
+        }
+    );
+    assert_eq!(
+        run_legal_actions(&one_left),
+        [RunAction::TakeTreasure { choice: 0 }, RunAction::TakeGold]
+    );
+    act(&mut one_left, RunAction::TakeTreasure { choice: 0 });
+    assert_eq!(one_left.relics.len(), all.len());
+
+    // None left: the gold is the way on.
+    let mut none_left = before.clone();
+    none_left.relics = all.clone();
+    act(&mut none_left, RunAction::Travel { node });
+    assert_eq!(
+        none_left.phase,
+        Phase::Treasure {
+            relics: Vec::new(),
+            gold: 40
+        }
+    );
+    assert_eq!(run_legal_actions(&none_left), [RunAction::TakeGold]);
+    let gold = none_left.gold;
+    act(&mut none_left, RunAction::TakeGold);
+    assert_eq!(none_left.gold, gold + 40);
+    assert_eq!(none_left.phase, Phase::Map);
+    assert_eq!(none_left.relics, all);
+}
+
+#[test]
+fn treasures_turn_up_on_the_fourth_row() {
+    let mut treasures = 0;
+    for seed in 0..60 {
+        let state = run("warden", seed);
+        for node in &state.map.nodes {
+            if node.kind == NodeKind::Treasure {
+                assert_eq!(node.row, 3, "seed {seed}");
+                treasures += 1;
+            }
+        }
+    }
+    assert!(treasures > 20, "{treasures} treasures on 60 maps");
+}
+
+// ---- The relics, in a duel of the run's ----
+
+/// The duel a run with these relics starts, taken out of the run: both
+/// players have kept, it is the player's first main phase and both hands
+/// are empty. The starting emblem is Battle Fury, which gains no life and
+/// adds no counters.
+fn duel_with_relics(relics: &[&str]) -> DuelState {
+    let config = RunConfig {
+        planeswalker: PlaneswalkerId("warden".to_string()),
+        emblem: Some(ModifierId("emblem_fury".to_string())),
+    };
+    let mut state = new_run(config, 3).unwrap();
+    state.relics = relics.iter().map(|id| relic_id(id)).collect();
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    let mut duel = state.duel.take().unwrap();
+    let first = duel.starting_player;
+    apply_action(&mut duel, first, Action::Keep).unwrap();
+    apply_action(&mut duel, first.opponent(), Action::Keep).unwrap();
+    let turn = if first == PLAYER { 1 } else { 2 };
+    pass_until(&mut duel, turn, Step::PrecombatMain);
+    assert_eq!(duel.active_player, PLAYER);
+    empty_hand(&mut duel, PLAYER);
+    empty_hand(&mut duel, ENEMY);
+    duel
+}
+
+/// Casts a card from nowhere and passes until the stack is empty or the
+/// game asks for something other than priority.
+fn cast_and_settle(duel: &mut DuelState, card: &str) -> Vec<GameEvent> {
+    let card = put_in_hand(duel, PLAYER, card);
+    let mut events = apply_action(duel, PLAYER, cast(card)).unwrap();
+    for _ in 0..20 {
+        if duel.stack.is_empty() || !matches!(duel.decision, Some(Decision::Priority { .. })) {
+            break;
+        }
+        events.extend(pass_both(duel));
+    }
+    events
+}
+
+fn count_of(duel: &DuelState, player: PlayerId, card: &str) -> usize {
+    duel.permanents_of(player)
+        .filter(|permanent| permanent.def.as_str() == card)
+        .count()
+}
+
+fn newest_permanent(duel: &DuelState) -> crate::duel::ObjectId {
+    *duel.battlefield.last().unwrap()
+}
+
+#[test]
+fn rally_horn_starts_each_duel_with_a_soldier() {
+    // As the duel is set up, before anyone has kept a hand.
+    let mut state = run("warden", 3);
+    state.relics = vec![relic_id("rally_horn")];
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    let duel = state.duel.as_ref().unwrap();
+    let soldiers: Vec<_> = duel.permanents_of(PLAYER).collect();
+    assert_eq!(soldiers.len(), 1);
+    assert_eq!(soldiers[0].def.as_str(), "soldier_token");
+    assert!(duel.is_creature(soldiers[0].id).unwrap());
+    assert_eq!(duel.power(soldiers[0].id).unwrap(), 1);
+    assert_eq!(duel.toughness(soldiers[0].id).unwrap(), 1);
+    // It was there from the start, like a land a boon gives.
+    assert!(!soldiers[0].summoning_sick);
+    assert_eq!(duel.permanents_of(ENEMY).count(), 0);
+    // The deck is as it would be without it.
+    let player = duel.player(PLAYER);
+    assert_eq!(player.hand.len() + player.library.len(), 17);
+    duel.assert_consistent();
+
+    // And in the next duel too.
+    finish(&mut state, win());
+    act(&mut state, RunAction::SkipReward);
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    let duel = state.duel.as_ref().unwrap();
+    assert_eq!(count_of(duel, PLAYER, "soldier_token"), 1);
+
+    // Without the relic there is none.
+    assert_eq!(count_of(&duel_with_relics(&[]), PLAYER, "soldier_token"), 0);
+}
+
+#[test]
+fn whetstone_puts_a_counter_on_the_first_creature_each_turn() {
+    // With the Rally Horn too: its Soldier was there from the start, so
+    // it is not the first creature to enter.
+    let mut duel = duel_with_relics(&["whetstone", "rally_horn"]);
+    let soldier = duel.permanents_of(PLAYER).next().unwrap().id;
+    put_lands(&mut duel, PLAYER, "forest", 4);
+
+    cast_and_settle(&mut duel, "grizzly_bears");
+    let first = newest_permanent(&duel);
+    assert_eq!(duel.power(first).unwrap(), 3);
+    assert_eq!(duel.toughness(first).unwrap(), 3);
+    assert_eq!(duel.power(soldier).unwrap(), 1);
+
+    // The second creature of the turn gets nothing.
+    cast_and_settle(&mut duel, "grizzly_bears");
+    let second = newest_permanent(&duel);
+    assert_ne!(first, second);
+    assert_eq!(duel.power(second).unwrap(), 2);
+
+    // The counter stays, and the next turn's first creature gets one.
+    let turn = duel.turn + 2;
+    pass_until(&mut duel, turn, Step::PrecombatMain);
+    empty_hand(&mut duel, PLAYER);
+    assert_eq!(duel.power(first).unwrap(), 3);
+    cast_and_settle(&mut duel, "grizzly_bears");
+    assert_eq!(duel.power(newest_permanent(&duel)).unwrap(), 3);
+}
+
+#[test]
+fn pilgrims_flask_scries_the_first_time_life_is_gained_each_turn() {
+    let mut duel = duel_with_relics(&["pilgrims_flask"]);
+    put_lands(&mut duel, PLAYER, "plains", 4);
+    let life = duel.player(PLAYER).life;
+
+    // Revitalize: gain 3 life and draw a card. Then the Flask's scry.
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.player(PLAYER).life, life + 3);
+    assert_eq!(
+        duel.decision,
+        Some(Decision::Scry {
+            player: PLAYER,
+            kept: 0,
+            remaining: 1,
+            surveil: false
+        })
+    );
+    let top = *duel.player(PLAYER).library.last().unwrap();
+    apply_action(&mut duel, PLAYER, Action::ScryBottom).unwrap();
+    assert_ne!(duel.player(PLAYER).library.last(), Some(&top));
+    assert_eq!(duel.decision, Some(Decision::Priority { player: PLAYER }));
+    assert!(duel.stack.is_empty());
+
+    // A second gain in the same turn scries nothing.
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.player(PLAYER).life, life + 6);
+    assert_eq!(duel.decision, Some(Decision::Priority { player: PLAYER }));
+    assert!(duel.stack.is_empty());
+
+    // Without the relic, gaining life asks nothing.
+    let mut duel = duel_with_relics(&[]);
+    put_lands(&mut duel, PLAYER, "plains", 2);
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.decision, Some(Decision::Priority { player: PLAYER }));
+}
+
+#[test]
+fn beast_tamers_whistle_gains_life_for_a_creature_of_power_four() {
+    let mut duel = duel_with_relics(&["beast_tamers_whistle"]);
+    put_lands(&mut duel, PLAYER, "forest", 6);
+    let life = duel.player(PLAYER).life;
+
+    // Rumbling Baloth is a 4/4.
+    cast_and_settle(&mut duel, "rumbling_baloth");
+    assert_eq!(duel.player(PLAYER).life, life + 2);
+    // Grizzly Bears is not big enough.
+    cast_and_settle(&mut duel, "grizzly_bears");
+    assert_eq!(duel.player(PLAYER).life, life + 2);
+    assert!(duel.stack.is_empty());
+    assert_eq!(duel.player(ENEMY).life, 20);
+}
+
+#[test]
+fn votive_candle_makes_a_soldier_for_the_first_enchantment_each_turn() {
+    let mut duel = duel_with_relics(&["votive_candle"]);
+    put_lands(&mut duel, PLAYER, "plains", 7);
+
+    // A creature spell is not an enchantment.
+    cast_and_settle(&mut duel, "glory_seeker");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 0);
+
+    cast_and_settle(&mut duel, "glorious_anthem");
+    assert_eq!(count_of(&duel, PLAYER, "glorious_anthem"), 1);
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
+
+    // The second enchantment of the turn makes none.
+    cast_and_settle(&mut duel, "intangible_virtue");
+    assert_eq!(count_of(&duel, PLAYER, "intangible_virtue"), 1);
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
+    assert_eq!(count_of(&duel, ENEMY, "soldier_token"), 0);
+}
+
+#[test]
+fn surveyors_map_starts_each_duel_with_a_basic_land() {
+    let duel = duel_with_relics(&["surveyors_map"]);
+    let lands: Vec<_> = duel.permanents_of(PLAYER).collect();
+    assert_eq!(lands.len(), 1);
+    // The Warden's starting spells have more green symbols than white.
+    assert_eq!(lands[0].def.as_str(), "forest");
+    assert!(!lands[0].tapped);
+    assert_eq!(duel.permanents_of(ENEMY).count(), 0);
+    // It is one more land than the deck holds.
+    let player = duel.player(PLAYER);
+    assert_eq!(player.hand.len() + player.library.len(), 17);
+}
+
+#[test]
+fn merchants_ledger_lowers_every_price_in_a_shop() {
+    let data = data::embedded().unwrap();
+    let prices = &data.balance.run.shop.prices;
+    let (before, node) = run_before("warden", NodeKind::Shop);
+
+    let mut plain = before.clone();
+    act(&mut plain, RunAction::Travel { node });
+    let Phase::Shop { items: listed, .. } = plain.phase.clone() else {
+        panic!("expected a shop");
+    };
+
+    let mut state = before.clone();
+    state.relics = vec![relic_id("merchants_ledger")];
+    act(&mut state, RunAction::Travel { node });
+    let Phase::Shop {
+        items,
+        removal_price,
+        ..
+    } = state.phase.clone()
+    else {
+        panic!("expected a shop");
+    };
+    assert_eq!(items.len(), 5);
+    // The same cards and land, each a fifth cheaper.
+    for (item, plain) in items.iter().zip(&listed).take(4) {
+        assert_eq!(item.ware, plain.ware);
+        assert_eq!(item.price, plain.price * 80 / 100);
+        assert!(item.price < plain.price);
+    }
+    assert_eq!(items[3].price, 40);
+    assert_eq!(items[4].price, prices.relic * 80 / 100);
+    assert_eq!(removal_price, 48);
+
+    // What is affordable follows the lower price, and that is what is paid.
+    state.gold = items[0].price;
+    assert!(run_legal_actions(&state).contains(&RunAction::Buy { item: 0 }));
+    let events = act(&mut state, RunAction::Buy { item: 0 });
+    assert_eq!(state.gold, 0);
+    assert!(events.contains(&RunEvent::GoldChanged {
+        change: -i64::from(items[0].price),
+        gold: 0,
+        reason: GoldReason::Purchase
+    }));
+    state.gold = 48;
+    let events = act(&mut state, RunAction::RemoveCard { card: 0 });
+    assert_eq!(state.gold, 0);
+    assert!(events.contains(&RunEvent::GoldChanged {
+        change: -48,
+        gold: 0,
+        reason: GoldReason::Removal
+    }));
+}
+
+#[test]
+fn a_merchants_ledger_bought_in_a_shop_lowers_that_shops_other_prices() {
+    let data = data::embedded().unwrap();
+    let prices = &data.balance.run.shop.prices;
+    let mut state = run_at("warden", NodeKind::Shop);
+    let Phase::Shop {
+        mut items,
+        removal_price,
+        removals_left,
+    } = state.phase.clone()
+    else {
+        panic!("expected a shop");
+    };
+    items[4].ware = Ware::Relic {
+        relic: relic_id("merchants_ledger"),
+    };
+    state.phase = Phase::Shop {
+        items: items.clone(),
+        removal_price,
+        removals_left,
+    };
+    state.gold = 1000;
+
+    // A card bought before the Ledger costs the listed price.
+    act(&mut state, RunAction::Buy { item: 1 });
+    assert_eq!(state.gold, 1000 - items[1].price);
+    let gold = state.gold;
+    // So does the Ledger itself.
+    act(&mut state, RunAction::Buy { item: 4 });
+    assert_eq!(state.gold, gold - prices.relic);
+
+    let Phase::Shop {
+        items: after,
+        removal_price,
+        ..
+    } = state.phase.clone()
+    else {
+        panic!("expected to still be in the shop");
+    };
+    for index in [0, 2, 3] {
+        assert_eq!(after[index].price, items[index].price * 80 / 100);
+    }
+    // What was sold keeps the price paid.
+    assert_eq!(after[1].price, items[1].price);
+    assert_eq!(after[4].price, prices.relic);
+    assert_eq!(removal_price, prices.removal * 80 / 100);
+    let gold = state.gold;
+    act(&mut state, RunAction::Buy { item: 0 });
+    assert_eq!(state.gold, gold - after[0].price);
+}
+
 // ---- Boons and the boss ----
 
 /// A run standing at the boss node, choosing boons.
@@ -1129,6 +1608,12 @@ fn the_view_and_the_content_serialise() {
     let json = serde_json::to_string(&view).unwrap();
     assert_eq!(serde_json::from_str::<RunView>(&json).unwrap(), view);
     assert!(json.contains(r#""phase":{"type":"shop""#));
+
+    let treasure = run_view(&run_at("warden", NodeKind::Treasure)).unwrap();
+    let json = serde_json::to_string(&treasure).unwrap();
+    assert_eq!(serde_json::from_str::<RunView>(&json).unwrap(), treasure);
+    assert!(json.contains(r#""phase":{"type":"treasure","relics":["#));
+    assert!(json.contains(r#"{"type":"take_gold"}"#));
 
     let content = run_content().unwrap();
     assert_eq!(content.planeswalkers.len(), 2);

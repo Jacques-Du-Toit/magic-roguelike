@@ -2,9 +2,10 @@
 import type { CardDefId } from "./CardDefId";
 import type { DuelKind } from "./DuelKind";
 import type { EnemyId } from "./EnemyId";
+import type { ModifierId } from "./ModifierId";
 import type { ShopItem } from "./ShopItem";
 
 /**
  * What the run is waiting on. `run_legal_actions` lists the ways to answer.
  */
-export type Phase = { "type": "map" } | { "type": "duel", enemy: EnemyId, kind: DuelKind, } | { "type": "reward", choices: Array<CardDefId>, } | { "type": "rest" } | { "type": "shop", items: Array<ShopItem>, removal_price: number, removals_left: number, } | { "type": "draft", choices: Array<CardDefId>, picks_left: number, } | { "type": "boons", picks_left: number, } | { "type": "over", won: boolean, };
+export type Phase = { "type": "map" } | { "type": "duel", enemy: EnemyId, kind: DuelKind, } | { "type": "reward", choices: Array<CardDefId>, } | { "type": "rest" } | { "type": "shop", items: Array<ShopItem>, removal_price: number, removals_left: number, } | { "type": "draft", choices: Array<CardDefId>, picks_left: number, } | { "type": "treasure", relics: Array<ModifierId>, gold: number, } | { "type": "boons", picks_left: number, } | { "type": "over", won: boolean, };

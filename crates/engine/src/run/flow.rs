@@ -7,10 +7,14 @@ use crate::duel::{
     new_duel,
 };
 
-use super::defs::{EnemyDef, EnemyId, EnemyTier, ModifierDef, ModifierEffect, PlaneswalkerDef};
+use super::defs::{
+    EnemyDef, EnemyId, EnemyTier, ModifierDef, ModifierEffect, ModifierId, PlaneswalkerDef,
+};
 use super::loadout::{Loadout, duel_config, starting_deck};
 use super::map::generate_map;
-use super::rewards::{card_reward, draft_pack, random_relic, shop_stock};
+use super::rewards::{
+    card_reward, discounted, draft_pack, list_price, random_relic, shop_stock, treasure_relics,
+};
 use super::state::{
     DuelKind, DuelOutcome, GoldReason, NodeId, NodeKind, PLAYER, Phase, RunAction, RunConfig,
     RunError, RunEvent, RunState, Ware,
@@ -144,6 +148,15 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
                 .map(|choice| RunAction::TakeDraft { choice })
                 .collect();
             actions.push(RunAction::Leave);
+            actions
+        }
+        // The gold is always there, so a treasure with no relic left to
+        // offer still has a way on.
+        Phase::Treasure { relics, .. } => {
+            let mut actions: Vec<RunAction> = (0..relics.len())
+                .map(|choice| RunAction::TakeTreasure { choice })
+                .collect();
+            actions.push(RunAction::TakeGold);
             actions
         }
         Phase::Boons { picks_left } => {
@@ -337,6 +350,14 @@ fn travel(
                 removal_price: balance.shop.prices.removal,
                 removals_left: balance.shop.removals,
             };
+            price_shop(state, data);
+        }
+        NodeKind::Treasure => {
+            let relics = treasure_relics(&mut state.rng, data, &state.relics);
+            state.phase = Phase::Treasure {
+                relics,
+                gold: balance.treasure.gold,
+            };
         }
         NodeKind::Draft => {
             let colors = &planeswalker(state, data)?.colors;
@@ -360,18 +381,59 @@ fn travel(
     Ok(())
 }
 
-/// Extra gold from relics for a duel won.
-fn relic_gold(state: &RunState, data: &GameData) -> u32 {
+/// What the player's relics do to the run itself.
+fn relic_effects<'a>(
+    state: &'a RunState,
+    data: &'a GameData,
+) -> impl Iterator<Item = &'a ModifierEffect> {
     state
         .relics
         .iter()
         .filter_map(|id| data.run.relic(id))
         .flat_map(|relic| &relic.effects)
+}
+
+/// Extra gold from relics for a duel won.
+fn relic_gold(state: &RunState, data: &GameData) -> u32 {
+    relic_effects(state, data)
         .map(|effect| match effect {
             ModifierEffect::GoldPerWin { amount } => *amount,
             _ => 0,
         })
         .sum()
+}
+
+/// How many percent the player's relics take off a shop's prices.
+fn shop_discount(state: &RunState, data: &GameData) -> u32 {
+    relic_effects(state, data)
+        .map(|effect| match effect {
+            ModifierEffect::ShopDiscount { percent } => *percent,
+            _ => 0,
+        })
+        .sum::<u32>()
+        .min(100)
+}
+
+/// Sets what the shop the player is in charges: its list prices less the
+/// player's discounts. What is already sold keeps the price paid.
+fn price_shop(state: &mut RunState, data: &GameData) {
+    let percent = shop_discount(state, data);
+    if let Phase::Shop {
+        items,
+        removal_price,
+        ..
+    } = &mut state.phase
+    {
+        for item in items.iter_mut().filter(|item| !item.sold) {
+            item.price = discounted(list_price(data, &item.ware), percent);
+        }
+        *removal_price = discounted(data.balance.run.shop.prices.removal, percent);
+    }
+}
+
+fn gain_relic(state: &mut RunState, events: &mut Vec<RunEvent>, relic: ModifierId) {
+    state.relics.push(relic.clone());
+    events.push(RunEvent::RelicGained { relic });
 }
 
 fn lose_heart(state: &mut RunState, events: &mut Vec<RunEvent>) {
@@ -443,8 +505,7 @@ fn finish_duel(
             );
             let weights = if kind == DuelKind::Elite {
                 if let Some(relic) = random_relic(&mut state.rng, data, &state.relics) {
-                    state.relics.push(relic.clone());
-                    events.push(RunEvent::RelicGained { relic });
+                    gain_relic(state, events, relic);
                 }
                 &balance.rewards.elite
             } else {
@@ -557,18 +618,29 @@ fn perform(
             bought.sold = true;
             let (ware, price) = (bought.ware.clone(), bought.price);
             change_gold(state, events, -i64::from(price), GoldReason::Purchase);
-            match ware {
-                Ware::Card { card } => add_card(state, events, card),
-                Ware::Relic { relic } => {
-                    state.relics.push(relic.clone());
-                    events.push(RunEvent::RelicGained { relic });
-                }
-            }
             state.phase = Phase::Shop {
                 items,
                 removal_price,
                 removals_left,
             };
+            match ware {
+                Ware::Card { card } => add_card(state, events, card),
+                Ware::Relic { relic } => {
+                    gain_relic(state, events, relic);
+                    // A relic that lowers prices does so from now on, in
+                    // this shop too.
+                    price_shop(state, data);
+                }
+            }
+        }
+        (RunAction::TakeTreasure { choice }, Phase::Treasure { relics, .. }) => {
+            let relic = relics.get(*choice).ok_or_else(mismatch)?.clone();
+            gain_relic(state, events, relic);
+            state.phase = Phase::Map;
+        }
+        (RunAction::TakeGold, Phase::Treasure { gold, .. }) => {
+            change_gold(state, events, i64::from(gold), GoldReason::Treasure);
+            state.phase = Phase::Map;
         }
         (
             RunAction::TakeDraft { choice },

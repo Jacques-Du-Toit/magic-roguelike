@@ -176,8 +176,51 @@ pub(crate) fn random_relic(
     available.get(pick).map(|&id| id.clone())
 }
 
-/// What a shop has for sale, with its prices: spells, then non-basic lands,
-/// then relics.
+/// The relics a treasure node offers: different ones the player doesn't
+/// have, as many as the balance asks for or as there are left.
+pub(crate) fn treasure_relics(
+    rng: &mut DuelRng,
+    data: &GameData,
+    owned: &[ModifierId],
+) -> Vec<ModifierId> {
+    let mut taken = owned.to_vec();
+    let mut offered = Vec::new();
+    for _ in 0..data.balance.run.treasure.relics {
+        let Some(relic) = random_relic(rng, data, &taken) else {
+            break;
+        };
+        taken.push(relic.clone());
+        offered.push(relic);
+    }
+    offered
+}
+
+/// What a shop asks for a ware before any discount.
+pub(crate) fn list_price(data: &GameData, ware: &Ware) -> u32 {
+    let prices = &data.balance.run.shop.prices;
+    match ware {
+        Ware::Relic { .. } => prices.relic,
+        Ware::Card { card } => match data.cards.get(card) {
+            Some(def) if def.is_land() => prices.land,
+            Some(def) => match def.rarity {
+                Rarity::Common => prices.common,
+                Rarity::Uncommon => prices.uncommon,
+                Rarity::Rare => prices.rare,
+                Rarity::Mythic => prices.mythic,
+            },
+            None => prices.common,
+        },
+    }
+}
+
+/// A price with `percent` taken off, rounded down.
+pub(crate) fn discounted(price: u32, percent: u32) -> u32 {
+    let keep = u64::from(100 - percent.min(100));
+    u32::try_from(u64::from(price) * keep / 100).unwrap_or(price)
+}
+
+/// What a shop has for sale, at its list prices: spells, then non-basic
+/// lands, then relics.
 pub(crate) fn shop_stock(
     rng: &mut DuelRng,
     data: &GameData,
@@ -186,8 +229,7 @@ pub(crate) fn shop_stock(
 ) -> Vec<ShopItem> {
     let balance: &RunBalance = &data.balance.run;
     let shop = &balance.shop;
-    let prices = &shop.prices;
-    let mut items = Vec::new();
+    let mut wares = Vec::new();
     let own = balance.rewards.own_color_choices.min(shop.cards);
     for card in spell_offer(
         rng,
@@ -197,17 +239,7 @@ pub(crate) fn shop_stock(
         shop.cards,
         own,
     ) {
-        let price = match data.cards.get(&card).map(|def| def.rarity) {
-            Some(Rarity::Uncommon) => prices.uncommon,
-            Some(Rarity::Rare) => prices.rare,
-            Some(Rarity::Mythic) => prices.mythic,
-            Some(Rarity::Common) | None => prices.common,
-        };
-        items.push(ShopItem {
-            ware: Ware::Card { card },
-            price,
-            sold: false,
-        });
+        wares.push(Ware::Card { card });
     }
 
     let mut lands = land_pool(&data.cards, colors);
@@ -216,12 +248,8 @@ pub(crate) fn shop_stock(
             break;
         }
         let land = lands.remove(rng.below(bound(lands.len())) as usize);
-        items.push(ShopItem {
-            ware: Ware::Card {
-                card: land.id.clone(),
-            },
-            price: prices.land,
-            sold: false,
+        wares.push(Ware::Card {
+            card: land.id.clone(),
         });
     }
 
@@ -231,13 +259,16 @@ pub(crate) fn shop_stock(
             break;
         };
         relics.push(relic.clone());
-        items.push(ShopItem {
-            ware: Ware::Relic { relic },
-            price: prices.relic,
-            sold: false,
-        });
+        wares.push(Ware::Relic { relic });
     }
-    items
+    wares
+        .into_iter()
+        .map(|ware| ShopItem {
+            price: list_price(data, &ware),
+            ware,
+            sold: false,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -377,5 +408,37 @@ mod tests {
         assert_eq!(random_relic(&mut rng, data, &owned), None);
         let items = shop_stock(&mut rng, data, &GW, &owned);
         assert_eq!(items.len(), 4);
+    }
+
+    #[test]
+    fn a_treasure_offers_two_different_relics_or_what_is_left() {
+        let data = data::embedded().unwrap();
+        let all: Vec<ModifierId> = data.run.relics.iter().map(|r| r.id.clone()).collect();
+        assert_eq!(data.balance.run.treasure.relics, 2);
+        for seed in 0..100 {
+            let mut rng = DuelRng::from_seed(seed);
+            let owned = vec![all[0].clone(), all[3].clone()];
+            let offered = treasure_relics(&mut rng, data, &owned);
+            assert_eq!(offered.len(), 2);
+            assert_ne!(offered[0], offered[1]);
+            assert!(offered.iter().all(|relic| !owned.contains(relic)));
+        }
+        let mut rng = DuelRng::from_seed(1);
+        assert_eq!(
+            treasure_relics(&mut rng, data, &all[1..]),
+            std::slice::from_ref(&all[0])
+        );
+        assert_eq!(treasure_relics(&mut rng, data, &all), []);
+    }
+
+    #[test]
+    fn a_discount_takes_a_percentage_off_and_rounds_down() {
+        assert_eq!(discounted(40, 20), 32);
+        assert_eq!(discounted(110, 20), 88);
+        assert_eq!(discounted(45, 20), 36);
+        assert_eq!(discounted(1, 20), 0);
+        assert_eq!(discounted(120, 0), 120);
+        assert_eq!(discounted(120, 100), 0);
+        assert_eq!(discounted(120, 250), 0);
     }
 }

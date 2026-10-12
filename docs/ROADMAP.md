@@ -157,6 +157,8 @@ Built in four parts, each ending in something to play:
 
 **Slice 6 (2026-10-12): Auras and enchantments, and a 10-spell starting deck.** Twelve cards and a token (`DECISIONS.md` #63), each with a test. New rules: triggers on casting an enchantment, on an enchantment entering and on a permanent going to the graveyard from the battlefield (with the card returning to hand), and an anthem that counts enchantments. The five packages are in: 102 green-white spells to be offered, of 178 spells in all, with 15 lands and 19 tokens; 193 cards match Scryfall. The Warden starts with 10 spells and 7 lands, and a deck can be trimmed to 8. Adding cards is now a routine: `tools/add-cards.mjs` for a batch, `tools/check-all.ps1` for every check, and `.claude/skills/add-cards` for the steps. Checks: 571 engine tests, 12 wasm-crate tests, 29 sim tests, 69 web tests and 22 end-to-end tests pass. `sim --runs --games 300`, +/- 6: the Warden wins the act in 58.7% of runs and the Firebrand in 36.0%, no errors, in 137 s. Next: a Treasure node with new relics, an Event node, then a longer map.
 
+**Slice 7 (2026-10-12): the Treasure node and seven relics.** A treasure offers two relics the player doesn't own, or 40 gold instead (`DECISIONS.md` #64); it has a weight on the fourth row of the map, so about half of maps show one (54% of 2000) and the act is no longer. Seven relics, twelve in all (`DECISIONS.md` #65): Rally Horn, Whetstone, Pilgrim's Flask, Beast Tamer's Whistle, Votive Candle, Surveyor's Map and Merchant's Ledger, each with a test in a duel or a shop of the run's. Two modifier effects are new: `starting_token` and `shop_discount`. Every token a relic, a boon or an emblem names is now checked when the data loads, which closes a limit noted under M4a. Checks: 587 engine tests, 12 wasm-crate tests, 29 sim tests, 70 web tests and 22 end-to-end tests pass; `cargo test` takes 68 s and the end-to-end tests 55 s, as before. The end-to-end acts moved to seeds 14 (Warden) and 40 (Firebrand), which pass a treasure and take a relic from it. `sim --runs --games 300`, +/- 6: the Warden wins the act in 65.7% of runs (58.7% before) and the Firebrand in 42.3% (36.0%), no errors, in 142 s; a run ends with 0.5 relics on average. Both gains are about the size of the margin, so "a little easier" is all that can be said, and the sim takes the first relic offered instead of choosing. Not exercised by anything but the tests and the sim until the owner plays it. Next: the owner chooses the events for an Event node, then the map is stretched to about 11 rows.
+
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 **M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
@@ -180,7 +182,7 @@ Known limits, left for later parts:
 - Decks that mill themselves (Rot Farmers, practice deck H) often lose to fatigue in 25-card decks. Self-mill needs a payoff or bigger decks before it is an archetype; a question for M4d.
 - The elites range widely (15–47%) and the normal decks more so; the tiers are a first sorting, not a balance pass.
 - Blue cards and the gold cards of other colour pairs are only met in enemy decks until there are characters of those colours (M4c).
-- An emblem's `create_token` is not checked against the token files when the data loads (no relic uses one yet).
+- An emblem's `create_token` is not checked against the token files when the data loads (no relic uses one yet). (Checked since the Treasure slice.)
 
 **Commander prototype (2026-10-12):** built, to be played and judged before M4b (`DECISIONS.md` #37 is still open; the prototype's rules are #45 and #46).
 
@@ -316,8 +318,8 @@ What the new AI still plays badly:
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
-- [ ] Draft node (built), Event node, Treasure node, card upgrades.
-- [ ] 3 acts, 3 bosses, ~20 relics, 4+ planeswalkers.
+- [ ] Draft node (built), Treasure node (built), Event node, card upgrades.
+- [ ] 3 acts, 3 bosses, ~20 relics (12 so far), 4+ planeswalkers.
 - [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.
 

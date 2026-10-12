@@ -56,7 +56,7 @@
         { "duel": 1, "duel_tier": "easy" },
         { "duel": 1, "duel_tier": "easy" },
         { "draft": 1, "duel_tier": "normal" },
-        { "duel": 2, "rest": 1, "shop": 2, "duel_tier": "normal" },
+        { "duel": 2, "rest": 1, "shop": 2, "treasure": 2, "duel_tier": "normal" },
         { "duel": 1, "elite": 1, "duel_tier": "normal" },
         { "duel": 2, "rest": 1, "shop": 2, "draft": 2, "duel_tier": "normal" },
         { "duel": 1, "elite": 1, "duel_tier": "normal" },
@@ -81,6 +81,10 @@
       "cards": 5,
       "picks": 2,
       "weights": { "common": 60, "uncommon": 32, "rare": 8, "mythic": 0 }
+    },
+    "treasure": {
+      "relics": 2,
+      "gold": 40
     },
     "shop": {
       "cards": 3,

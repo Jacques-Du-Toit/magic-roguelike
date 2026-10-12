@@ -1093,6 +1093,10 @@ input[type='text'] {
   background: #1f3140;
 }
 
+.map-node-treasure {
+  background: #3a3216;
+}
+
 .map-legend {
   list-style: none;
   margin: 0;

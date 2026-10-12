@@ -82,6 +82,19 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       await expect(deck).not.toHaveText(before)
       return true
     }
+    case 'treasure': {
+      // Two relics or the gold: a relic taken joins the side panel.
+      const owned = await page.getByTestId('relic').count()
+      await expect(page.getByTestId('treasure-relic')).toHaveCount(2)
+      await expect(page.getByTestId('take-gold')).toContainText('40 gold instead')
+      const name = await page.getByTestId('treasure-relic').first().locator('strong').innerText()
+      await page.getByTestId('treasure-relic').first().getByRole('button').click()
+      await expect(run(page)).toHaveAttribute('data-phase', 'map')
+      await expect(page.getByTestId('relic')).toHaveCount(owned + 1)
+      await expect(page.getByTestId('relic').last()).toContainText(name)
+      await expect(page.getByTestId('news')).toContainText(`You gain a relic: ${name}.`)
+      return true
+    }
     case 'rest': {
       const heal = page.getByTestId('rest-heal')
       if (await heal.isEnabled()) {
@@ -282,8 +295,8 @@ const ACTS: [string, number][] = process.env.ACTS
       return [planeswalker, Number(seed)]
     })
   : [
-      ['warden', 2],
-      ['firebrand', 1],
+      ['warden', 14],
+      ['firebrand', 40],
     ]
 
 for (const [planeswalker, seed] of ACTS) {
@@ -307,7 +320,7 @@ for (const [planeswalker, seed] of ACTS) {
     // These seeds lead through every kind of node. If a change to the game's
     // data moves them, ACTS=warden:1,warden:2,... finds seeds that do.
     expect([...seen.phases]).toEqual(
-      expect.arrayContaining(['map', 'reward', 'draft', 'shop', 'rest', 'boons', 'over']),
+      expect.arrayContaining(['map', 'reward', 'draft', 'treasure', 'shop', 'rest', 'boons', 'over']),
     )
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
     // The elite and the boss each brought a commander.

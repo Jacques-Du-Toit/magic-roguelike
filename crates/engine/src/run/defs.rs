@@ -10,7 +10,7 @@ use thiserror::Error;
 use ts_rs::TS;
 
 use crate::cards::{
-    AbilityDef, CardDef, CardDefId, Color, EmblemDef, EmblemError, validate_emblem,
+    AbilityDef, CardDef, CardDefId, Color, Effect, EmblemDef, EmblemError, validate_emblem,
 };
 use crate::data::CardDatabase;
 use crate::decks::DeckEntry;
@@ -71,8 +71,21 @@ pub enum ModifierEffect {
     /// The owner gets an emblem with these abilities, named after the
     /// modifier.
     Abilities { abilities: Vec<AbilityDef> },
+    /// The owner starts with `count` of this token on the battlefield.
+    StartingToken {
+        token: CardDefId,
+        #[serde(default = "one")]
+        count: u32,
+    },
     /// Extra gold for each duel won. It acts on the run, not the duel.
     GoldPerWin { amount: u32 },
+    /// Everything a shop sells or does costs this many percent less. It
+    /// acts on the run, not the duel.
+    ShopDiscount { percent: u32 },
+}
+
+fn one() -> u32 {
+    1
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -99,6 +112,33 @@ impl ModifierDef {
             text: self.text.clone(),
             abilities,
         })
+    }
+
+    /// The tokens this modifier can put on the battlefield: those it starts
+    /// a duel with and those its abilities create.
+    fn tokens(&self) -> Vec<&CardDefId> {
+        let mut tokens = Vec::new();
+        for effect in &self.effects {
+            match effect {
+                ModifierEffect::StartingToken { token, .. } => tokens.push(token),
+                ModifierEffect::Abilities { abilities } => {
+                    for ability in abilities {
+                        let effects = match ability {
+                            AbilityDef::Spell { effects }
+                            | AbilityDef::Triggered { effects, .. }
+                            | AbilityDef::Activated { effects, .. } => effects.as_slice(),
+                            _ => &[],
+                        };
+                        tokens.extend(effects.iter().filter_map(|effect| match effect {
+                            Effect::CreateToken { token, .. } => Some(token),
+                            _ => None,
+                        }));
+                    }
+                }
+                _ => {}
+            }
+        }
+        tokens
     }
 }
 
@@ -195,8 +235,12 @@ pub enum RunDataError {
     ZeroChange(String),
     #[error("`{id}`: {source}")]
     Emblem { id: String, source: EmblemError },
-    #[error("`{0}`: only a relic can give gold")]
-    GoldOnNonRelic(String),
+    #[error("`{0}`: only a relic can give gold or lower prices")]
+    RunEffectOnNonRelic(String),
+    #[error("`{0}`: a discount is between 1 and 100 percent")]
+    BadDiscount(String),
+    #[error("`{id}`: `{token}` is not a file in tokens/")]
+    UnknownToken { id: String, token: CardDefId },
     #[error("`{0}` has no colours")]
     NoColors(String),
     #[error("`{0}` has no cards")]
@@ -257,11 +301,17 @@ pub fn validate_modifier(modifier: &ModifierDef, kind: ModifierKind) -> Result<(
         match effect {
             ModifierEffect::StartingLife { change: 0, .. }
             | ModifierEffect::OpeningHand { change: 0 }
+            | ModifierEffect::StartingToken { count: 0, .. }
             | ModifierEffect::GoldPerWin { amount: 0 } => {
                 return Err(RunDataError::ZeroChange(id));
             }
-            ModifierEffect::GoldPerWin { .. } if kind != ModifierKind::Relic => {
-                return Err(RunDataError::GoldOnNonRelic(id));
+            ModifierEffect::GoldPerWin { .. } | ModifierEffect::ShopDiscount { .. }
+                if kind != ModifierKind::Relic =>
+            {
+                return Err(RunDataError::RunEffectOnNonRelic(id));
+            }
+            ModifierEffect::ShopDiscount { percent } if !(1..=100).contains(percent) => {
+                return Err(RunDataError::BadDiscount(id));
             }
             _ => {}
         }
@@ -270,6 +320,24 @@ pub fn validate_modifier(modifier: &ModifierDef, kind: ModifierKind) -> Result<(
         validate_emblem(&emblem).map_err(|source| RunDataError::Emblem { id, source })?;
     }
     Ok(())
+}
+
+/// Checks that every token a modifier names is one of the token files.
+pub fn validate_modifier_tokens(
+    modifier: &ModifierDef,
+    cards: &CardDatabase,
+) -> Result<(), RunDataError> {
+    match modifier
+        .tokens()
+        .into_iter()
+        .find(|token| !cards.get(token).is_some_and(|def| def.token))
+    {
+        Some(token) => Err(RunDataError::UnknownToken {
+            id: modifier.id.0.clone(),
+            token: token.clone(),
+        }),
+        None => Ok(()),
+    }
 }
 
 /// Checks a list of deck entries: known cards, each once, with a count.
@@ -360,6 +428,7 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
     unique(run.emblems.iter().map(|def| def.id.as_str()))?;
     for emblem in &run.emblems {
         validate_modifier(emblem, ModifierKind::Passive)?;
+        validate_modifier_tokens(emblem, cards)?;
     }
 
     unique(run.planeswalkers.iter().map(|def| def.id.as_str()))?;
@@ -396,6 +465,7 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
     unique(run.relics.iter().map(|def| def.id.as_str()))?;
     for relic in &run.relics {
         validate_modifier(relic, ModifierKind::Relic)?;
+        validate_modifier_tokens(relic, cards)?;
     }
 
     unique(run.enemies.iter().map(|def| def.id.as_str()))?;
@@ -419,6 +489,7 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
         }
         for modifier in &enemy.modifiers {
             validate_modifier(modifier, ModifierKind::Enemy)?;
+            validate_modifier_tokens(modifier, cards)?;
         }
     }
     for tier in [

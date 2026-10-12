@@ -213,6 +213,7 @@ pub struct RunBalance {
     pub gold: GoldBalance,
     pub rewards: RewardBalance,
     pub draft: DraftBalance,
+    pub treasure: TreasureBalance,
     pub shop: ShopBalance,
     pub rest: RestBalance,
     /// What a remaining heart can buy before the boss.
@@ -254,6 +255,8 @@ pub struct MapRowBalance {
     pub shop: u32,
     #[serde(default)]
     pub draft: u32,
+    #[serde(default)]
+    pub treasure: u32,
     pub duel_tier: EnemyTier,
 }
 
@@ -288,6 +291,15 @@ pub struct DraftBalance {
     pub cards: u8,
     pub picks: u8,
     pub weights: RarityWeights,
+}
+
+/// A treasure node: a choice of up to `relics` relics the player doesn't
+/// own, or `gold` instead.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TreasureBalance {
+    pub relics: u8,
+    pub gold: u32,
 }
 
 /// Relative weights of the rarities when a card is picked at random.
@@ -348,7 +360,7 @@ fn validate_run(run: &RunBalance) -> Result<(), BalanceError> {
         return Err(BalanceError::MapShape);
     }
     for (index, row) in run.map.rows.iter().enumerate() {
-        if row.duel + row.elite + row.rest + row.shop + row.draft == 0 {
+        if row.duel + row.elite + row.rest + row.shop + row.draft + row.treasure == 0 {
             return Err(BalanceError::MapRowWeights(index));
         }
     }
@@ -444,6 +456,14 @@ mod tests {
                 (row.duel, row.elite, row.rest, row.shop) = (0, 0, 0, 0);
             }),
             Err(BalanceError::MapRowWeights(1))
+        );
+        // A row of nothing but treasure is a row.
+        assert_eq!(
+            check(|b| {
+                let row = &mut b.run.map.rows[1];
+                (row.duel, row.treasure) = (0, 1);
+            }),
+            Ok(())
         );
         assert_eq!(
             check(|b| b.run.draft.picks = b.run.draft.cards + 1),

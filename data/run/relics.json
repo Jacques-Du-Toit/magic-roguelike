@@ -53,5 +53,94 @@
     "name": "Lucky Coin",
     "text": "You get 10 more gold for each duel you win.",
     "effects": [{ "type": "gold_per_win", "amount": 10 }]
+  },
+  {
+    "id": "rally_horn",
+    "name": "Rally Horn",
+    "text": "You start each duel with a 1/1 Soldier token on the battlefield.",
+    "effects": [{ "type": "starting_token", "token": "soldier_token", "count": 1 }]
+  },
+  {
+    "id": "whetstone",
+    "name": "Whetstone",
+    "text": "The first creature to enter under your control each turn gets a +1/+1 counter.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+            "once_each_turn": true,
+            "effects": [{ "type": "add_counters", "target": { "triggering": {} }, "amount": 1 }]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pilgrims_flask",
+    "name": "Pilgrim's Flask",
+    "text": "The first time you gain life each turn, scry 1.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "gain_life" },
+            "once_each_turn": true,
+            "effects": [{ "type": "scry", "amount": 1 }]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "beast_tamers_whistle",
+    "name": "Beast Tamer's Whistle",
+    "text": "Whenever a creature with power 4 or greater enters under your control, you gain 2 life.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control", "min_power": 4 },
+            "effects": [{ "type": "gain_life", "player": "controller", "amount": 2 }]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "votive_candle",
+    "name": "Votive Candle",
+    "text": "Whenever you cast your first enchantment spell each turn, create a 1/1 Soldier token.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "cast_spell", "kind": "enchantment" },
+            "once_each_turn": true,
+            "effects": [{ "type": "create_token", "token": "soldier_token", "count": 1 }]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "surveyors_map",
+    "name": "Surveyor's Map",
+    "text": "You start each duel with a basic land on the battlefield.",
+    "effects": [{ "type": "starting_basic_land" }]
+  },
+  {
+    "id": "merchants_ledger",
+    "name": "Merchant's Ledger",
+    "text": "Shop prices are 20% lower.",
+    "effects": [{ "type": "shop_discount", "percent": 20 }]
   }
 ]

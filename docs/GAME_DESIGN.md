@@ -96,7 +96,7 @@ These are original characters (or generic archetypes) — not MTG's named planes
 | **Shop** | Buy cards, lands (incl. duals), relics. Pay to remove a card. |
 | **Rest** | Choose: upgrade a card, or remove a card. (Healing isn't needed with hearts; possibly "restore 1 heart" as a third option — playtest.) |
 | **Event** | Short text event with a trade-off choice (e.g. "add a powerful card with a drawback", "sacrifice a relic for two cards"). |
-| **Treasure** | Free relic or gold. |
+| **Treasure** | Choose one of two relics you don't own, or take gold instead. Built (`DECISIONS.md` #64). |
 
 ### 6.1 Card upgrades
 
