@@ -1,0 +1,24 @@
+{
+  "id": "sir_shandlar_of_eberyn",
+  "name": "Sir Shandlar of Eberyn",
+  "mana_cost": "{4}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Knight"
+  ],
+  "power": 4,
+  "toughness": 7,
+  "rarity": "rare",
+  "oracle_text": "",
+  "abilities": []
+}

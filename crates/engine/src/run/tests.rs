@@ -10,6 +10,7 @@ fn run(planeswalker: &str, seed: u64) -> RunState {
     new_run(
         RunConfig {
             planeswalker: PlaneswalkerId(planeswalker.to_string()),
+            emblem: None,
         },
         seed,
     )
@@ -155,12 +156,45 @@ fn a_new_run_has_the_starting_deck_hearts_and_gold() {
 fn an_unknown_planeswalker_is_an_error() {
     let config = RunConfig {
         planeswalker: PlaneswalkerId("nobody".to_string()),
+        emblem: None,
     };
     assert_eq!(
         new_run(config, 1),
         Err(RunError::UnknownPlaneswalker(PlaneswalkerId(
             "nobody".to_string()
         )))
+    );
+}
+
+#[test]
+fn a_run_takes_the_chosen_starting_emblem_or_the_characters_usual_one() {
+    assert_eq!(run("warden", 1).emblem.as_str(), "emblem_welcome");
+    assert_eq!(run("firebrand", 1).emblem.as_str(), "emblem_fury");
+
+    // Any emblem goes with any character.
+    let fury = ModifierId("emblem_fury".to_string());
+    let config = |emblem: &ModifierId| RunConfig {
+        planeswalker: PlaneswalkerId("warden".to_string()),
+        emblem: Some(emblem.clone()),
+    };
+    let mut state = new_run(config(&fury), 3).unwrap();
+    assert_eq!(state.emblem, fury);
+    assert_eq!(run_view(&state).unwrap().emblem, fury);
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    let duel = state.duel.as_ref().unwrap();
+    assert_eq!(duel.emblems[0].def.name, "Battle Fury");
+
+    let nothing = ModifierId("nothing".to_string());
+    assert_eq!(
+        new_run(config(&nothing), 3),
+        Err(RunError::UnknownEmblem(nothing))
+    );
+    // A relic is not a starting emblem.
+    let relic = data::embedded().unwrap().run.relics[0].id.clone();
+    assert_eq!(
+        new_run(config(&relic), 3),
+        Err(RunError::UnknownEmblem(relic))
     );
 }
 
@@ -231,12 +265,20 @@ fn a_duel_node_starts_a_duel_set_up_from_the_run() {
     assert_eq!(current_enemy(&state), Some(&enemy.id));
 
     let duel = state.duel.as_ref().unwrap();
-    // The player's 15 spells and 10 lands, and the passive as an emblem.
+    // The player's 15 spells and 10 lands, the starting emblem, and the
+    // commander waiting in the command zone.
     let player = duel.player(PLAYER);
     assert_eq!(player.hand.len() + player.library.len(), 25);
     assert_eq!(duel.emblems.len(), 1);
     assert_eq!(duel.emblems[0].controller, PLAYER);
-    assert_eq!(duel.emblems[0].def.name, "Warden's Welcome");
+    assert_eq!(duel.emblems[0].def.name, "Warm Welcome");
+    assert_eq!(player.command.len(), 1);
+    assert_eq!(
+        duel.objects[&player.command[0]].def.as_str(),
+        "jasmine_boreal"
+    );
+    // An easy enemy has no commander.
+    assert!(duel.player(ENEMY).command.is_empty());
 
     // While it is being played the run only offers to concede.
     assert_eq!(run_legal_actions(&state), [RunAction::Concede]);
@@ -516,7 +558,7 @@ fn a_relic_shapes_the_next_duel_and_the_gold_relic_pays_per_win() {
         .iter()
         .map(|emblem| emblem.def.name.as_str())
         .collect();
-    assert_eq!(names, ["Firebrand's Fury", "War Banner"]);
+    assert_eq!(names, ["Battle Fury", "War Banner"]);
 
     {
         let duel = state.duel.as_mut().unwrap();

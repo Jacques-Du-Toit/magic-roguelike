@@ -88,6 +88,10 @@ impl CardDef {
         self.has_type(CardType::Creature)
     }
 
+    pub fn is_legendary(&self) -> bool {
+        self.supertypes.contains(&Supertype::Legendary)
+    }
+
     pub fn is_aura(&self) -> bool {
         self.subtypes.iter().any(|subtype| subtype == "Aura")
     }
@@ -122,6 +126,9 @@ impl CardDef {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
 pub enum Supertype {
     Basic,
+    /// The cards that can be a commander. The legend rule itself is not
+    /// built: no deck holds a legendary card.
+    Legendary,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]

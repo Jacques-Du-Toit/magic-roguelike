@@ -28,6 +28,17 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
                 source,
             })?;
         }
+        if let Some(commander) = &player_config.commander {
+            let fits = cards
+                .get(&commander.card_id)
+                .is_some_and(|def| def.is_legendary() && def.is_creature());
+            if !fits {
+                return Err(ConfigError::Commander {
+                    player,
+                    card: commander.card_id.clone(),
+                });
+            }
+        }
         let cards_named = player_config
             .library
             .iter()
@@ -62,9 +73,15 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
             player,
             player_config.starting_permanents,
             player_config.emblems,
+            player_config.commander,
         ));
     }
-    for (player, permanents, emblems) in extras {
+    for (player, permanents, emblems, commander) in extras {
+        if let Some(instance) = commander {
+            let id = state.create_card(player, instance.card_id, Zone::Command);
+            let card = state.object(id)?.card;
+            state.player_mut(player).commander = Some(card);
+        }
         for instance in permanents {
             // There from the start, so not summoning sick, and nothing
             // triggers on it entering.

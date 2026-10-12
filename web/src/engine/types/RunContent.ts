@@ -7,7 +7,11 @@ import type { PlaneswalkerDef } from "./PlaneswalkerDef";
 /**
  * Everything a run can contain, for the UI to show names and texts.
  */
-export type RunContent = { planeswalkers: Array<PlaneswalkerDef>, relics: Array<ModifierDef>, boons: Array<ModifierDef>, enemies: Array<EnemyDef>, 
+export type RunContent = { planeswalkers: Array<PlaneswalkerDef>, 
+/**
+ * The starting emblems a run can be begun with.
+ */
+emblems: Array<ModifierDef>, relics: Array<ModifierDef>, boons: Array<ModifierDef>, enemies: Array<EnemyDef>, 
 /**
  * The cards a card reward or a shop can offer.
  */

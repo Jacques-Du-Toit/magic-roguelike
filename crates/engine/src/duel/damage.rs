@@ -133,6 +133,25 @@ pub(crate) fn creatures_die(
             permanent: creature,
             card: state.card_ref(card)?,
         });
+        note_commander_return(state, events, card)?;
+    }
+    Ok(())
+}
+
+/// Reports a commander that was on its way to a graveyard and went to its
+/// owner's command zone instead (see `DuelState::move_object`). `card` is
+/// the object the move produced.
+pub(crate) fn note_commander_return(
+    state: &DuelState,
+    events: &mut Vec<GameEvent>,
+    card: ObjectId,
+) -> Result<(), InternalError> {
+    let object = state.object(card)?;
+    if object.zone == Zone::Command {
+        events.push(GameEvent::CommanderReturned {
+            player: object.owner,
+            card: state.card_ref(card)?,
+        });
     }
     Ok(())
 }

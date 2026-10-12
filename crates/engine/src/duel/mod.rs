@@ -11,6 +11,8 @@ mod choice_tests;
 mod combat;
 #[cfg(test)]
 mod combat_tests;
+#[cfg(test)]
+mod commander_tests;
 mod config;
 #[cfg(test)]
 mod counter_tests;
@@ -60,8 +62,8 @@ pub use state::{
 };
 pub(crate) use turn::scry_card;
 pub use view::{
-    EmblemView, PermanentView, PlayerSummary, PlayerView, StackItemView, StackItemViewKind,
-    has_meaningful_action, player_view, redact_events, should_auto_pass,
+    CommanderView, EmblemView, PermanentView, PlayerSummary, PlayerView, StackItemView,
+    StackItemViewKind, has_meaningful_action, player_view, redact_events, should_auto_pass,
 };
 
 /// Every action `player` may take right now. Empty unless the game is

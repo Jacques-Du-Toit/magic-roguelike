@@ -1,0 +1,57 @@
+{
+  "id": "elas_il_kor_sadistic_pilgrim",
+  "name": "Elas il-Kor, Sadistic Pilgrim",
+  "mana_cost": "{W}{B}",
+  "colors": [
+    "W",
+    "B"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Phyrexian",
+    "Kor",
+    "Cleric"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "rare",
+  "keywords": [
+    "deathtouch"
+  ],
+  "oracle_text": "Deathtouch\nWhenever another creature you control enters, you gain 1 life.\nWhenever another creature you control dies, each opponent loses 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "another_creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "another_creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "lose_life",
+          "player": "opponent",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -40,6 +40,8 @@ interface Seen {
   phases: Set<string>
   nodes: Set<string>
   duels: number
+  /** Duels in which the enemy showed a commander. */
+  enemyCommanders: number
 }
 
 /** Does one thing on the run screen. Returns false once the run is over. */
@@ -108,7 +110,7 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
 
 /** Clicks through the run on screen until it is over. */
 async function playRun(page: Page, well: boolean): Promise<Seen> {
-  const seen: Seen = { phases: new Set(), nodes: new Set(), duels: 0 }
+  const seen: Seen = { phases: new Set(), nodes: new Set(), duels: 0, enemyCommanders: 0 }
   for (let step = 0; step < 200; step += 1) {
     await expect(run(page).or(duel(page))).toBeVisible()
     if (await duel(page).isVisible()) {
@@ -116,6 +118,15 @@ async function playRun(page: Page, well: boolean): Promise<Seen> {
       if (seen.duels === 1) {
         await idle(page).waitFor()
         await shot(page, 'run-duel')
+      }
+      // The player always has a commander; elites and the boss show theirs.
+      await expect(page.locator('[data-player="P1"] [data-testid="commander"]')).toBeVisible()
+      if (await page.locator('[data-player="P2"] [data-testid="commander"]').isVisible()) {
+        seen.enemyCommanders += 1
+        if (seen.enemyCommanders === 1) {
+          await idle(page).waitFor()
+          await shot(page, 'run-duel-enemy-commander')
+        }
       }
       await playDuel(page, well)
     } else if (!(await runStep(page, seen))) {
@@ -125,12 +136,19 @@ async function playRun(page: Page, well: boolean): Promise<Seen> {
   throw new Error('the run did not end')
 }
 
-test('the menu starts a run with the chosen planeswalker', async ({ page }) => {
+test('the menu starts a run with the chosen commander and emblem', async ({ page }) => {
   const errors = watchForErrors(page)
   await page.goto('/')
   await expect(page.getByTestId('planeswalker-warden')).toBeChecked()
   await shot(page, 'menu')
+  // Each character shows its commander, and comes with its usual emblem.
+  await expect(page.getByTestId('menu-commander').first()).toContainText('Jasmine Boreal')
+  await expect(page.getByTestId('emblem-emblem_welcome')).toBeChecked()
   await page.getByTestId('planeswalker-firebrand').check()
+  await expect(page.getByTestId('emblem-emblem_fury')).toBeChecked()
+  // Any emblem goes with any commander.
+  await page.getByTestId('emblem-emblem_welcome').check()
+  await shot(page, 'menu-firebrand-welcome')
   await page.getByTestId('run-seed-input').fill('nine')
   await page.getByTestId('start-run').click()
   await expect(page.getByRole('alert')).toHaveText('The seed must be a whole number.')
@@ -141,7 +159,8 @@ test('the menu starts a run with the chosen planeswalker', async ({ page }) => {
   await expect(page.getByTestId('seed')).toHaveText('Seed 9')
   await expect(page.getByTestId('hearts')).toContainText('3/3 hearts')
   await expect(page.getByTestId('gold')).toHaveText('30 gold')
-  await expect(page.getByTestId('passive')).toContainText('haste')
+  await expect(page.getByTestId('starting-emblem')).toContainText('Warm Welcome')
+  await expect(page.getByTestId('run-commander')).toContainText('Boris Devilboon')
   // Three ways to start, and the boss at the far end.
   await expect(page.locator('.map-node-open')).toHaveCount(3)
   await expect(page.locator('.map-node[data-kind="boss"]')).toHaveCount(1)
@@ -163,8 +182,8 @@ test('a duel in a run can be conceded, and costs a heart', async ({ page }) => {
   await page.locator('.map-node-open').first().click()
   await expect(duel(page)).toBeVisible()
   await expect(page.getByTestId('stakes')).toContainText('3 of 3 hearts')
-  // The passive is on show in the duel.
-  await expect(page.getByTestId('emblem')).toContainText("Warden's Welcome")
+  // The starting emblem is on show in the duel.
+  await expect(page.getByTestId('emblem')).toContainText('Warm Welcome')
   await page.getByRole('button', { name: 'Concede' }).click()
   await page.getByTestId('concede').click()
 
@@ -173,6 +192,43 @@ test('a duel in a run can be conceded, and costs a heart', async ({ page }) => {
   await expect(page.getByTestId('news')).toContainText('You lost to')
   await expect(page.getByTestId('news')).toContainText('You lose 1 heart (2 left).')
   await expect(page.locator('.map-node-here')).toHaveCount(1)
+})
+
+test('the commander waits in the command zone and is cast from it', async ({ page }) => {
+  test.setTimeout(300_000)
+  const errors = watchForErrors(page)
+  await page.goto('/?run=warden&seed=2&speed=instant&hints=1')
+  await page.locator('.map-node-open').first().click()
+  await expect(duel(page)).toBeVisible()
+  await idle(page).waitFor()
+  const mine = page.locator('[data-player="P1"] [data-testid="commander"]')
+  await expect(mine).toContainText('Jasmine Boreal')
+  // An easy enemy has none.
+  await expect(page.locator('[data-player="P2"] [data-testid="commander"]')).toHaveCount(0)
+
+  // Play as the engine suggests until the commander is on the battlefield.
+  const zone = page.getByTestId('command-zone')
+  const badge = page.getByTestId('commander-badge')
+  let sawZone = false
+  for (let step = 0; step < 800; step += 1) {
+    await idle(page).waitFor()
+    if (await badge.isVisible()) break
+    expect(await result(page).isVisible(), 'the duel ended before the commander was cast').toBe(false)
+    if (!sawZone && (await zone.isVisible())) {
+      sawZone = true
+      await expect(zone).toContainText('Commander')
+      await expect(zone.locator('.hand-card')).toHaveAttribute('data-card', 'jasmine_boreal')
+      await shot(page, 'duel-command-zone')
+    }
+    await followHint(page)
+  }
+  expect(sawZone).toBe(true)
+  await expect(badge).toBeVisible()
+  await expect(zone).toHaveCount(0)
+  await expect(mine).toContainText('in play')
+  await expect(page.getByTestId('log')).toContainText('You cast Jasmine Boreal')
+  await shot(page, 'duel-commander-in-play')
+  expect(errors).toEqual([])
 })
 
 test('the same seed gives the same run', async ({ page }) => {
@@ -240,5 +296,7 @@ for (const [planeswalker, seed] of ACTS) {
       expect.arrayContaining(['map', 'reward', 'shop', 'rest', 'boons', 'over']),
     )
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
+    // The elite and the boss each brought a commander.
+    expect(seen.enemyCommanders).toBeGreaterThanOrEqual(2)
   })
 }

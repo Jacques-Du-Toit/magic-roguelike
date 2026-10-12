@@ -100,6 +100,18 @@ impl ManaCost {
         self.colored().collect()
     }
 
+    /// This cost with `extra` more generic mana, e.g. for commander tax.
+    pub fn plus_generic(&self, extra: u32) -> ManaCost {
+        let mut symbols = self.symbols.clone();
+        if extra > 0 {
+            match symbols.first_mut() {
+                Some(ManaSymbol::Generic(amount)) => *amount = amount.saturating_add(extra),
+                _ => symbols.insert(0, ManaSymbol::Generic(extra)),
+            }
+        }
+        ManaCost { symbols }
+    }
+
     pub fn mana_value(&self) -> u32 {
         self.symbols
             .iter()
@@ -171,6 +183,13 @@ mod tests {
 
     fn cost(text: &str) -> ManaCost {
         text.parse().unwrap()
+    }
+
+    #[test]
+    fn generic_mana_can_be_added_to_a_cost() {
+        assert_eq!(cost("{3}{G}{W}").plus_generic(2), cost("{5}{G}{W}"));
+        assert_eq!(cost("{W}{B}").plus_generic(4), cost("{4}{W}{B}"));
+        assert_eq!(cost("{W}{B}").plus_generic(0), cost("{W}{B}"));
     }
 
     #[test]

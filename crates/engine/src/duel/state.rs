@@ -82,6 +82,16 @@ pub struct PlayerState {
     pub fatigue_draws: u32,
     /// Whether the life loss that took this player to 0 or less was fatigue.
     pub lost_to_fatigue: bool,
+    /// The player's cards in the command zone: their commander, while it is
+    /// not somewhere else.
+    #[serde(default)]
+    pub command: Vec<ObjectId>,
+    /// The physical card that is this player's commander, if they have one.
+    #[serde(default)]
+    pub commander: Option<CardId>,
+    /// How many times the commander has been cast from the command zone.
+    #[serde(default)]
+    pub commander_casts: u32,
 }
 
 impl PlayerState {
@@ -98,6 +108,9 @@ impl PlayerState {
             lands_played_this_turn: 0,
             fatigue_draws: 0,
             lost_to_fatigue: false,
+            command: Vec::new(),
+            commander: None,
+            commander_casts: 0,
         }
     }
 }
@@ -362,6 +375,9 @@ pub enum Zone {
     Battlefield,
     Graveyard,
     Stack,
+    /// Where a commander waits to be cast. (Emblems are there too, but
+    /// they are not cards.)
+    Command,
 }
 
 /// The steps of a turn, in order. The two main phases count as steps here.
@@ -757,8 +773,41 @@ impl DuelState {
             Zone::Hand => Some(&mut self.player_mut(owner).hand),
             Zone::Graveyard => Some(&mut self.player_mut(owner).graveyard),
             Zone::Battlefield => Some(&mut self.battlefield),
+            Zone::Command => Some(&mut self.player_mut(owner).command),
             Zone::Stack => None,
         }
+    }
+
+    /// Whether the object is its owner's commander, in whatever zone.
+    pub(crate) fn is_commander(&self, id: ObjectId) -> bool {
+        self.objects
+            .get(&id)
+            .is_some_and(|object| self.player(object.owner).commander == Some(object.card))
+    }
+
+    /// What `player`'s commander costs to cast from the command zone now:
+    /// its mana cost plus the tax for each earlier cast from there.
+    pub(crate) fn commander_cost(&self, player: PlayerId, def: &CardDef) -> crate::cards::ManaCost {
+        let tax = self
+            .rules
+            .commander_tax
+            .saturating_mul(self.player(player).commander_casts);
+        def.mana_cost.plus_generic(tax)
+    }
+
+    /// What casting the card costs its owner from where it is: a commander
+    /// in the command zone pays its tax.
+    pub(crate) fn casting_cost(
+        &self,
+        id: ObjectId,
+    ) -> Result<crate::cards::ManaCost, InternalError> {
+        let object = self.object(id)?;
+        let def = self.def(id)?;
+        Ok(if object.zone == Zone::Command {
+            self.commander_cost(object.owner, def)
+        } else {
+            def.mana_cost.clone()
+        })
     }
 
     pub(crate) fn next_object_id(&mut self) -> ObjectId {
@@ -805,11 +854,19 @@ impl DuelState {
     /// of the old one's status, and the new id is returned. A card moved to
     /// the library goes to the bottom; one moved to the stack still needs
     /// its `StackItem`.
+    ///
+    /// A commander on its way to a graveyard goes to its owner's command
+    /// zone instead, so the caller should look at where the new object is.
     pub(crate) fn move_object(
         &mut self,
         id: ObjectId,
         to: Zone,
     ) -> Result<ObjectId, InternalError> {
+        let to = if to == Zone::Graveyard && self.is_commander(id) {
+            Zone::Command
+        } else {
+            to
+        };
         let (owner, from) = {
             let object = self.object(id)?;
             (object.owner, object.zone)
@@ -883,6 +940,7 @@ impl DuelState {
                 (Zone::Library, &state.library),
                 (Zone::Hand, &state.hand),
                 (Zone::Graveyard, &state.graveyard),
+                (Zone::Command, &state.command),
             ] {
                 for id in list {
                     assert!(

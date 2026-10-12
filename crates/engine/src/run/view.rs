@@ -22,6 +22,8 @@ pub struct RunView {
     /// A `u64` in decimal.
     pub seed: String,
     pub planeswalker: PlaneswalkerId,
+    /// The starting emblem chosen for the run.
+    pub emblem: ModifierId,
     pub hearts: u8,
     pub max_hearts: u8,
     pub gold: u32,
@@ -55,6 +57,7 @@ pub fn run_view(state: &RunState) -> Result<RunView, RunError> {
     Ok(RunView {
         seed: state.seed.to_string(),
         planeswalker: state.planeswalker.clone(),
+        emblem: state.emblem.clone(),
         hearts: state.hearts,
         max_hearts: state.max_hearts,
         gold: state.gold,
@@ -74,6 +77,8 @@ pub fn run_view(state: &RunState) -> Result<RunView, RunError> {
 #[ts(export)]
 pub struct RunContent {
     pub planeswalkers: Vec<PlaneswalkerDef>,
+    /// The starting emblems a run can be begun with.
+    pub emblems: Vec<ModifierDef>,
     pub relics: Vec<ModifierDef>,
     pub boons: Vec<ModifierDef>,
     pub enemies: Vec<EnemyDef>,
@@ -85,6 +90,7 @@ pub fn run_content() -> Result<RunContent, RunError> {
     let data = data::embedded()?;
     Ok(RunContent {
         planeswalkers: data.run.planeswalkers.clone(),
+        emblems: data.run.emblems.clone(),
         relics: data.run.relics.clone(),
         boons: data.balance.run.boons.clone(),
         enemies: data.run.enemies.clone(),

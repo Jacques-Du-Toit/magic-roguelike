@@ -21,4 +21,8 @@ counters: number, damage: number,
 /**
  * For an Aura, the permanent it enchants.
  */
-attached_to: ObjectId | null, };
+attached_to: ObjectId | null, 
+/**
+ * It is its owner's commander.
+ */
+commander: boolean, };

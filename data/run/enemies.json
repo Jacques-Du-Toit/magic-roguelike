@@ -73,6 +73,7 @@
     "id": "town_militia",
     "name": "Town Militia",
     "tier": "elite",
+    "commander": "kongming_sleeping_dragon",
     "cards": [
       {"card":"savannah_lions","count":2},
       {"card":"glory_seeker","count":1},
@@ -92,6 +93,7 @@
     "id": "plague_court",
     "name": "Plague Court",
     "tier": "elite",
+    "commander": "elas_il_kor_sadistic_pilgrim",
     "cards": [
       {"card":"vampire_of_the_dire_moon","count":1},
       {"card":"typhoid_rats","count":1},
@@ -211,6 +213,7 @@
     "id": "grove_wardens",
     "name": "Grove Wardens",
     "tier": "elite",
+    "commander": "sir_shandlar_of_eberyn",
     "cards": [
       {"card":"llanowar_elves","count":1},
       {"card":"savannah_lions","count":1},
@@ -254,6 +257,7 @@
     "id": "angelic_host",
     "name": "Angelic Host",
     "tier": "elite",
+    "commander": "tobias_andrion",
     "cards": [
       {"card":"healers_hawk","count":2},
       {"card":"angelic_wall","count":1},
@@ -315,6 +319,7 @@
     "id": "pyre_tyrant",
     "name": "The Pyre Tyrant",
     "tier": "boss",
+    "commander": "the_lady_of_the_mountain",
     "cards": [
       {"card":"llanowar_elves","count":2},
       {"card":"goblin_piker","count":1},

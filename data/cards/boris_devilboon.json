@@ -1,0 +1,38 @@
+{
+  "id": "boris_devilboon",
+  "name": "Boris Devilboon",
+  "mana_cost": "{3}{B}{R}",
+  "colors": [
+    "B",
+    "R"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Zombie",
+    "Wizard"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "rare",
+  "oracle_text": "{2}{B}{R}, {T}: Create a 1/1 black and red Demon creature token named Minor Demon.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{2}{B}{R}",
+        "tap": true
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "minor_demon_token"
+        }
+      ]
+    }
+  ]
+}

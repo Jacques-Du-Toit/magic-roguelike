@@ -6,7 +6,9 @@
 use super::abilities::legal_activations;
 use super::action::{Action, GameEvent, Target};
 use super::combat;
-use super::damage::{LifeCause, change_life, check_state_based_actions, end_of_turn_cleanup};
+use super::damage::{
+    LifeCause, change_life, check_state_based_actions, end_of_turn_cleanup, note_commander_return,
+};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::mana::empty_mana_pools;
@@ -495,7 +497,7 @@ pub(crate) fn discard_card(
         player,
         card: state.card_ref(discarded)?,
     });
-    Ok(())
+    note_commander_return(state, events, discarded)
 }
 
 /// The player draws a card, or takes fatigue if their library is empty: 1

@@ -38,7 +38,14 @@ export function MulliganOverlay({ view, cards, prompt, playable, onCard, buttons
         {view.starting_player === HUMAN ? 'You take the first turn.' : 'The opponent takes the first turn.'}{' '}
         Mulligans so far: you {you.mulligans_taken}, opponent {opponent.mulligans_taken}.
       </p>
-      <Hand hand={you.hand} cards={cards} playable={playable} selected={null} onCard={onCard} />
+      <Hand
+        hand={you.hand}
+        commander={null}
+        cards={cards}
+        playable={playable}
+        selected={null}
+        onCard={onCard}
+      />
       <p className="prompt-text" data-testid="prompt">
         {prompt}
       </p>

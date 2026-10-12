@@ -103,10 +103,11 @@ pub struct Run {
 
 #[wasm_bindgen]
 impl Run {
-    /// `seed` is a `u64` as a decimal string.
+    /// `emblem` is the starting emblem's id, or empty for the planeswalker's
+    /// usual one. `seed` is a `u64` as a decimal string.
     #[wasm_bindgen(constructor)]
-    pub fn new(planeswalker: &str, seed: &str) -> Result<Run, JsError> {
-        RunSession::new(planeswalker, seed)
+    pub fn new(planeswalker: &str, emblem: &str, seed: &str) -> Result<Run, JsError> {
+        RunSession::new(planeswalker, emblem, seed)
             .map(|session| Run { session })
             .map_err(js_error)
     }

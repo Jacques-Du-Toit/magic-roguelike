@@ -234,6 +234,10 @@ export class DuelController {
     }
     for (const player of view.players) {
       for (const emblem of player.emblems) this.#emblemNames.set(emblem.id, emblem.name)
+      const commander = player.commander
+      if (commander && commander.object !== null) {
+        this.#objectDefs.set(commander.object, commander.def)
+      }
       for (const card of [...player.hand, ...player.graveyard]) {
         if (card.face) this.#objectDefs.set(card.object, card.face.def)
       }

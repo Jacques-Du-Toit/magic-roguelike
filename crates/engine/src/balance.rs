@@ -72,6 +72,9 @@ pub struct DuelBalance {
     /// How many candidate opening hands are dealt; 1 turns smoothing off.
     pub smoothing_candidates: u8,
     pub fatigue: FatigueBalance,
+    /// Generic mana a commander costs more for each time it has already
+    /// been cast from the command zone this duel.
+    pub commander_tax: u32,
 }
 
 /// Life lost for drawing from an empty library: `first_life_loss`, growing

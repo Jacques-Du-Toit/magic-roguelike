@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
-use crate::cards::{AbilityDef, CardDefId, Color, EmblemDef, EmblemError, validate_emblem};
+use crate::cards::{
+    AbilityDef, CardDef, CardDefId, Color, EmblemDef, EmblemError, validate_emblem,
+};
 use crate::data::CardDatabase;
 use crate::decks::DeckEntry;
 
@@ -111,7 +113,13 @@ pub struct PlaneswalkerDef {
     pub colors: Vec<Color>,
     /// The starting deck without its basic lands, which the run adds.
     pub spells: Vec<DeckEntry>,
-    pub passive: ModifierDef,
+    /// The legendary creature this character casts from the command zone,
+    /// in the character's colours. It is not part of the deck.
+    #[serde(default)]
+    pub commander: Option<CardDefId>,
+    /// The starting emblem (one of `data/run/emblems.json`) this character
+    /// takes when the player doesn't choose another.
+    pub emblem: ModifierId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -134,12 +142,18 @@ pub struct EnemyDef {
     pub cards: Vec<DeckEntry>,
     #[serde(default)]
     pub modifiers: Vec<ModifierDef>,
+    /// The legendary creature this enemy casts from the command zone, in
+    /// its deck's colours.
+    #[serde(default)]
+    pub commander: Option<CardDefId>,
 }
 
 /// The run content loaded from `data/run/`. Each list is in file order.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RunData {
     pub planeswalkers: Vec<PlaneswalkerDef>,
+    /// The starting emblems: the player takes one into the run.
+    pub emblems: Vec<ModifierDef>,
     pub relics: Vec<ModifierDef>,
     pub enemies: Vec<EnemyDef>,
 }
@@ -147,6 +161,10 @@ pub struct RunData {
 impl RunData {
     pub fn planeswalker(&self, id: &PlaneswalkerId) -> Option<&PlaneswalkerDef> {
         self.planeswalkers.iter().find(|def| def.id == *id)
+    }
+
+    pub fn emblem(&self, id: &ModifierId) -> Option<&ModifierDef> {
+        self.emblems.iter().find(|def| def.id == *id)
     }
 
     pub fn relic(&self, id: &ModifierId) -> Option<&ModifierDef> {
@@ -189,6 +207,14 @@ pub enum RunDataError {
     BadEntry { id: String, card: CardDefId },
     #[error("`{id}`: `{card}` is a land; the run adds a starting deck's lands itself")]
     LandInSpells { id: String, card: CardDefId },
+    #[error("`{id}`: the commander `{card}` is not a legendary creature card")]
+    BadCommander { id: String, card: CardDefId },
+    #[error("`{id}`: the commander `{card}` is not in the deck's colours")]
+    CommanderColors { id: String, card: CardDefId },
+    #[error("`{id}`: there is no starting emblem `{emblem}`")]
+    UnknownEmblem { id: String, emblem: ModifierId },
+    #[error("there must be at least one starting emblem")]
+    NoEmblems,
     #[error("there must be at least one planeswalker")]
     NoPlaneswalkers,
     #[error("there must be at least one enemy of tier {0:?}")]
@@ -274,6 +300,45 @@ fn validate_entries(
     Ok(())
 }
 
+/// Checks a commander: a legendary creature card whose colours are all
+/// among `colors`, the colours of the deck it leads.
+fn validate_commander(
+    id: &str,
+    commander: &CardDefId,
+    colors: &[Color],
+    cards: &CardDatabase,
+) -> Result<(), RunDataError> {
+    let def = cards
+        .get(commander)
+        .filter(|def| def.is_legendary() && def.is_creature() && !def.token)
+        .ok_or_else(|| RunDataError::BadCommander {
+            id: id.to_string(),
+            card: commander.clone(),
+        })?;
+    if def.colors.iter().all(|color| colors.contains(color)) {
+        Ok(())
+    } else {
+        Err(RunDataError::CommanderColors {
+            id: id.to_string(),
+            card: commander.clone(),
+        })
+    }
+}
+
+/// A deck entry can't be a legendary card: those are commanders.
+fn no_legends(id: &str, entries: &[DeckEntry], cards: &CardDatabase) -> Result<(), RunDataError> {
+    match entries
+        .iter()
+        .find(|entry| cards.get(&entry.card).is_some_and(CardDef::is_legendary))
+    {
+        Some(entry) => Err(RunDataError::BadEntry {
+            id: id.to_string(),
+            card: entry.card.clone(),
+        }),
+        None => Ok(()),
+    }
+}
+
 fn unique<'a>(ids: impl Iterator<Item = &'a str>) -> Result<(), RunDataError> {
     let mut seen = BTreeSet::new();
     for id in ids {
@@ -289,6 +354,14 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
     if run.planeswalkers.is_empty() {
         return Err(RunDataError::NoPlaneswalkers);
     }
+    if run.emblems.is_empty() {
+        return Err(RunDataError::NoEmblems);
+    }
+    unique(run.emblems.iter().map(|def| def.id.as_str()))?;
+    for emblem in &run.emblems {
+        validate_modifier(emblem, ModifierKind::Passive)?;
+    }
+
     unique(run.planeswalkers.iter().map(|def| def.id.as_str()))?;
     for planeswalker in &run.planeswalkers {
         let id = planeswalker.id.as_str();
@@ -308,7 +381,16 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
                 });
             }
         }
-        validate_modifier(&planeswalker.passive, ModifierKind::Passive)?;
+        no_legends(id, &planeswalker.spells, cards)?;
+        if run.emblem(&planeswalker.emblem).is_none() {
+            return Err(RunDataError::UnknownEmblem {
+                id: id.to_string(),
+                emblem: planeswalker.emblem.clone(),
+            });
+        }
+        if let Some(commander) = &planeswalker.commander {
+            validate_commander(id, commander, &planeswalker.colors, cards)?;
+        }
     }
 
     unique(run.relics.iter().map(|def| def.id.as_str()))?;
@@ -324,6 +406,17 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
             return Err(RunDataError::EmptyText(id.to_string()));
         }
         validate_entries(id, &enemy.cards, cards)?;
+        no_legends(id, &enemy.cards, cards)?;
+        if let Some(commander) = &enemy.commander {
+            // An enemy's colours are those of the cards in its deck.
+            let colors: Vec<Color> = enemy
+                .cards
+                .iter()
+                .filter_map(|entry| cards.get(&entry.card))
+                .flat_map(|card| card.colors.iter().copied())
+                .collect();
+            validate_commander(id, commander, &colors, cards)?;
+        }
         for modifier in &enemy.modifiers {
             validate_modifier(modifier, ModifierKind::Enemy)?;
         }

@@ -1,0 +1,11 @@
+{
+  "id": "minor_demon_token",
+  "name": "Minor Demon",
+  "mana_cost": "",
+  "colors": ["B", "R"],
+  "types": ["Creature"],
+  "subtypes": ["Demon"],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common"
+}

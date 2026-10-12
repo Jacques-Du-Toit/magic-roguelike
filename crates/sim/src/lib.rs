@@ -28,8 +28,9 @@ pairing uses seed S + i (S defaults to 1), so a run can be repeated exactly.
 In the report's game i (counting from 0), the first-named deck is P1 when i
 is even and P2 when i is odd.
 
---enemies plays each planeswalker's starting deck, with its passive, against
-every enemy deck of the run, with its emblems, instead of the test decks.
+--enemies plays each planeswalker's starting deck, with its commander and its
+usual starting emblem, against every enemy deck of the run, with its emblems
+and its commander if it has one, instead of the test decks.
 The planeswalker is always P1, as the human is in a run.
 
 --runs plays N whole runs with each planeswalker instead: the AI plays both
@@ -211,10 +212,15 @@ fn run_enemies(options: &Options) -> Result<Vec<PairingStats>, String> {
     let mut all = Vec::new();
     for planeswalker in &data.run.planeswalkers {
         for enemy in &data.run.enemies {
+            let emblem = data
+                .run
+                .emblem(&planeswalker.emblem)
+                .ok_or_else(|| format!("no starting emblem `{}`", planeswalker.emblem))?;
             let player = Loadout::player(
                 &starting_deck(planeswalker),
                 &planeswalker.colors,
-                vec![&planeswalker.passive],
+                planeswalker.commander.as_ref(),
+                vec![emblem],
                 &data.cards,
                 &data.balance,
             )

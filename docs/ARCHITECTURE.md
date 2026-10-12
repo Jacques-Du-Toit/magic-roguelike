@@ -114,8 +114,18 @@ pub struct PlayerConfig {
     pub opening_hand_size: u8,
     pub starting_permanents: Vec<CardInstance>, // on the battlefield from the start
     pub emblems: Vec<EmblemDef>,                // in the command zone for the whole duel
+    pub commander: Option<CardInstance>,        // starts in the command zone, outside the library
 }
 ```
+
+### Commanders (a prototype, `DECISIONS.md` #37 and #45)
+
+A player may have a commander: a legendary creature that is not in their library. It is an ordinary card object in `Zone::Command`, listed in `PlayerState::command`, and `PlayerState::commander` remembers which physical card it is.
+
+- It is cast with the same `CastSpell { card, targets }` action as a card in hand, naming its object in the command zone, so the AI and the UI need nothing new. `DuelState::casting_cost` is what a card costs from where it is: a commander in the command zone pays `RulesConfig::commander_tax` (from `duel.commander_tax` in `balance.json`) for each earlier cast from there.
+- `DuelState::move_object` sends a commander that is headed for a graveyard to its owner's command zone instead. That one place covers dying, being countered and being discarded; the event that says what happened to it is followed by `CommanderReturned`. Abilities that trigger on a creature dying see it die as usual. Moved to a hand, it stays there and is cast at its printed cost.
+- `PlayerSummary::commander` shows both players the card, its current cost and, while it is in the command zone, the object to cast. `PermanentView::commander` marks it on the battlefield.
+- The legend rule is not built: a legendary card is never in a deck, a reward or a shop.
 
 An `EmblemDef` is a name, a text and a list of abilities in the card ability format. Emblems may have triggered abilities and static ones (`anthem` and `grant_keyword`, affecting `creatures_you_control`). An emblem is not a permanent, so its triggers are the ones about its controller: `beginning_of_upkeep`, `gain_life`, `cast_spell`, and `enters_battlefield` or `dies` with subject `creature_you_control`; and its effects can't have chosen targets yet, though they may refer to `triggering`. Their triggers use the stack like any other. The run builds them from modifiers (§6).
 
@@ -138,7 +148,7 @@ A **`CardInstance`** is `{ card_id, upgrades }`, not a bare card id. `upgrades` 
 
 Cards are JSON in `data/cards/`, one file per card, embedded at compile time with the `include_dir` crate (so the same loader works natively and in wasm; the engine does no file IO). Each card = Scryfall-derived fields + our ability definitions built from **effect primitives**.
 
-Fields: `id`, `name`, `mana_cost`, `colors`, `supertypes`, `types`, `subtypes`, `power`/`toughness` (creatures), `rarity`, `keywords`, `oracle_text`, `enchant` (Auras), `enters_tapped` (lands), `abilities`. Omitted optional fields default to empty. The examples below cover every shape the M1 starter set needs.
+Fields: `id`, `name`, `mana_cost`, `colors`, `supertypes` (`Basic` or `Legendary`), `types`, `subtypes`, `power`/`toughness` (creatures), `rarity`, `keywords`, `oracle_text`, `enchant` (Auras), `enters_tapped` (lands), `abilities`. Omitted optional fields default to empty. The examples below cover every shape the M1 starter set needs.
 
 Instant with a target:
 
@@ -320,7 +330,7 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 
 ## 5. Duel internals
 
-- **Zones**: library, hand, battlefield, graveyard, exile, stack, command (emblems). Lands are in the library, as in normal Magic.
+- **Zones**: library, hand, battlefield, graveyard, exile, stack, command (emblems, and a commander waiting to be cast). Lands are in the library, as in normal Magic.
 - **Opening-hand smoothing**: at the start of the duel the engine shuffles and deals `smoothing_candidates` opening hands (default 3) using the seeded RNG, and keeps the one whose land count is closest to the deck's land ratio × hand size (ties: the first dealt). The rest of the library is then shuffled normally. Setting the number to 1 turns smoothing off. Mulligan hands are smoothed the same way.
 - **Mulligan**: London mulligan. Draw a fresh hand, then put one card on the bottom per mulligan taken. The starting player decides first and players who haven't kept take turns deciding; the bottoming happens when a player keeps.
 - **Fatigue**: if a player would draw from an empty library, they instead lose life: 1 the first time, 2 the second, and so on (per-player counter). There is no lose-on-empty-library rule.
@@ -340,15 +350,17 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 
 The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's shape: plain serialisable state, a seeded RNG inside it, legal actions, and actions that return events.
 
-- **`RunState`**: seed, planeswalker, hearts, gold, deck, relics, boons, the map, the path walked, the phase, the duel in progress (if any) and the RNG. The deck is the player's spells and non-basic lands as `CardInstance`s; basic lands are not stored.
+- **`RunState`**: seed, planeswalker, the starting emblem chosen, hearts, gold, deck, relics, boons, the map, the path walked, the phase, the duel in progress (if any) and the RNG. The deck is the player's spells and non-basic lands as `CardInstance`s; basic lands are not stored.
 - **Phases**: `Map` (choose a node), `Duel`, `Reward` (pick a card or none), `Rest`, `Shop`, `Boons` (before the boss), `Over`. `run_legal_actions` lists what can be done in each, and is empty only when the run is over.
 - **Run actions**: `Travel`, `Concede`, `FinishDuel`, `TakeReward`, `SkipReward`, `RestHeal`, `RemoveCard`, `Buy`, `Leave`, `TakeBoon`, `StartBoss`.
 - **The duel inside a run** is created by the run and kept in `RunState::duel`, so one state holds everything and the same seed and actions replay the run, duels included. Duel actions go through `apply_duel_action`. While the duel is being played the run offers only `Concede`; once it has a result, only `FinishDuel`, which applies the consequences (gold, a heart, a relic, a card reward, the end of the run). The human is always P1.
 - **Map generation** (`map.rs`): a layered graph. One path starts in each column of the first row and wanders at most one column sideways per row, never crossing another; the cells the paths visit are the nodes, and the boss follows the last row. Each node's kind is drawn from its row's weights. A row with a choice of kinds never shows only one, and a row with a single node is never an elite.
-- **Modifiers** (`defs.rs`, `loadout.rs`): relics, boons, planeswalker passives and boss emblems are all `ModifierDef`s: an id, a name, a text and a list of effects. An effect changes a player's starting life, changes the opening hand size, adds a starting basic land, gives its owner abilities (which become an emblem named after the modifier), or pays gold per duel won (relics only; it acts on the run). `duel_config(player, enemy)` turns two `Loadout`s (a library and its modifiers) into a `DuelConfig`; it is the only place modifiers reach the duel.
+- **Modifiers** (`defs.rs`, `loadout.rs`): relics, boons, planeswalker passives and boss emblems are all `ModifierDef`s: an id, a name, a text and a list of effects. An effect changes a player's starting life, changes the opening hand size, adds a starting basic land, gives its owner abilities (which become an emblem named after the modifier), or pays gold per duel won (relics only; it acts on the run). `duel_config(player, enemy)` turns two `Loadout`s (a library, its modifiers and its commander, if any) into a `DuelConfig`; it is the only place modifiers reach the duel.
+- **Starting emblems** (`emblems.json`): what used to be a character's passive is now a modifier the player picks when the run starts (`RunConfig::emblem`; `None` takes the character's usual one, `PlaneswalkerDef::emblem`). Any emblem goes with any character.
+- **Commanders**: a character and an enemy may each name a `commander`, a legendary creature card. The loader checks that it is one and that its colours are among the character's (for an enemy, among those of the cards in its deck), and that no deck holds a legendary card.
 - **Automatic basic lands** (`lands.rs`): lands are a share of the finished deck (`land_percent`), split between colours by the coloured mana symbols of the spells using largest remainders, with a minimum per colour used. A non-basic land replaces a basic of one of its colours. They are worked out whenever the deck is used or shown.
 - **Rewards and shops** (`rewards.rs`): a card is picked by first choosing a rarity by weight, among the rarities on offer, then a card of it. The first `own_color_choices` cards of an offer come from the planeswalker's colours; since `DECISIONS.md` #35 that is all of them.
-- **Content** is data: `data/run/planeswalkers.json`, `enemies.json` (hand-built decks with lands, a tier, and any modifiers; the tier follows what `sim --enemies` measures) and `relics.json`. Boons and every number (hearts, gold, prices, weights, map shape, land share) are in `data/balance.json` under `run`.
+- **Content** is data: `data/run/planeswalkers.json`, `emblems.json`, `enemies.json` (hand-built decks with lands, a tier, and any modifiers; the tier follows what `sim --enemies` measures) and `relics.json`. Boons and every number (hearts, gold, prices, weights, map shape, land share) are in `data/balance.json` under `run`.
 - **`RunView`** is what the UI gets: the run without its RNG and its duel, plus the basic lands that go with the deck and the legal run actions. `run_content()` gives the definitions for names and texts.
 ## 7. AI
 
@@ -366,7 +378,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 
 - `engine-wasm` owns the `DuelState` inside wasm memory and exposes a handle. State is never round-tripped through JavaScript.
 - The handle is `Duel`, made with `new Duel(human_deck, ai_deck, seed)` from two deck ids. The human is always P1 and the AI P2. Its methods: `apply(action) -> DuelUpdate` for the human, `ai_step() -> DuelUpdate` for the opponent, plus `view()`, `legal_actions()`, `has_meaningful_action()`, `should_auto_pass(hold_priority)` and `seed()`. A `DuelUpdate` is `{ events, view }`, with the events already redacted for the human.
-- A run has its own handle, `Run`, made with `new Run(planeswalker, seed)`. It owns the `RunState` and with it the duel in progress. `view()` returns the `RunView` and `apply(action)` a `RunUpdate` (`{ events, view }`). The duel is reached through the same handle: `duel_view()`, `duel_legal_actions()`, `duel_should_auto_pass(hold_priority)`, `duel_apply(action)` and `duel_ai_step()`, which mirror `Duel`'s methods. TypeScript never builds a duel or reports its result; it sends `finish_duel` and the engine reads the result from its own state.
+- A run has its own handle, `Run`, made with `new Run(planeswalker, emblem, seed)`; an empty `emblem` takes the character's usual starting emblem. It owns the `RunState` and with it the duel in progress. `view()` returns the `RunView` and `apply(action)` a `RunUpdate` (`{ events, view }`). The duel is reached through the same handle: `duel_view()`, `duel_legal_actions()`, `duel_should_auto_pass(hold_priority)`, `duel_apply(action)` and `duel_ai_step()`, which mirror `Duel`'s methods. TypeScript never builds a duel or reports its result; it sends `finish_duel` and the engine reads the result from its own state.
 - `duel_suggest()` returns what the AI would do in the human's place. The end-to-end tests use it (see §9); the player is not shown it.
 - `card_defs()`, `decks()` and `run_content()` return every card definition, decklist, and planeswalker, relic, boon and enemy, so the UI can show names, costs and text.
 - The crate's logic is in `session.rs`, which is plain Rust and tested natively; `lib.rs` only wraps it for wasm-bindgen.
@@ -389,6 +401,7 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 - `web/e2e/` — Playwright tests that click through the real app: whole duels, and whole acts. With `?hints` in the address the page exposes the engine's suggested duel action, and the act tests follow it by clicking the same things a player would, which lets them reach and beat the boss.
 - State: the engine owns game state; React renders the controller's snapshot (the view on screen, the legal actions, the log and the effects being animated).
 - Every legal action is reachable from the screen: card actions through the hand, declarations and targets through the battlefield, the stack and the player panels, and the rest (pass, confirm, reset, keep, mulligan) as buttons built from the legal-action list.
-- A run can be started from the address, e.g. `?run=warden&seed=7&speed=instant`; "Copy bug report" on the run screen copies the planeswalker, the seed and everything the player did.
+- The menu asks for a commander (the character) and then a starting emblem. In a duel the human's commander sits at the left end of the hand while it is in the command zone, with what it costs now, and is clicked like a hand card; each player's panel names their commander and says where it is.
+- A run can be started from the address, e.g. `?run=warden&seed=7&speed=instant` (add `&emblem=emblem_fury` for a starting emblem other than the character's usual one); "Copy bug report" on the run screen copies the planeswalker, the seed and everything the player did.
 - A practice duel can be started from the address, e.g. `?seed=7&you=deck_b&ai=deck_a&speed=instant`. The seed and the two decks are enough to replay a game; "Copy bug report" on the duel screen copies them with the human's actions.
 - Placeholder card frames (text-based) until art is added.

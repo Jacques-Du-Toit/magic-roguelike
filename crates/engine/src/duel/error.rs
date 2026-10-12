@@ -31,6 +31,8 @@ pub enum ConfigError {
         name: String,
         source: EmblemError,
     },
+    #[error("{player:?}'s commander `{card}` is not a legendary creature")]
+    Commander { player: PlayerId, card: CardDefId },
     #[error("{0:?}'s starting life must be above zero")]
     StartingLife(PlayerId),
     #[error("smoothing_candidates must be at least 1")]

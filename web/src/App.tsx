@@ -67,7 +67,8 @@ function endGame(game: Game | null): void {
 
 /**
  * What the address asks for: a practice duel such as
- * `?seed=7&you=deck_b&ai=deck_a`, or a run such as `?run=warden&seed=7`.
+ * `?seed=7&you=deck_b&ai=deck_a`, or a run such as `?run=warden&seed=7`
+ * (with `&emblem=emblem_fury` for a starting emblem other than the usual).
  */
 function choiceFromAddress(): {
   choice: GameChoice
@@ -85,7 +86,11 @@ function choiceFromAddress(): {
       aiDeck: params.get('ai') ?? 'random',
       seed: run === null ? seed : '',
     },
-    run: { planeswalker: run ?? '', seed: run === null ? '' : seed },
+    run: {
+      planeswalker: run ?? '',
+      emblem: params.get('emblem') ?? '',
+      seed: run === null ? '' : seed,
+    },
     start: run !== null ? 'run' : params.has('seed') ? 'duel' : null,
     speed: isSpeed(speed) ? speed : null,
   }
@@ -161,7 +166,7 @@ function App() {
       return
     }
     try {
-      const run = new Run(choice.planeswalker, seed)
+      const run = new Run(choice.planeswalker, choice.emblem, seed)
       previous?.run.free()
       staleRun.current?.free()
       staleRun.current = null
@@ -288,6 +293,7 @@ function App() {
         decks={status.decks}
         cards={status.cards}
         planeswalkers={status.content.planeswalkers}
+        emblems={status.content.emblems}
         initial={lastChoice}
         initialRun={lastRun}
         randomDecks={RANDOM_AI_DECKS.map((deck) => deckNames.get(deck) ?? deck)}

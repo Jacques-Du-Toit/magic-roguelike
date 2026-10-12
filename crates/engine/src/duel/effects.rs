@@ -1,7 +1,7 @@
 //! Carrying out effect primitives.
 
 use super::action::{GameEvent, Target};
-use super::damage::{LifeCause, change_life, deal_damage, destroy_creature};
+use super::damage::{LifeCause, change_life, deal_damage, destroy_creature, note_commander_return};
 use super::error::InternalError;
 use super::ids::{ObjectId, PlayerId};
 use super::stack::permanent_entered;
@@ -272,5 +272,5 @@ fn counter_spell(
         player,
         card: state.card_ref(card)?,
     });
-    Ok(())
+    note_commander_return(state, events, card)
 }

@@ -1,0 +1,23 @@
+{
+  "id": "the_lady_of_the_mountain",
+  "name": "The Lady of the Mountain",
+  "mana_cost": "{4}{R}{G}",
+  "colors": [
+    "R",
+    "G"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Giant"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "rare",
+  "oracle_text": "",
+  "abilities": []
+}

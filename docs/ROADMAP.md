@@ -2,7 +2,7 @@
 
 Build in small milestones. Each has **acceptance criteria**; a milestone is done only when all are met and `cargo test` passes. Don't start the next milestone's features early.
 
-**Active milestone: M4** (M4a is done: the owner played a whole run on 2026-10-12. Next: the commander prototype, then M4b, the better AI)
+**Active milestone: M4** (M4a is done: the owner played a whole run on 2026-10-12. The commander prototype is built and waiting to be played; then M4b, the better AI)
 
 ---
 
@@ -167,6 +167,28 @@ Known limits, left for later parts:
 - The elites range widely (15–47%) and the normal decks more so; the tiers are a first sorting, not a balance pass.
 - Blue cards and the gold cards of other colour pairs are only met in enemy decks until there are characters of those colours (M4c).
 - An emblem's `create_token` is not checked against the token files when the data loads (no relic uses one yet).
+
+**Commander prototype (2026-10-12):** built, to be played and judged before M4b (`DECISIONS.md` #37 is still open; the prototype's rules are #45 and #46).
+
+- A character now has a commander: a legendary creature in its colours that waits in the command zone, beside the hand, and is cast from there. When it dies or is countered it goes back, and each cast from the command zone costs {2} more than the last (`duel.commander_tax` in `balance.json`). Bounced, it goes to hand and is cast from there at its printed cost. There is no commander damage.
+- The Warden's is Jasmine Boreal ({3}{G}{W}, 4/5) and the Firebrand's is Boris Devilboon ({3}{B}{R}, 2/2, makes 1/1 Demons). The four elites and the boss have one too, shown in their panel from the first turn: Kongming (Town Militia), Elas il-Kor (Plague Court), Sir Shandlar of Eberyn (Grove Wardens), Tobias Andrion (Angelic Host) and The Lady of the Mountain (the Pyre Tyrant). Easy and normal enemies have none. None of the seven cards needed a new rule.
+- The old passives are now starting emblems (`data/run/emblems.json`: Warm Welcome and Battle Fury), chosen on the menu after the commander. Either goes with either character; each character has a usual one, which the sim uses.
+- To take commanders out again: delete the `commander` lines in `data/run/planeswalkers.json` and `enemies.json`. Nothing else depends on them.
+- Checks: 508 Rust tests, 69 web tests and 22 end-to-end tests pass; 136 cards match Scryfall. The end-to-end tests pick an emblem on the menu, see the commander in the command zone, cast it by clicking, and see an elite's and the boss's commander. A commander dying and coming back is covered by the Rust tests only.
+
+What the commanders did to the sim, with the v1 AI on both sides (`--games 400`, before → after):
+
+- `sim --runs`: the Warden wins the act in 38.0% → 44.8% of runs, the Firebrand in 38.5% → 36.3%. Elites: the Warden wins 29% → 31% of them, the Firebrand 29% → 25%. The boss, for those who reach it: 42% → 46% and 48% → 45%.
+- `sim --enemies`, starting decks: Jasmine Boreal, a 4/5 always on hand, lifts the Warden a great deal against the normal decks (Wild Hunt 35% → 66%, Primal Stampede 47% → 76%, Fire Giants 67% → 94%). Boris Devilboon changes little for the Firebrand (within about 8 points either way).
+- The elites with a commander that does something got much harder: Plague Court with Elas il-Kor (Warden 30% → 12%, Firebrand 41% → 33%) and Town Militia with Kongming (Warden 39% → 25%, Firebrand 15% → 8%). The two with vanilla commanders got easier for the Warden, whose own commander matters more than theirs. The boss: Warden 16% → 24%, Firebrand 25% → 24%.
+- So the two characters' commanders are far from equal in strength, and neither are the enemies'. That is left alone until the owner has decided whether commanders stay; balance is M4d.
+
+**For M4b, the owner wants these measured and reported** (asked 2026-10-12):
+
+1. How much better the new AI is than the old one: new against old on the same decks with seats swapped, mirror matches included.
+2. Which decks become much better or much worse when both sides play the new AI, compared with both sides playing the old one.
+
+Later idea, not for M4b: the AI gets more competent as the run goes on (weaker search for early enemies). For now every enemy plays at one strength and difficulty comes from decks, commanders and emblems.
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)

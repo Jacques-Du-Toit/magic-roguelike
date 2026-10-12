@@ -458,11 +458,10 @@ fn firebrand_passive() -> EmblemDef {
     crate::data::embedded()
         .unwrap()
         .run
-        .planeswalkers
+        .emblems
         .iter()
-        .find(|planeswalker| planeswalker.id.as_str() == "firebrand")
+        .find(|emblem| emblem.id.as_str() == "emblem_fury")
         .unwrap()
-        .passive
         .emblem()
         .unwrap()
 }

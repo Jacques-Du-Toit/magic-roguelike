@@ -717,6 +717,7 @@ fn pool_deck(colors: [Color; 2], seed: u64) -> crate::duel::PlayerConfig {
         opening_hand_size: data.balance.duel.opening_hand_size,
         starting_permanents: Vec::new(),
         emblems: Vec::new(),
+        commander: None,
     }
 }
 

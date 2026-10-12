@@ -1,0 +1,31 @@
+{
+  "id": "kongming_sleeping_dragon",
+  "name": "Kongming, \"Sleeping Dragon\"",
+  "mana_cost": "{2}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Advisor"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "rare",
+  "oracle_text": "Other creatures you control get +1/+1.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "other_creatures_you_control",
+      "power": 1,
+      "toughness": 1
+    }
+  ]
+}

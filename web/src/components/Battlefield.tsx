@@ -91,6 +91,11 @@ function Permanent({
         {isCreature ? (
           <CardFrame def={def} size="small" power={permanent.power} toughness={permanent.toughness}>
             <span className="badges">
+              {permanent.commander && (
+                <span className="badge badge-commander" data-testid="commander-badge">
+                  Commander
+                </span>
+              )}
               {badge && <span className="badge badge-combat">{badge}</span>}
               {shared.targeted(permanent.object) && (
                 <span className="badge badge-targeted">Targeted</span>

@@ -23,6 +23,8 @@ pub const ENEMY: PlayerId = PlayerId::P2;
 #[ts(export)]
 pub struct RunConfig {
     pub planeswalker: PlaneswalkerId,
+    /// The starting emblem to take; `None` for the planeswalker's usual one.
+    pub emblem: Option<ModifierId>,
 }
 
 /// Identifies a node of the map: its position in `RunMap::nodes`.
@@ -133,6 +135,8 @@ pub enum Ware {
 pub struct RunState {
     pub seed: u64,
     pub planeswalker: PlaneswalkerId,
+    /// The starting emblem chosen for the run.
+    pub emblem: ModifierId,
     pub hearts: u8,
     pub max_hearts: u8,
     pub gold: u32,
@@ -270,6 +274,8 @@ pub enum RunEvent {
 pub enum RunError {
     #[error("there is no planeswalker `{0}`")]
     UnknownPlaneswalker(PlaneswalkerId),
+    #[error("there is no starting emblem `{0}`")]
+    UnknownEmblem(ModifierId),
     #[error("{0:?} is not a legal action in the run right now")]
     IllegalAction(RunAction),
     #[error("no duel is being played")]

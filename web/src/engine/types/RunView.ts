@@ -12,7 +12,11 @@ export type RunView = {
 /**
  * A `u64` in decimal.
  */
-seed: string, planeswalker: PlaneswalkerId, hearts: number, max_hearts: number, gold: number, 
+seed: string, planeswalker: PlaneswalkerId, 
+/**
+ * The starting emblem chosen for the run.
+ */
+emblem: ModifierId, hearts: number, max_hearts: number, gold: number, 
 /**
  * The spells and non-basic lands. `RunAction::RemoveCard` indexes it.
  */

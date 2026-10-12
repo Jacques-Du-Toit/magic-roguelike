@@ -7,7 +7,8 @@
     "fatigue": {
       "first_life_loss": 1,
       "increase": 1
-    }
+    },
+    "commander_tax": 2
   },
   "ai": {
     "mulligan": {

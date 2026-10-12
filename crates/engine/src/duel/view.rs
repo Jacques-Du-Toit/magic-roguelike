@@ -11,10 +11,10 @@ use super::legal_actions;
 use super::mana::ManaPool;
 use super::state::{
     AbilityRef, Combat, Decision, DuelState, GameResult, StackItemKind, Step, TriggeredAbility,
-    card_def,
+    Zone, card_def,
 };
 use super::turn::scry_card;
-use crate::cards::{CardDefId, Keyword};
+use crate::cards::{CardDefId, Keyword, ManaCost};
 
 /// The duel as one player sees it. The opponent's hand is face down and
 /// neither library's contents or order appear at all.
@@ -57,6 +57,23 @@ pub struct PlayerSummary {
     pub mulligans_taken: u8,
     /// The player's emblems: relics, boons, passives and the like.
     pub emblems: Vec<EmblemView>,
+    /// The player's commander, if they have one. Both players see it.
+    pub commander: Option<CommanderView>,
+}
+
+/// A player's commander, wherever it is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct CommanderView {
+    pub card: CardId,
+    pub def: CardDefId,
+    /// The card's object while it waits in the command zone, which is what
+    /// `Action::CastSpell` names to cast it. `None` while it is elsewhere.
+    pub object: Option<ObjectId>,
+    /// What it costs to cast from the command zone now, tax included.
+    #[ts(type = "string")]
+    pub cost: ManaCost,
+    /// How many times it has been cast from the command zone.
+    pub casts: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -84,6 +101,8 @@ pub struct PermanentView {
     pub damage: i32,
     /// For an Aura, the permanent it enchants.
     pub attached_to: Option<ObjectId>,
+    /// It is its owner's commander.
+    pub commander: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -136,7 +155,25 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
         for &id in &player_state.graveyard {
             graveyard.push(state.card_ref(id)?);
         }
+        let commander = match player_state.commander {
+            None => None,
+            Some(card) => {
+                let object = state
+                    .objects
+                    .values()
+                    .find(|object| object.card == card)
+                    .ok_or_else(|| InternalError::new(format!("{player:?}'s commander is gone")))?;
+                Some(CommanderView {
+                    card,
+                    def: object.def.clone(),
+                    object: (object.zone == Zone::Command).then_some(object.id),
+                    cost: state.commander_cost(player, card_def(&object.def)?),
+                    casts: player_state.commander_casts,
+                })
+            }
+        };
         Ok(PlayerSummary {
+            commander,
             player,
             life: player_state.life,
             hand,
@@ -183,6 +220,7 @@ pub fn player_view(state: &DuelState, viewer: PlayerId) -> Result<PlayerView, In
             counters: permanent.plus_counters,
             damage: permanent.damage,
             attached_to: permanent.attached_to,
+            commander: state.is_commander(id),
         });
     }
 

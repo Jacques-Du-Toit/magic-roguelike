@@ -11,7 +11,7 @@ use engine::duel::{
     has_meaningful_action, legal_actions, new_duel, player_view, redact_events, should_auto_pass,
 };
 use engine::run::{
-    ENEMY, PLAYER, PlaneswalkerId, RunAction, RunConfig, RunEvent, RunState, RunView,
+    ENEMY, ModifierId, PLAYER, PlaneswalkerId, RunAction, RunConfig, RunEvent, RunState, RunView,
     apply_duel_action, apply_run_action, new_run, run_content, run_view,
 };
 use serde::{Deserialize, Serialize};
@@ -153,10 +153,12 @@ pub struct RunSession {
 }
 
 impl RunSession {
-    /// Starts a run. `seed` is a `u64` in decimal.
-    pub fn new(planeswalker: &str, seed: &str) -> Result<RunSession, String> {
+    /// Starts a run. `emblem` is the starting emblem's id, or empty for the
+    /// planeswalker's usual one. `seed` is a `u64` in decimal.
+    pub fn new(planeswalker: &str, emblem: &str, seed: &str) -> Result<RunSession, String> {
         let config = RunConfig {
             planeswalker: PlaneswalkerId(planeswalker.to_string()),
+            emblem: (!emblem.is_empty()).then(|| ModifierId(emblem.to_string())),
         };
         let state = new_run(config, parse_seed(seed)?).map_err(|error| error.to_string())?;
         Ok(RunSession { state })
@@ -410,7 +412,7 @@ mod tests {
 
     #[test]
     fn a_run_starts_on_the_map_and_bad_input_is_an_error() {
-        let mut session = RunSession::new("warden", "7").unwrap();
+        let mut session = RunSession::new("warden", "", "7").unwrap();
         let view = run_view_of(&session);
         assert_eq!(view.seed, "7");
         assert_eq!(view.phase, engine::run::Phase::Map);
@@ -421,10 +423,10 @@ mod tests {
         assert!(!session.duel_should_auto_pass(false));
 
         assert_eq!(
-            RunSession::new("nobody", "7").unwrap_err(),
+            RunSession::new("nobody", "", "7").unwrap_err(),
             "there is no planeswalker `nobody`"
         );
-        assert!(RunSession::new("warden", "seven").is_err());
+        assert!(RunSession::new("warden", "", "seven").is_err());
         let before = session.view().unwrap();
         assert!(session.apply("not json").is_err());
         assert!(session.apply(r#"{"type":"leave"}"#).is_err());
@@ -463,7 +465,7 @@ mod tests {
 
     #[test]
     fn a_whole_run_plays_through_the_handle() {
-        let mut session = RunSession::new("firebrand", "5").unwrap();
+        let mut session = RunSession::new("firebrand", "emblem_welcome", "5").unwrap();
         let mut log = Vec::new();
         for _ in 0..500 {
             let view = run_view_of(&session);

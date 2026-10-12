@@ -23,12 +23,17 @@ pub fn new_run(config: RunConfig, seed: u64) -> Result<RunState, RunError> {
         .run
         .planeswalker(&config.planeswalker)
         .ok_or_else(|| RunError::UnknownPlaneswalker(config.planeswalker.clone()))?;
+    let emblem = config.emblem.unwrap_or_else(|| planeswalker.emblem.clone());
+    if data.run.emblem(&emblem).is_none() {
+        return Err(RunError::UnknownEmblem(emblem));
+    }
     let balance = &data.balance.run;
     let mut rng = DuelRng::from_seed(seed);
     let map = generate_map(&mut rng, &balance.map);
     Ok(RunState {
         seed,
         planeswalker: config.planeswalker,
+        emblem,
         hearts: balance.hearts,
         max_hearts: balance.hearts,
         gold: balance.starting_gold,
@@ -198,14 +203,18 @@ fn end_run(state: &mut RunState, events: &mut Vec<RunEvent>, won: bool) {
     events.push(RunEvent::RunEnded { won });
 }
 
-/// The modifiers the player takes into a duel: passive, relics, and the
-/// boons too if it is the boss.
+/// The modifiers the player takes into a duel: the starting emblem, relics,
+/// and the boons too if it is the boss.
 fn player_modifiers<'a>(
     state: &RunState,
     data: &'a GameData,
     kind: DuelKind,
 ) -> Result<Vec<&'a ModifierDef>, InternalError> {
-    let mut modifiers = vec![&planeswalker(state, data)?.passive];
+    let emblem = data
+        .run
+        .emblem(&state.emblem)
+        .ok_or_else(|| InternalError::new(format!("no starting emblem `{}`", state.emblem)))?;
+    let mut modifiers = vec![emblem];
     for id in &state.relics {
         modifiers.push(
             data.run
@@ -256,10 +265,11 @@ fn start_duel(
     enemy: &EnemyDef,
     kind: DuelKind,
 ) -> Result<(), RunError> {
-    let colors = &planeswalker(state, data)?.colors;
+    let planeswalker = planeswalker(state, data)?;
     let player = Loadout::player(
         &state.deck,
-        colors,
+        &planeswalker.colors,
+        planeswalker.commander.as_ref(),
         player_modifiers(state, data, kind)?,
         &data.cards,
         &data.balance,

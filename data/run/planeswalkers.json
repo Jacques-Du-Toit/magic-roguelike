@@ -4,6 +4,8 @@
     "name": "The Warden",
     "description": "Green-white creatures. A steady army that outlasts its enemies.",
     "colors": ["G", "W"],
+    "commander": "jasmine_boreal",
+    "emblem": "emblem_welcome",
     "spells": [
         { "card": "savannah_lions", "count": 1 },
         { "card": "glory_seeker", "count": 1 },
@@ -15,30 +17,15 @@
         { "card": "giant_spider", "count": 1 },
         { "card": "rumbling_baloth", "count": 1 },
         { "card": "giant_growth", "count": 2 }
-    ],
-    "passive": {
-      "id": "warden_passive",
-      "name": "Warden's Welcome",
-      "text": "Whenever a creature enters under your control, you gain 1 life.",
-      "effects": [
-        {
-          "type": "abilities",
-          "abilities": [
-            {
-              "kind": "triggered",
-              "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
-              "effects": [{ "type": "gain_life", "player": "controller", "amount": 1 }]
-            }
-          ]
-        }
-      ]
-    }
+    ]
   },
   {
     "id": "firebrand",
     "name": "The Firebrand",
     "description": "Black-red aggression. Fast creatures, burn and removal.",
     "colors": ["B", "R"],
+    "commander": "boris_devilboon",
+    "emblem": "emblem_fury",
     "spells": [
         { "card": "raging_goblin", "count": 2 },
         { "card": "goblin_piker", "count": 2 },
@@ -49,26 +36,6 @@
         { "card": "typhoid_rats", "count": 2 },
         { "card": "walking_corpse", "count": 2 },
         { "card": "murder", "count": 1 }
-    ],
-    "passive": {
-      "id": "firebrand_passive",
-      "name": "Firebrand's Fury",
-      "text": "The first creature to enter under your control each turn gains haste until end of turn.",
-      "effects": [
-        {
-          "type": "abilities",
-          "abilities": [
-            {
-              "kind": "triggered",
-              "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
-              "once_each_turn": true,
-              "effects": [
-                { "type": "grant_keyword_until_eot", "target": { "triggering": {} }, "keyword": "haste" }
-              ]
-            }
-          ]
-        }
-      ]
-    }
+    ]
   }
 ]

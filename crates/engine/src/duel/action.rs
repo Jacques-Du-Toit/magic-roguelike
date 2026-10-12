@@ -289,8 +289,16 @@ pub enum GameEvent {
     CardKeptOnTop {
         player: PlayerId,
     },
-    /// A creature went from the battlefield to its owner's graveyard.
-    /// `permanent` is what it was; `card` is the card in the graveyard.
+    /// A commander that died, was countered or was discarded went to its
+    /// owner's command zone instead of their graveyard. It follows the
+    /// event that says what happened to it; `card` is the card there now.
+    CommanderReturned {
+        player: PlayerId,
+        card: CardRef,
+    },
+    /// A creature went from the battlefield to its owner's graveyard (or,
+    /// for a commander, the command zone). `permanent` is what it was;
+    /// `card` is the card where it went.
     CreatureDied {
         player: PlayerId,
         permanent: ObjectId,

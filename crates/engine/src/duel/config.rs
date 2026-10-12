@@ -27,6 +27,10 @@ pub struct PlayerConfig {
     /// Relics, boons, passives and boss emblems, in the command zone.
     #[serde(default)]
     pub emblems: Vec<EmblemDef>,
+    /// A legendary creature that starts in the command zone and can be cast
+    /// from there. It is not in the library.
+    #[serde(default)]
+    pub commander: Option<CardInstance>,
 }
 
 /// Duel-wide numbers.
@@ -36,6 +40,10 @@ pub struct RulesConfig {
     /// How many candidate opening hands are dealt; 1 turns smoothing off.
     pub smoothing_candidates: u8,
     pub fatigue: FatigueBalance,
+    /// Generic mana added to a commander's cost for each earlier cast from
+    /// the command zone.
+    #[serde(default)]
+    pub commander_tax: u32,
 }
 
 /// One card in a deck: a definition plus its run-specific upgrades.
@@ -72,6 +80,7 @@ impl PlayerConfig {
             opening_hand_size: balance.opening_hand_size,
             starting_permanents: Vec::new(),
             emblems: Vec::new(),
+            commander: None,
         }
     }
 }
@@ -82,6 +91,7 @@ impl RulesConfig {
             max_hand_size: balance.max_hand_size,
             smoothing_candidates: balance.smoothing_candidates,
             fatigue: balance.fatigue.clone(),
+            commander_tax: balance.commander_tax,
         }
     }
 }

@@ -20,6 +20,7 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Lose by 10 poison | Later | |
 | Drawn game (both players lose at once) | In | |
 | Max hand size 7, discard at cleanup | In | |
+| Commander: a legendary creature cast from the command zone | Simplified | A prototype (`DECISIONS.md` #45). Tax of {2} per earlier cast from the command zone; it returns there automatically when it dies, is countered or is discarded; no commander damage, no choice of leaving it in the graveyard. |
 | Multiplayer, sideboards, best-of-three | Out | |
 
 ## Turn structure
@@ -96,7 +97,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 | 0 life loss | In |
 | Creature with toughness ≤ 0 dies | In |
 | Lethal damage / deathtouch damage destroys | In |
-| Legend rule | In |
+| Legend rule | In (not built: the only legendary cards are commanders, one a side, never in a deck) |
 | Aura with illegal/no object goes to graveyard | In |
 | +1/+1 and −1/−1 counters annihilate | Later |
 | Token leaves battlefield → ceases to exist | In |

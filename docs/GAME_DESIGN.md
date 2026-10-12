@@ -166,7 +166,8 @@ Keep it light; avoid permanent power creep.
 
 From the owner's M3 playtest (2026-10-11), the direction to explore once saving exists (M5):
 
-- **Commanders.** The character could be a commander: a legendary creature the player can cast from the command zone, with decks tied to it. An enemy's commander would also hint at what its deck does. To be prototyped after M4a and decided before M4c (`DECISIONS.md` #37).
+- **Commanders.** The character could be a commander: a legendary creature the player can cast from the command zone, with decks tied to it. An enemy's commander would also hint at what its deck does. A prototype was built after M4a (`DECISIONS.md` #45, #46): each character has a commander in its colours and picks a starting emblem to go with it, and elites and the boss have commanders too. Whether it stays is decided before M4c (`DECISIONS.md` #37).
+- **AI that grows.** Enemies could play more competently as the run goes on. For now they all play at one strength.
 - **Unlocks by achievement.** New commanders unlocked by completing achievements; their alternative decks and skills by completing goals of their own.
 - **A small skill tree per commander**, outside the run, that changes its abilities slightly: a little roguelite, not a power ladder.
 

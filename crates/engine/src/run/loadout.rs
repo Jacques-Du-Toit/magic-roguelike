@@ -18,6 +18,8 @@ pub struct Loadout<'a> {
     pub modifiers: Vec<&'a ModifierDef>,
     /// The basic land a "start with a land" modifier gives this side.
     pub main_land: Option<CardDefId>,
+    /// The commander this side casts from the command zone, if it has one.
+    pub commander: Option<CardDefId>,
 }
 
 fn instances(entries: &[DeckEntry]) -> Vec<CardInstance> {
@@ -48,11 +50,12 @@ pub fn library_with_lands(
 }
 
 impl<'a> Loadout<'a> {
-    /// The player's side: their deck with its basic lands, and their
-    /// modifiers (passive, relics, boons).
+    /// The player's side: their deck with its basic lands, their commander
+    /// and their modifiers (starting emblem, relics, boons).
     pub fn player(
         deck: &[CardInstance],
         colors: &[Color],
+        commander: Option<&CardDefId>,
         modifiers: Vec<&'a ModifierDef>,
         cards: &CardDatabase,
         balance: &Balance,
@@ -65,6 +68,7 @@ impl<'a> Loadout<'a> {
             library: library_with_lands(deck, colors, cards, balance)?,
             modifiers,
             main_land,
+            commander: commander.cloned(),
         })
     }
 
@@ -79,6 +83,7 @@ impl<'a> Loadout<'a> {
             library,
             modifiers: enemy.modifiers.iter().collect(),
             main_land,
+            commander: enemy.commander.clone(),
         })
     }
 }
@@ -91,6 +96,7 @@ pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelC
         opening_hand_size: balance.duel.opening_hand_size,
         starting_permanents: Vec::new(),
         emblems: Vec::new(),
+        commander: loadout.commander.clone().map(CardInstance::new),
     });
     for (owner, loadout) in [&p1, &p2].into_iter().enumerate() {
         let opponent = 1 - owner;
@@ -162,11 +168,12 @@ mod tests {
         extra: &[&'a ModifierDef],
     ) -> Loadout<'a> {
         let data = data::embedded().unwrap();
-        let mut modifiers = vec![&planeswalker.passive];
+        let mut modifiers = vec![data.run.emblem(&planeswalker.emblem).unwrap()];
         modifiers.extend(extra);
         Loadout::player(
             &starting_deck(planeswalker),
             &planeswalker.colors,
+            planeswalker.commander.as_ref(),
             modifiers,
             &data.cards,
             &data.balance,
@@ -196,9 +203,15 @@ mod tests {
         assert_eq!((count("plains"), count("forest")), (4, 6));
         assert_eq!(player.starting_life, 20);
         assert_eq!(player.emblems.len(), 1);
-        assert_eq!(player.emblems[0].name, "Warden's Welcome");
+        assert_eq!(player.emblems[0].name, "Warm Welcome");
+        // The commander waits outside the library.
+        assert_eq!(
+            player.commander.as_ref().map(|card| card.card_id.as_str()),
+            Some("jasmine_boreal")
+        );
         assert_eq!(opponent.library.len(), 25);
         assert!(opponent.emblems.is_empty());
+        assert_eq!(opponent.commander, None);
         assert!(new_duel(config, 1).is_ok());
     }
 
@@ -214,6 +227,10 @@ mod tests {
         assert_eq!(boss.starting_life, 25);
         assert_eq!(boss.emblems.len(), 1);
         assert_eq!(boss.emblems[0].name, "The Pyre");
+        assert_eq!(
+            boss.commander.as_ref().map(|card| card.card_id.as_str()),
+            Some("the_lady_of_the_mountain")
+        );
         assert_eq!(player.starting_life, 20);
         let state = new_duel(config, 3).unwrap();
         assert_eq!(state.player(PlayerId::P2).life, 25);
@@ -245,7 +262,7 @@ mod tests {
         assert_eq!(
             names,
             [
-                "Firebrand's Fury",
+                "Battle Fury",
                 "War Banner",
                 "Sentinel's Horn",
                 "Soothing Spring"

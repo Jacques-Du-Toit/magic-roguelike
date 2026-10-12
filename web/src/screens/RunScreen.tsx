@@ -3,8 +3,10 @@
 // decides what a node gives, what something costs or what a heart buys.
 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { ManaCost } from '../components/Card.tsx'
 import { DeckView, RunCard } from '../components/RunCards.tsx'
 import { RunMap } from '../components/RunMap.tsx'
+import { usePreview } from '../components/usePreview.ts'
 import { DuelController, type Sleep } from '../duel/controller.ts'
 import type { Run } from '../engine/index.ts'
 import type { CardDef } from '../engine/types/CardDef.ts'
@@ -51,6 +53,8 @@ function Modifier({ def, kind }: { def: ModifierDef; kind: string }) {
 export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }: RunScreenProps) {
   const names: RunNames = { cards, content }
   const planeswalker = content.planeswalkers.find((def) => def.id === run.planeswalker)
+  const commander = planeswalker?.commander ? cards.get(planeswalker.commander) : undefined
+  const commanderPreview = usePreview(commander)
 
   const duels = useRef(0)
   const startDuel = (view: RunView): RunDuel | null => {
@@ -121,6 +125,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   const copyReport = () => {
     const report = JSON.stringify({
       planeswalker: run.planeswalker,
+      emblem: view.emblem,
       seed: run.seed,
       error,
       inputs: run.inputs,
@@ -129,7 +134,8 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   }
 
   const { phase, actions } = view
-  const can = (type: RunAction['type']) => actions.find((action) => action.type === type)
+  const emblem = content.emblems.find((def) => def.id === view.emblem)
+  const can =(type: RunAction['type']) => actions.find((action) => action.type === type)
 
   if (phase.type === 'duel' && duel) {
     return (
@@ -451,10 +457,22 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         </main>
 
         <aside className="run-side">
+          {commander && (
+            <section className="panel">
+              <h2>Commander</h2>
+              <ul className="modifiers">
+                <li className="modifier" data-testid="run-commander" {...commanderPreview}>
+                  <strong>{commander.name}</strong> <ManaCost cost={commander.mana_cost} />{' '}
+                  {commander.power}/{commander.toughness}
+                  {commander.oracle_text && <> · {commander.oracle_text}</>}
+                </li>
+              </ul>
+            </section>
+          )}
           <section className="panel">
-            <h2>Passive</h2>
+            <h2>Emblem</h2>
             <ul className="modifiers">
-              {planeswalker && <Modifier def={planeswalker.passive} kind="passive" />}
+              {emblem && <Modifier def={emblem} kind="starting-emblem" />}
             </ul>
           </section>
           <section className="panel">

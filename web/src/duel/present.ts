@@ -174,6 +174,8 @@ export function describeEvent(event: GameEvent, context: NameContext): LogEntry 
       return line(`${object(event.source)} deals ${event.amount} damage to ${target(event.target)}`)
     case 'creature_died':
       return line(`${whose(event.player)} ${face(event.card)} dies`)
+    case 'commander_returned':
+      return line(`${whose(event.player)} ${face(event.card)} returns to the command zone`)
     case 'counters_added': {
       const counters = event.amount === 1 ? 'a +1/+1 counter' : `${event.amount} +1/+1 counters`
       return line(`${object(event.permanent)} gets ${counters}`)

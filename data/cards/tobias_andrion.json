@@ -1,0 +1,24 @@
+{
+  "id": "tobias_andrion",
+  "name": "Tobias Andrion",
+  "mana_cost": "{3}{W}{U}",
+  "colors": [
+    "W",
+    "U"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Advisor"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "rare",
+  "oracle_text": "",
+  "abilities": []
+}

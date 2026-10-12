@@ -133,13 +133,16 @@ export type RunInput = { run: RunAction } | { duel: Action }
 export class Run {
   readonly #run: WasmRun
   readonly planeswalker: string
+  /** The starting emblem asked for; empty for the planeswalker's usual one. */
+  readonly emblem: string
   readonly seed: string
   /** Everything the human has done, in order. */
   readonly inputs: RunInput[] = []
 
-  constructor(planeswalker: string, seed: string) {
-    this.#run = new WasmRun(planeswalker, seed)
+  constructor(planeswalker: string, emblem: string, seed: string) {
+    this.#run = new WasmRun(planeswalker, emblem, seed)
     this.planeswalker = planeswalker
+    this.emblem = emblem
     this.seed = seed
   }
 

@@ -67,6 +67,7 @@ fn choose(state: &RunState, actions: &[RunAction], choices: &mut DuelRng) -> Run
 pub fn play_run(planeswalker: &str, seed: u64) -> Result<RunRecord, String> {
     let config = RunConfig {
         planeswalker: PlaneswalkerId(planeswalker.to_string()),
+        emblem: None,
     };
     let mut state = new_run(config, seed).map_err(|error| error.to_string())?;
     // The policy's own dice, so they don't disturb the run's.

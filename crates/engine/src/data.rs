@@ -81,6 +81,7 @@ pub struct DataFiles<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RunFiles<'a> {
     pub planeswalkers: &'a str,
+    pub emblems: &'a str,
     pub relics: &'a str,
     pub enemies: &'a str,
 }
@@ -176,10 +177,12 @@ impl GameData {
 
         let planeswalkers: Vec<PlaneswalkerDef> =
             parse("run/planeswalkers.json", files.run.planeswalkers)?;
+        let emblems: Vec<ModifierDef> = parse("run/emblems.json", files.run.emblems)?;
         let relics: Vec<ModifierDef> = parse("run/relics.json", files.run.relics)?;
         let enemies: Vec<EnemyDef> = parse("run/enemies.json", files.run.enemies)?;
         let run = RunData {
             planeswalkers,
+            emblems,
             relics,
             enemies,
         };
@@ -197,9 +200,9 @@ impl GameData {
 /// The tokens an ability's effects create.
 fn tokens_created(ability: &cards::AbilityDef) -> Vec<&CardDefId> {
     let effects = match ability {
-        cards::AbilityDef::Spell { effects } | cards::AbilityDef::Triggered { effects, .. } => {
-            effects.as_slice()
-        }
+        cards::AbilityDef::Spell { effects }
+        | cards::AbilityDef::Triggered { effects, .. }
+        | cards::AbilityDef::Activated { effects, .. } => effects.as_slice(),
         _ => &[],
     };
     effects
@@ -236,6 +239,7 @@ fn embedded_files() -> Result<DataFiles<'static>, DataError> {
         balance,
         run: RunFiles {
             planeswalkers: run_file("planeswalkers")?,
+            emblems: run_file("emblems")?,
             relics: run_file("relics")?,
             enemies: run_file("enemies")?,
         },
@@ -280,8 +284,9 @@ mod tests {
     const BALANCE: &str = include_str!("../../../data/balance.json");
     const PLANESWALKERS: &str = r#"[{ "id": "ranger", "name": "Ranger", "description": "Bears.",
         "colors": ["G"], "spells": [{ "card": "grizzly_bears", "count": 3 }],
-        "passive": { "id": "ranger_passive", "name": "Vigour", "text": "More life.",
-            "effects": [{ "type": "starting_life", "who": "owner", "change": 1 }] } }]"#;
+        "emblem": "ranger_passive" }]"#;
+    const EMBLEMS: &str = r#"[{ "id": "ranger_passive", "name": "Vigour", "text": "More life.",
+        "effects": [{ "type": "starting_life", "who": "owner", "change": 1 }] }]"#;
     const RELICS: &str = "[]";
     const ENEMIES: &str = r#"[
         { "id": "cubs", "name": "Cubs", "tier": "easy", "cards": [{ "card": "forest", "count": 2 }] },
@@ -291,6 +296,7 @@ mod tests {
     ]"#;
     const RUN: RunFiles<'static> = RunFiles {
         planeswalkers: PLANESWALKERS,
+        emblems: EMBLEMS,
         relics: RELICS,
         enemies: ENEMIES,
     };
@@ -535,11 +541,14 @@ mod tests {
         };
         let basics = count(|card| card.supertypes.contains(&Supertype::Basic));
         let lands = count(|card| card.is_land());
-        let creatures = count(|card| card.is_creature());
+        let creatures = count(|card| card.is_creature() && !card.is_legendary());
         let others = count(|card| !card.is_land() && !card.is_creature());
+        // The commanders: never in a deck, a reward or a shop.
+        let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
         assert_eq!((creatures, others), (82, 32));
-        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 7);
+        assert_eq!(legends, 7);
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 8);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -895,9 +904,14 @@ mod tests {
             let in_entries = |entries: &[crate::decks::DeckEntry]| {
                 entries.iter().any(|entry| entry.card.as_str() == id)
             };
+            let leads = |commander: &Option<CardDefId>| {
+                commander.as_ref().is_some_and(|card| card.as_str() == id)
+            };
             let used = data().decks.values().any(|deck| deck.count_of(id) > 0)
                 || run.planeswalkers.iter().any(|def| in_entries(&def.spells))
-                || run.enemies.iter().any(|def| in_entries(&def.cards));
+                || run.enemies.iter().any(|def| in_entries(&def.cards))
+                || run.planeswalkers.iter().any(|def| leads(&def.commander))
+                || run.enemies.iter().any(|def| leads(&def.commander));
             let reward_land = card.is_land() && card.supertypes.is_empty();
             assert!(used || reward_land, "{id} is in no deck");
         }
@@ -911,7 +925,7 @@ mod tests {
         for card in data()
             .cards
             .iter()
-            .filter(|card| !card.token && !card.is_land())
+            .filter(|card| !card.token && !card.is_land() && !card.is_legendary())
         {
             let id = card.id.as_str();
             let in_entries = |entries: &[crate::decks::DeckEntry]| {
@@ -959,19 +973,130 @@ mod tests {
         }
         let boss = run.enemies_of(EnemyTier::Boss).next().unwrap();
         assert_eq!(boss.modifiers.len(), 2);
+        // Commanders: every character, elite and boss has one, and nobody
+        // else does.
+        assert_eq!(run.emblems.len(), 2);
+        assert!(run.planeswalkers.iter().all(|def| def.commander.is_some()));
+        for enemy in &run.enemies {
+            let leads = matches!(enemy.tier, EnemyTier::Elite | EnemyTier::Boss);
+            assert_eq!(enemy.commander.is_some(), leads, "{}", enemy.id);
+        }
+    }
+
+    const LEGEND: &str = r#"{ "id": "bear_lord", "name": "Bear Lord", "mana_cost": "{2}{G}",
+        "colors": ["G"], "supertypes": ["Legendary"], "types": ["Creature"],
+        "power": 3, "toughness": 3, "rarity": "rare" }"#;
+    const RED_LEGEND: &str = r#"{ "id": "fire_lord", "name": "Fire Lord", "mana_cost": "{2}{R}",
+        "colors": ["R"], "supertypes": ["Legendary"], "types": ["Creature"],
+        "power": 3, "toughness": 3, "rarity": "rare" }"#;
+
+    #[test]
+    fn a_commander_must_be_a_legendary_creature_in_the_decks_colours() {
+        let load = |planeswalkers: &str, enemies: &str| {
+            let mut files = files(
+                &[
+                    ("grizzly_bears", BEARS),
+                    ("forest", FOREST),
+                    ("bear_lord", LEGEND),
+                    ("fire_lord", RED_LEGEND),
+                ],
+                DECK,
+                BALANCE,
+            );
+            files.run = RunFiles {
+                planeswalkers,
+                enemies,
+                ..RUN
+            };
+            GameData::load(&files).map(|_| ())
+        };
+        let led_by = |card: &str| {
+            PLANESWALKERS.replace(
+                r#""emblem":"#,
+                &format!(r#""commander": "{card}", "emblem":"#),
+            )
+        };
+        let bears_led_by = |card: &str| {
+            ENEMIES.replace(
+                r#""tier": "normal", "cards": [{ "card": "forest", "count": 2 }]"#,
+                &format!(
+                    r#""tier": "normal", "commander": "{card}",
+                    "cards": [{{ "card": "grizzly_bears", "count": 2 }}]"#
+                ),
+            )
+        };
+        assert_eq!(
+            load(&led_by("bear_lord"), &bears_led_by("bear_lord")),
+            Ok(())
+        );
+        let bad = |card: &str| {
+            Err(DataError::Run(RunDataError::BadCommander {
+                id: "ranger".to_string(),
+                card: CardDefId(card.to_string()),
+            }))
+        };
+        assert_eq!(
+            load(&led_by("grizzly_bears"), ENEMIES),
+            bad("grizzly_bears")
+        );
+        assert_eq!(load(&led_by("nobody"), ENEMIES), bad("nobody"));
+        assert_eq!(
+            load(&led_by("fire_lord"), ENEMIES),
+            Err(DataError::Run(RunDataError::CommanderColors {
+                id: "ranger".to_string(),
+                card: CardDefId("fire_lord".to_string()),
+            }))
+        );
+        assert_eq!(
+            load(PLANESWALKERS, &bears_led_by("fire_lord")),
+            Err(DataError::Run(RunDataError::CommanderColors {
+                id: "bears".to_string(),
+                card: CardDefId("fire_lord".to_string()),
+            }))
+        );
+        // A legendary card leads a deck; it is never in one.
+        assert_eq!(
+            load(
+                &PLANESWALKERS.replace("grizzly_bears", "bear_lord"),
+                ENEMIES
+            ),
+            Err(DataError::Run(RunDataError::BadEntry {
+                id: "ranger".to_string(),
+                card: CardDefId("bear_lord".to_string()),
+            }))
+        );
     }
 
     #[test]
     fn rejects_bad_run_content() {
-        let load = |planeswalkers: &str, relics: &str, enemies: &str| {
+        let load_with = |planeswalkers: &str, emblems: &str, relics: &str, enemies: &str| {
             let mut files = files(&CARDS, DECK, BALANCE);
             files.run = RunFiles {
                 planeswalkers,
+                emblems,
                 relics,
                 enemies,
             };
             GameData::load(&files).map(|_| ())
         };
+        let load = |planeswalkers: &str, relics: &str, enemies: &str| {
+            load_with(planeswalkers, EMBLEMS, relics, enemies)
+        };
+        assert_eq!(
+            load_with(PLANESWALKERS, "[]", RELICS, ENEMIES),
+            Err(DataError::Run(RunDataError::NoEmblems))
+        );
+        assert_eq!(
+            load(
+                &PLANESWALKERS.replace("\"emblem\": \"ranger_passive\"", "\"emblem\": \"none\""),
+                RELICS,
+                ENEMIES
+            ),
+            Err(DataError::Run(RunDataError::UnknownEmblem {
+                id: "ranger".to_string(),
+                emblem: crate::run::ModifierId("none".to_string()),
+            }))
+        );
         assert_eq!(load(PLANESWALKERS, RELICS, ENEMIES), Ok(()));
         assert_eq!(
             load("[]", RELICS, ENEMIES),
@@ -989,8 +1114,9 @@ mod tests {
             }))
         );
         assert_eq!(
-            load(
-                &PLANESWALKERS.replace("\"change\": 1", "\"change\": 0"),
+            load_with(
+                PLANESWALKERS,
+                &EMBLEMS.replace("\"change\": 1", "\"change\": 0"),
                 RELICS,
                 ENEMIES
             ),
@@ -1018,12 +1144,12 @@ mod tests {
                 "bears".to_string()
             )))
         );
-        let gold_passive = PLANESWALKERS.replace(
+        let gold_passive = EMBLEMS.replace(
             r#"{ "type": "starting_life", "who": "owner", "change": 1 }"#,
             r#"{ "type": "gold_per_win", "amount": 5 }"#,
         );
         assert_eq!(
-            load(&gold_passive, RELICS, ENEMIES),
+            load_with(PLANESWALKERS, &gold_passive, RELICS, ENEMIES),
             Err(DataError::Run(RunDataError::GoldOnNonRelic(
                 "ranger_passive".to_string()
             )))

@@ -1,0 +1,23 @@
+{
+  "id": "jasmine_boreal",
+  "name": "Jasmine Boreal",
+  "mana_cost": "{3}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human"
+  ],
+  "power": 4,
+  "toughness": 5,
+  "rarity": "rare",
+  "oracle_text": "",
+  "abilities": []
+}

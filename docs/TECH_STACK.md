@@ -87,7 +87,7 @@ npm run e2e
 │  ├─ cards/               # card definitions (JSON)
 │  ├─ tokens/              # token definitions (JSON, same format)
 │  ├─ decks/               # the test decklists
-│  ├─ run/                 # planeswalkers, enemy decks and relics
+│  ├─ run/                 # planeswalkers, starting emblems, enemy decks and relics
 │  └─ balance.json         # all tunable numbers, the run's and the boons included
 ├─ tools/                  # scripts, e.g. Scryfall import
 ├─ web/                    # Vite + React + TS front end

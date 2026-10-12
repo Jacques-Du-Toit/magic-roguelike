@@ -3,11 +3,12 @@
 
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
 import { Battlefield, type Highlight } from '../components/Battlefield.tsx'
-import { CardBack, CardFrame } from '../components/Card.tsx'
+import { CardBack, CardFrame, ManaCost } from '../components/Card.tsx'
 import { DamagePanel } from '../components/DamagePanel.tsx'
 import { Hand } from '../components/Hand.tsx'
 import { GameOverOverlay, GraveyardOverlay, MulliganOverlay } from '../components/Overlays.tsx'
 import { LogPanel, StackPanel } from '../components/SidePanel.tsx'
+import { usePreview } from '../components/usePreview.ts'
 import type { DuelController } from '../duel/controller.ts'
 import {
   type ActivateClick,
@@ -48,6 +49,7 @@ import {
 import { AI, HUMAN, playerIndex } from '../engine/index.ts'
 import type { Action } from '../engine/types/Action.ts'
 import type { CardDef } from '../engine/types/CardDef.ts'
+import type { CommanderView } from '../engine/types/CommanderView.ts'
 import type { PermanentView } from '../engine/types/PermanentView.ts'
 import type { PlayerId } from '../engine/types/PlayerId.ts'
 import type { PlayerSummary } from '../engine/types/PlayerSummary.ts'
@@ -83,8 +85,40 @@ type Mode =
 
 const IDLE: Mode = { kind: 'idle' }
 
+/**
+ * A player's commander in their panel: which card it is and where. For the
+ * opponent it is also a hint of what their deck does.
+ */
+function CommanderLine({
+  commander,
+  def,
+  inPlay,
+}: {
+  commander: CommanderView
+  def: CardDef | undefined
+  inPlay: boolean
+}) {
+  const preview = usePreview(def)
+  return (
+    <span className="commander-line" data-testid="commander" {...preview}>
+      Commander: <strong>{def?.name ?? commander.def}</strong>{' '}
+      {commander.object !== null ? (
+        <>
+          <ManaCost cost={commander.cost} />
+          {commander.casts > 0 && <span className="muted"> (cast {commander.casts}×)</span>}
+        </>
+      ) : (
+        <span className="muted">{inPlay ? 'in play' : 'out of the command zone'}</span>
+      )}
+    </span>
+  )
+}
+
 interface PlayerPanelProps {
   name: string
+  cards: ReadonlyMap<string, CardDef>
+  /** Whether the player's commander is on the battlefield. */
+  commanderInPlay: boolean
   /** Said after the name while it is this player's turn. */
   turnLabel: string
   children?: ReactNode
@@ -101,6 +135,8 @@ interface PlayerPanelProps {
 
 function PlayerPanel({
   name,
+  cards,
+  commanderInPlay,
   turnLabel,
   children,
   deck,
@@ -148,6 +184,13 @@ function PlayerPanel({
         <button type="button" className="link" onClick={onGraveyard}>
           Graveyard {summary.graveyard.length}
         </button>
+        {summary.commander && (
+          <CommanderLine
+            commander={summary.commander}
+            def={cards.get(summary.commander.def)}
+            inPlay={commanderInPlay}
+          />
+        )}
         {summary.emblems.length > 0 && (
           <ul className="emblems" aria-label={`${name}: emblems`}>
             {summary.emblems.map((emblem) => (
@@ -352,7 +395,11 @@ export function DuelScreen({
     mode.kind === 'casting'
       ? {
           kind: 'casting',
-          cardName: name(you.hand.find((card) => card.object === mode.casting.card)?.face?.def),
+          cardName: name(
+            you.commander?.object === mode.casting.card
+              ? you.commander.def
+              : you.hand.find((card) => card.object === mode.casting.card)?.face?.def,
+          ),
         }
       : mode.kind === 'blocking'
         ? { kind: 'blocking', blockerName: permanentName(mode.blocker) }
@@ -382,6 +429,8 @@ export function DuelScreen({
   const playable = (object: number) => cardActions(actions, object).length > 0
   const phase = phaseIndex(view.step)
   const deckName = (deck: string) => deckNames.get(deck) ?? deck
+  const commanderInPlay = (player: PlayerId) =>
+    view.battlefield.some((permanent) => permanent.commander && permanent.controller === player)
 
   return (
     <div className="duel" data-busy={busy} data-testid="duel">
@@ -450,6 +499,8 @@ export function DuelScreen({
         <div className="players">
           <PlayerPanel
             name="Opponent"
+            cards={cards}
+            commanderInPlay={commanderInPlay(AI)}
             turnLabel="their turn"
             deck={deckName(info.aiDeck)}
             summary={opponent}
@@ -468,6 +519,8 @@ export function DuelScreen({
           </PlayerPanel>
           <PlayerPanel
             name="You"
+            cards={cards}
+            commanderInPlay={commanderInPlay(HUMAN)}
             turnLabel="your turn"
             deck={deckName(info.humanDeck)}
             summary={you}
@@ -629,6 +682,7 @@ export function DuelScreen({
         {!inMulligans && (
           <Hand
             hand={you.hand}
+            commander={you.commander}
             cards={cards}
             playable={playable}
             selected={mode.kind === 'casting' ? mode.casting.card : null}

@@ -6,6 +6,7 @@ import { ManaCost } from '../components/Card.tsx'
 import { usePreview } from '../components/usePreview.ts'
 import type { CardDef } from '../engine/types/CardDef.ts'
 import type { DeckDef } from '../engine/types/DeckDef.ts'
+import type { ModifierDef } from '../engine/types/ModifierDef.ts'
 import type { PlaneswalkerDef } from '../engine/types/PlaneswalkerDef.ts'
 
 /** The opponent's deck, or a pick between the decks the AI plays well. */
@@ -20,6 +21,8 @@ export interface GameChoice {
 
 export interface RunChoice {
   planeswalker: string
+  /** The starting emblem; empty for the planeswalker's usual one. */
+  emblem: string
   /** Empty for a random seed. */
   seed: string
 }
@@ -28,6 +31,8 @@ interface MenuScreenProps {
   decks: DeckDef[]
   cards: ReadonlyMap<string, CardDef>
   planeswalkers: PlaneswalkerDef[]
+  /** The starting emblems to choose from. */
+  emblems: ModifierDef[]
   initial: GameChoice
   initialRun: RunChoice
   /** Names of the decks "random" picks between. */
@@ -48,10 +53,21 @@ function DeckLine({ count, def, id }: { count: number; def: CardDef | undefined;
   )
 }
 
+/** A character's commander: its name and cost, with the card on hover. */
+function CommanderLine({ def, id }: { def: CardDef | undefined; id: string }) {
+  const preview = usePreview(def)
+  return (
+    <span className="commander-line" data-testid="menu-commander" {...preview}>
+      Commander: <strong>{def?.name ?? id}</strong> {def && <ManaCost cost={def.mana_cost} />}
+    </span>
+  )
+}
+
 export function MenuScreen({
   decks,
   cards,
   planeswalkers,
+  emblems,
   initial,
   initialRun,
   randomDecks,
@@ -65,6 +81,8 @@ export function MenuScreen({
   const [run, setRun] = useState(initialRun)
   const chosen =
     planeswalkers.find((planeswalker) => planeswalker.id === run.planeswalker) ?? planeswalkers[0]
+  // The emblem picked, or the one the character usually takes.
+  const emblem = emblems.find((def) => def.id === (run.emblem || chosen.emblem)) ?? emblems[0]
   const shown = decks.find((deck) => deck.id === choice.humanDeck)
 
   return (
@@ -76,15 +94,17 @@ export function MenuScreen({
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          onStartRun({ ...run, planeswalker: chosen.id })
+          onStartRun({ ...run, planeswalker: chosen.id, emblem: emblem.id })
         }}
       >
         <p>
           One act: follow a path across the map, win duels, grow your deck and beat the boss. You
-          have three hearts; a lost duel costs one.
+          have three hearts; a lost duel costs one. Your commander waits beside your hand in every
+          duel, to be cast when you can pay for it; if it dies it comes back, costing 2 more each
+          time.
         </p>
         <fieldset className="planeswalkers">
-          <legend>Your planeswalker</legend>
+          <legend>1. Your commander</legend>
           {planeswalkers.map((planeswalker) => (
             <label
               key={planeswalker.id}
@@ -95,7 +115,8 @@ export function MenuScreen({
                 name="planeswalker"
                 value={planeswalker.id}
                 checked={planeswalker.id === chosen.id}
-                onChange={() => setRun({ ...run, planeswalker: planeswalker.id })}
+                // A new character comes with its usual emblem.
+                onChange={() => setRun({ ...run, planeswalker: planeswalker.id, emblem: '' })}
                 data-testid={`planeswalker-${planeswalker.id}`}
               />
               <span>
@@ -103,9 +124,34 @@ export function MenuScreen({
                 <ManaCost cost={planeswalker.colors.map((color) => `{${color}}`).join('')} />
               </span>
               <span>{planeswalker.description}</span>
-              <span className="muted">
-                {planeswalker.passive.name}: {planeswalker.passive.text}
+              {planeswalker.commander && (
+                <CommanderLine
+                  id={planeswalker.commander}
+                  def={cards.get(planeswalker.commander)}
+                />
+              )}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className="planeswalkers">
+          <legend>2. Your emblem</legend>
+          {emblems.map((def) => (
+            <label
+              key={def.id}
+              className={`planeswalker${def.id === emblem.id ? ' planeswalker-chosen' : ''}`}
+            >
+              <input
+                type="radio"
+                name="emblem"
+                value={def.id}
+                checked={def.id === emblem.id}
+                onChange={() => setRun({ ...run, emblem: def.id })}
+                data-testid={`emblem-${def.id}`}
+              />
+              <span>
+                <strong>{def.name}</strong>
               </span>
+              <span>{def.text}</span>
             </label>
           ))}
         </fieldset>

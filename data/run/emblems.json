@@ -1,0 +1,39 @@
+[
+  {
+    "id": "emblem_welcome",
+    "name": "Warm Welcome",
+    "text": "Whenever a creature enters under your control, you gain 1 life.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+            "effects": [{ "type": "gain_life", "player": "controller", "amount": 1 }]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "emblem_fury",
+    "name": "Battle Fury",
+    "text": "The first creature to enter under your control each turn gains haste until end of turn.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+            "once_each_turn": true,
+            "effects": [
+              { "type": "grant_keyword_until_eot", "target": { "triggering": {} }, "keyword": "haste" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

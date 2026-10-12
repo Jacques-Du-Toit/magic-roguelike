@@ -23,12 +23,14 @@ pub(crate) fn legal_casts(
     player: PlayerId,
 ) -> Result<Vec<Action>, InternalError> {
     let mut actions = Vec::new();
-    for &card in &state.player(player).hand {
+    // The hand, and a commander waiting in the command zone.
+    let player_state = state.player(player);
+    for &card in player_state.hand.iter().chain(&player_state.command) {
         let def = state.def(card)?;
         if !can_cast_now(state, player, def) {
             continue;
         }
-        if plan_payment(state, player, &def.mana_cost, Some(card))?.is_none() {
+        if plan_payment(state, player, &state.casting_cost(card)?, Some(card))?.is_none() {
             continue;
         }
         for targets in target_choices(state, player, &target_specs(def))? {
@@ -259,10 +261,14 @@ pub(crate) fn cast_spell(
     card: ObjectId,
     targets: &[Target],
 ) -> Result<(), InternalError> {
-    let def = state.def(card)?;
-    let plan = plan_payment(state, player, &def.mana_cost, Some(card))?
+    let cost = state.casting_cost(card)?;
+    let plan = plan_payment(state, player, &cost, Some(card))?
         .ok_or_else(|| InternalError::new(format!("no way to pay for {card:?}")))?;
 
+    // Each cast from the command zone makes the next one dearer.
+    if state.object(card)?.zone == Zone::Command {
+        state.player_mut(player).commander_casts += 1;
+    }
     let spell = state.move_object(card, Zone::Stack)?;
     state.stack.push(StackItem {
         id: spell,
@@ -276,7 +282,7 @@ pub(crate) fn cast_spell(
         card: state.card_ref(spell)?,
         targets: targets.to_vec(),
     });
-    pay_cost(state, events, player, &def.mana_cost, &plan)?;
+    pay_cost(state, events, player, &cost, &plan)?;
     // The caster keeps priority, once whatever triggers on the spell being
     // cast is on the stack above it.
     fire(state, Happening::CastSpell { player, spell })

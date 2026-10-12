@@ -93,4 +93,6 @@ Update this section if commands change.
 - **Relic**: passive item that modifies rules for the whole run.
 - **Modifier**: what relics, boons, passives and boss emblems all are in the code (`ModifierDef`). It reaches a duel through `PlayerConfig`, often as an **emblem**.
 - **Boon**: pre-boss bonus bought with remaining hearts.
+- **Commander**: a legendary creature in the deck's colours that waits in the command zone and is cast from there, costing more each time (a prototype; `DECISIONS.md` #45). Characters, elites and the boss have one.
+- **Starting emblem**: the modifier the player picks with their commander when a run starts (`data/run/emblems.json`). It used to be the character's fixed passive.
 - **Planeswalker (character)**: the player's chosen starting identity (starting deck, colours, passive). Not the MTG card type.
