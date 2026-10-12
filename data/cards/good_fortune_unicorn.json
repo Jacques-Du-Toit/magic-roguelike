@@ -1,0 +1,37 @@
+{
+  "id": "good_fortune_unicorn",
+  "name": "Good-Fortune Unicorn",
+  "mana_cost": "{1}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Unicorn"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "Whenever another creature you control enters, put a +1/+1 counter on that creature.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "another_creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "triggering": {}
+          },
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

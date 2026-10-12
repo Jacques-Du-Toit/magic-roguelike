@@ -602,6 +602,7 @@ fn ability_effects(
                 target: TargetSpec::This {},
                 power: 1,
                 toughness: 1,
+                for_each: None,
             }]);
         }
         TriggeredAbility::Keyword { keyword, .. } => {

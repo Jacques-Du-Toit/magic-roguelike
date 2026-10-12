@@ -1,0 +1,23 @@
+{
+  "id": "collective_blessing",
+  "name": "Collective Blessing",
+  "mana_cost": "{3}{G}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Creatures you control get +3/+3.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "creatures_you_control",
+      "power": 3,
+      "toughness": 3
+    }
+  ]
+}

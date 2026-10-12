@@ -1,0 +1,26 @@
+{
+  "id": "overrun",
+  "name": "Overrun",
+  "mana_cost": "{2}{G}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Creatures you control get +3/+3 and gain trample until end of turn. (Each of those creatures can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "your_creatures_get_until_eot",
+          "power": 3,
+          "toughness": 3,
+          "keyword": "trample"
+        }
+      ]
+    }
+  ]
+}

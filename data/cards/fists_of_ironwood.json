@@ -1,0 +1,41 @@
+{
+  "id": "fists_of_ironwood",
+  "name": "Fists of Ironwood",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "subtypes": [
+    "Aura"
+  ],
+  "rarity": "common",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, create two 1/1 green Saproling creature tokens.\nEnchanted creature has trample.",
+  "enchant": {
+    "creature": {}
+  },
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "saproling_token",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "enchanted",
+      "keyword": "trample"
+    }
+  ]
+}

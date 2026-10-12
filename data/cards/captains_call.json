@@ -1,0 +1,25 @@
+{
+  "id": "captains_call",
+  "name": "Captain's Call",
+  "mana_cost": "{3}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Create three 1/1 white Soldier creature tokens.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "soldier_token",
+          "count": 3
+        }
+      ]
+    }
+  ]
+}

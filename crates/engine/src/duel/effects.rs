@@ -7,7 +7,7 @@ use super::ids::{ObjectId, PlayerId};
 use super::stack::permanent_entered;
 use super::state::{Decision, DuelState, StackItemKind, Zone};
 use super::turn::{discard_card, draw_card, mill_card};
-use crate::cards::{Effect, PlayerRef};
+use crate::cards::{Count, Effect, PlayerRef};
 
 /// Whether an effect was carried out in full, or has stopped for a choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,9 +133,19 @@ pub(crate) fn apply_effect(
             )?;
         }
         Effect::ModifyPtUntilEot {
-            power, toughness, ..
+            power,
+            toughness,
+            for_each,
+            ..
         } => {
             let permanent = object(effect, targets, 0)?;
+            let times = match for_each {
+                None => 1,
+                Some(Count::CreatureYouControl) => {
+                    i32::try_from(state.creatures_of(controller)?.len()).unwrap_or(i32::MAX)
+                }
+            };
+            let (power, toughness) = (power.saturating_mul(times), toughness.saturating_mul(times));
             let creature = state.object_mut(permanent)?;
             creature.power_bonus += power;
             creature.toughness_bonus += toughness;
@@ -197,6 +207,30 @@ pub(crate) fn apply_effect(
                     surveil: true,
                 });
                 return Ok(Applied::Waiting);
+            }
+        }
+        Effect::YourCreaturesGetUntilEot {
+            power,
+            toughness,
+            keyword,
+        } => {
+            for permanent in state.creatures_of(controller)? {
+                let creature = state.object_mut(permanent)?;
+                if power != 0 || toughness != 0 {
+                    creature.power_bonus += power;
+                    creature.toughness_bonus += toughness;
+                    events.push(GameEvent::PowerToughnessChanged {
+                        permanent,
+                        power,
+                        toughness,
+                    });
+                }
+                if let Some(keyword) = keyword {
+                    if !creature.granted_keywords.contains(&keyword) {
+                        creature.granted_keywords.push(keyword);
+                    }
+                    events.push(GameEvent::KeywordGranted { permanent, keyword });
+                }
             }
         }
         Effect::Tap {

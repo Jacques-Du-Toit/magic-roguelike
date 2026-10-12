@@ -1,0 +1,25 @@
+{
+  "id": "sworn_companions",
+  "name": "Sworn Companions",
+  "mana_cost": "{2}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Create two 1/1 white Soldier creature tokens with lifelink.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "soldier_lifelink_token",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}

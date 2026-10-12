@@ -1,0 +1,43 @@
+{
+  "id": "trostanis_summoner",
+  "name": "Trostani's Summoner",
+  "mana_cost": "{5}{G}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Shaman"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters, create a 2/2 white Knight creature token with vigilance, a 3/3 green Centaur creature token, and a 4/4 green Rhino creature token with trample.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "knight_token"
+        },
+        {
+          "type": "create_token",
+          "token": "centaur_token"
+        },
+        {
+          "type": "create_token",
+          "token": "rhino_token"
+        }
+      ]
+    }
+  ]
+}

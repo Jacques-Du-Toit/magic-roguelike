@@ -314,6 +314,8 @@ pub enum Affects {
     /// Every creature the controller controls except the one the ability
     /// is on.
     OtherCreaturesYouControl,
+    /// Every creature token the controller controls.
+    CreatureTokensYouControl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -382,10 +384,14 @@ pub enum Effect {
         player: PlayerRef,
         amount: u32,
     },
+    /// With `for_each`, the change is made once for each thing counted
+    /// when the effect resolves.
     ModifyPtUntilEot {
         target: TargetSpec,
         power: i32,
         toughness: i32,
+        #[serde(default)]
+        for_each: Option<Count>,
     },
     ReturnToHand {
         target: TargetSpec,
@@ -398,6 +404,17 @@ pub enum Effect {
     /// As scry, but the cards not kept go to the graveyard.
     Surveil {
         amount: u32,
+    },
+    /// "Creatures you control get +2/+1 until end of turn", and gain the
+    /// keyword if there is one. It reaches the creatures its controller has
+    /// when it resolves.
+    YourCreaturesGetUntilEot {
+        #[serde(default)]
+        power: i32,
+        #[serde(default)]
+        toughness: i32,
+        #[serde(default)]
+        keyword: Option<Keyword>,
     },
     /// Taps the target. With `skip_next_untap` it also stays tapped through
     /// its controller's next untap step.
@@ -429,6 +446,7 @@ impl Effect {
             Effect::Scry { .. } => "scry",
             Effect::Surveil { .. } => "surveil",
             Effect::Tap { .. } => "tap",
+            Effect::YourCreaturesGetUntilEot { .. } => "your_creatures_get_until_eot",
         }
     }
 
@@ -451,13 +469,25 @@ impl Effect {
             | Effect::GainLife { player, .. }
             | Effect::LoseLife { player, .. }
             | Effect::Mill { player, .. } => player.target().into_iter().collect(),
-            Effect::CreateToken { .. } | Effect::Scry { .. } | Effect::Surveil { .. } => Vec::new(),
+            Effect::CreateToken { .. }
+            | Effect::Scry { .. }
+            | Effect::Surveil { .. }
+            | Effect::YourCreaturesGetUntilEot { .. } => Vec::new(),
         }
     }
 }
 
 fn one() -> u32 {
     1
+}
+
+/// Something an effect counts when it resolves ("for each creature you
+/// control").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum Count {
+    /// The creatures the effect's controller controls.
+    CreatureYouControl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -662,6 +692,8 @@ pub enum CardError {
     },
     #[error("`{0}` needs an amount above zero")]
     ZeroAmount(&'static str),
+    #[error("`{0}` changes nothing")]
+    ChangesNothing(&'static str),
     #[error("a mana ability must cost `tap`")]
     ManaCost,
     #[error("a mana ability must produce exactly one coloured mana")]
@@ -788,7 +820,9 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             match affects {
                 Affects::Enchanted if card.is_aura() => Ok(()),
                 Affects::Enchanted => Err(CardError::EnchantedOnNonAura),
-                Affects::CreaturesYouControl | Affects::OtherCreaturesYouControl => {
+                Affects::CreaturesYouControl
+                | Affects::OtherCreaturesYouControl
+                | Affects::CreatureTokensYouControl => {
                     Err(CardError::EmblemOnly("a restriction on your creatures"))
                 }
             }
@@ -903,7 +937,8 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::LoseLife { .. }
         | Effect::Mill { .. }
         | Effect::Scry { .. }
-        | Effect::Surveil { .. } => None,
+        | Effect::Surveil { .. }
+        | Effect::YourCreaturesGetUntilEot { .. } => None,
     };
     if let Some(target) = bad_target {
         return Err(CardError::BadTarget {
@@ -922,6 +957,11 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::Scry { amount: 0 }
         | Effect::Surveil { amount: 0 } => Err(CardError::ZeroAmount(effect.name())),
         Effect::CreateToken { count: 0, .. } => Err(CardError::NoTokens),
+        Effect::YourCreaturesGetUntilEot {
+            power: 0,
+            toughness: 0,
+            keyword: None,
+        } => Err(CardError::ChangesNothing(effect.name())),
         _ => Ok(()),
     }
 }
@@ -1466,6 +1506,23 @@ mod tests {
         assert_eq!(
             check(with(bears(), "abilities", restriction(json!(["attack"])))),
             Err(CardError::EnchantedOnNonAura)
+        );
+    }
+    #[test]
+    fn an_effect_on_all_your_creatures_must_change_something() {
+        let pump = |fields: Value| {
+            let mut effect = json!({ "type": "your_creatures_get_until_eot" });
+            effect
+                .as_object_mut()
+                .unwrap()
+                .extend(fields.as_object().unwrap().clone());
+            validate_effect(&serde_json::from_value(effect).unwrap())
+        };
+        assert_eq!(pump(json!({ "power": 2, "toughness": 1 })), Ok(()));
+        assert_eq!(pump(json!({ "keyword": "trample" })), Ok(()));
+        assert_eq!(
+            pump(json!({})),
+            Err(CardError::ChangesNothing("your_creatures_get_until_eot"))
         );
     }
 }

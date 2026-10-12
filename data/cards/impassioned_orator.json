@@ -1,0 +1,35 @@
+{
+  "id": "impassioned_orator",
+  "name": "Impassioned Orator",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Cleric"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "Whenever another creature you control enters, you gain 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "another_creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

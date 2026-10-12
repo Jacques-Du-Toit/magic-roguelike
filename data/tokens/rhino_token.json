@@ -1,0 +1,20 @@
+{
+  "id": "rhino_token",
+  "name": "Rhino",
+  "mana_cost": "",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Rhino"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "common",
+  "keywords": [
+    "trample"
+  ]
+}

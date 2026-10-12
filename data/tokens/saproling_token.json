@@ -1,0 +1,17 @@
+{
+  "id": "saproling_token",
+  "name": "Saproling",
+  "mana_cost": "",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Saproling"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "common"
+}

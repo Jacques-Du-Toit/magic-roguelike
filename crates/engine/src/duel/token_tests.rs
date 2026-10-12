@@ -8,7 +8,7 @@ use super::test_support::{
     put_lands, put_on_battlefield,
 };
 use super::{apply_action, player_view};
-use crate::cards::{CardDefId, Color};
+use crate::cards::{CardDefId, Color, Keyword};
 use crate::data;
 
 fn act(state: &mut DuelState, player: PlayerId, action: Action) -> Vec<GameEvent> {
@@ -259,4 +259,238 @@ fn a_token_entering_and_dying_sets_off_abilities_like_any_creature() {
         (state.player(me).life, state.player(opponent).life),
         (21, 19)
     );
+}
+
+// ---- The go-wide package ----
+
+/// Passes priority until the stack is empty.
+fn resolve_all(state: &mut DuelState) -> Vec<GameEvent> {
+    let mut events = pass_both(state);
+    for _ in 0..20 {
+        if state.stack.is_empty() {
+            break;
+        }
+        events.extend(pass_both(state));
+    }
+    events
+}
+
+fn stats(state: &DuelState, id: ObjectId) -> (i32, i32) {
+    (state.power(id).unwrap(), state.toughness(id).unwrap())
+}
+
+#[test]
+fn two_tokens_may_share_a_name() {
+    let cards = &data::embedded().unwrap().cards;
+    let plain = cards.get(&CardDefId("soldier_token".to_string())).unwrap();
+    let lifelink = cards
+        .get(&CardDefId("soldier_lifelink_token".to_string()))
+        .unwrap();
+    assert_eq!(plain.name, lifelink.name);
+    assert!(lifelink.has_keyword(Keyword::Lifelink) && !plain.has_keyword(Keyword::Lifelink));
+}
+
+#[test]
+fn captains_call_creates_three_soldiers() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 4);
+    let call = put_in_hand(&mut state, me, "captains_call");
+    act(&mut state, me, cast(call));
+    let events = resolve_all(&mut state);
+    assert_eq!(created(&events), 3);
+    assert_eq!(tokens(&state, me), ["Soldier", "Soldier", "Soldier"]);
+    state.assert_consistent();
+}
+
+#[test]
+fn sworn_companions_creates_two_soldiers_with_lifelink() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 3);
+    let companions = put_in_hand(&mut state, me, "sworn_companions");
+    act(&mut state, me, cast(companions));
+    resolve_all(&mut state);
+    let ids = token_ids(&state, me);
+    assert_eq!(ids.len(), 2);
+    for id in ids {
+        assert_eq!(stats(&state, id), (1, 1));
+        assert!(state.has_keyword(id, Keyword::Lifelink).unwrap());
+    }
+}
+
+#[test]
+fn impassioned_orator_gains_a_life_for_each_other_creature_that_enters() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 4);
+    let orator = put_in_hand(&mut state, me, "impassioned_orator");
+    let alarm = put_in_hand(&mut state, me, "raise_the_alarm");
+    let life = state.player(me).life;
+    act(&mut state, me, cast(orator));
+    resolve_all(&mut state);
+    // Not for itself.
+    assert_eq!(state.player(me).life, life);
+    act(&mut state, me, cast(alarm));
+    resolve_all(&mut state);
+    assert_eq!(state.player(me).life, life + 2);
+}
+
+#[test]
+fn good_fortune_unicorn_puts_a_counter_on_each_other_creature_that_enters() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 2);
+    put_lands(&mut state, me, "plains", 2);
+    let unicorn = put_on_battlefield(&mut state, me, "good_fortune_unicorn");
+    let bears = put_in_hand(&mut state, me, "grizzly_bears");
+    let alarm = put_in_hand(&mut state, me, "raise_the_alarm");
+    act(&mut state, me, cast(bears));
+    resolve_all(&mut state);
+    let bears = state.creatures_of(me).unwrap()[1];
+    assert_eq!(state.objects[&bears].plus_counters, 1);
+    assert_eq!(stats(&state, bears), (3, 3));
+    // Tokens too, and never itself.
+    act(&mut state, me, cast(alarm));
+    resolve_all(&mut state);
+    for token in token_ids(&state, me) {
+        assert_eq!(stats(&state, token), (2, 2));
+    }
+    assert_eq!(state.objects[&unicorn].plus_counters, 0);
+    // Not the opponent's creatures.
+    let theirs = put_in_hand(&mut state, opponent, "raging_goblin");
+    put_lands(&mut state, opponent, "mountain", 1);
+    let turn = state.turn;
+    pass_until(&mut state, turn + 1, Step::PrecombatMain);
+    act(&mut state, opponent, cast(theirs));
+    resolve_all(&mut state);
+    let goblin = state.creatures_of(opponent).unwrap()[0];
+    assert_eq!(state.objects[&goblin].plus_counters, 0);
+}
+
+#[test]
+fn trostanis_summoner_brings_a_knight_a_centaur_and_a_rhino() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 4);
+    put_lands(&mut state, me, "plains", 3);
+    let summoner = put_in_hand(&mut state, me, "trostanis_summoner");
+    act(&mut state, me, cast(summoner));
+    let events = resolve_all(&mut state);
+    assert_eq!(created(&events), 3);
+    assert_eq!(tokens(&state, me), ["Knight", "Centaur", "Rhino"]);
+    let ids = token_ids(&state, me);
+    assert_eq!(stats(&state, ids[0]), (2, 2));
+    assert!(state.has_keyword(ids[0], Keyword::Vigilance).unwrap());
+    assert_eq!(stats(&state, ids[1]), (3, 3));
+    assert_eq!(stats(&state, ids[2]), (4, 4));
+    assert!(state.has_keyword(ids[2], Keyword::Trample).unwrap());
+}
+
+#[test]
+fn fists_of_ironwood_gives_trample_and_two_saprolings() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 2);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let fists = put_in_hand(&mut state, me, "fists_of_ironwood");
+    assert!(!state.has_keyword(bears, Keyword::Trample).unwrap());
+    act(
+        &mut state,
+        me,
+        cast_at(fists, Target::Object { object: bears }),
+    );
+    let events = resolve_all(&mut state);
+    assert_eq!(created(&events), 2);
+    assert_eq!(tokens(&state, me), ["Saproling", "Saproling"]);
+    assert!(state.has_keyword(bears, Keyword::Trample).unwrap());
+    // Only the enchanted creature.
+    let saproling = token_ids(&state, me)[0];
+    assert_eq!(stats(&state, saproling), (1, 1));
+    assert!(!state.has_keyword(saproling, Keyword::Trample).unwrap());
+    state.assert_consistent();
+}
+
+#[test]
+fn intangible_virtue_helps_tokens_and_nothing_else() {
+    let (mut state, me, opponent) = empty_board(1);
+    let mine = put_on_battlefield(&mut state, me, "soldier_token");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "goblin_token");
+    assert_eq!(stats(&state, mine), (1, 1));
+    put_on_battlefield(&mut state, me, "intangible_virtue");
+    assert_eq!(stats(&state, mine), (2, 2));
+    assert!(state.has_keyword(mine, Keyword::Vigilance).unwrap());
+    assert_eq!(stats(&state, bears), (2, 2));
+    assert!(!state.has_keyword(bears, Keyword::Vigilance).unwrap());
+    assert_eq!(stats(&state, theirs), (1, 1));
+    assert!(!state.has_keyword(theirs, Keyword::Vigilance).unwrap());
+}
+
+#[test]
+fn inspired_charge_pumps_my_creatures_until_end_of_turn() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 4);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let soldier = put_on_battlefield(&mut state, me, "soldier_token");
+    let theirs = put_on_battlefield(&mut state, opponent, "raging_goblin");
+    let charge = put_in_hand(&mut state, me, "inspired_charge");
+    act(&mut state, me, cast(charge));
+    resolve_all(&mut state);
+    assert_eq!(stats(&state, bears), (4, 3));
+    assert_eq!(stats(&state, soldier), (3, 2));
+    assert_eq!(stats(&state, theirs), (1, 1));
+    // A creature that arrives afterwards gets nothing.
+    let late = put_on_battlefield(&mut state, me, "glory_seeker");
+    assert_eq!(stats(&state, late), (2, 2));
+    let turn = state.turn;
+    pass_until(&mut state, turn + 1, Step::PrecombatMain);
+    assert_eq!(stats(&state, bears), (2, 2));
+    assert_eq!(stats(&state, soldier), (1, 1));
+}
+
+#[test]
+fn might_of_the_masses_counts_my_creatures_when_it_resolves() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 1);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    put_on_battlefield(&mut state, me, "soldier_token");
+    put_on_battlefield(&mut state, me, "soldier_token");
+    put_on_battlefield(&mut state, opponent, "raging_goblin");
+    let might = put_in_hand(&mut state, me, "might_of_the_masses");
+    act(
+        &mut state,
+        me,
+        cast_at(might, Target::Object { object: bears }),
+    );
+    resolve_all(&mut state);
+    // Three creatures of mine; the opponent's doesn't count.
+    assert_eq!(stats(&state, bears), (5, 5));
+}
+
+#[test]
+fn overrun_gives_three_and_three_and_trample() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 5);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let soldier = put_on_battlefield(&mut state, me, "soldier_token");
+    let theirs = put_on_battlefield(&mut state, opponent, "raging_goblin");
+    let overrun = put_in_hand(&mut state, me, "overrun");
+    act(&mut state, me, cast(overrun));
+    resolve_all(&mut state);
+    for id in [bears, soldier] {
+        assert!(state.has_keyword(id, Keyword::Trample).unwrap());
+    }
+    assert_eq!(stats(&state, bears), (5, 5));
+    assert_eq!(stats(&state, soldier), (4, 4));
+    assert_eq!(stats(&state, theirs), (1, 1));
+    assert!(!state.has_keyword(theirs, Keyword::Trample).unwrap());
+    let turn = state.turn;
+    pass_until(&mut state, turn + 1, Step::PrecombatMain);
+    assert_eq!(stats(&state, bears), (2, 2));
+    assert!(!state.has_keyword(bears, Keyword::Trample).unwrap());
+}
+
+#[test]
+fn collective_blessing_gives_my_creatures_three_and_three() {
+    let (mut state, me, opponent) = empty_board(1);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "raging_goblin");
+    put_on_battlefield(&mut state, me, "collective_blessing");
+    assert_eq!(stats(&state, bears), (5, 5));
+    assert_eq!(stats(&state, theirs), (1, 1));
 }

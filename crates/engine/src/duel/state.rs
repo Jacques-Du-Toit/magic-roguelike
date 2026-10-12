@@ -639,6 +639,9 @@ impl DuelState {
                     Affects::Enchanted => holder.attached_to == Some(id),
                     Affects::CreaturesYouControl => holder.owner == controller,
                     Affects::OtherCreaturesYouControl => holder.owner == controller && other != id,
+                    Affects::CreatureTokensYouControl => {
+                        holder.owner == controller && self.def(id)?.token
+                    }
                 };
                 if reaches {
                     visit(ability);

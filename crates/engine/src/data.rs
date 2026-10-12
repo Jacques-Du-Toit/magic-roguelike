@@ -135,7 +135,9 @@ impl GameData {
             if let Err(source) = cards::validate(&card) {
                 return Err(DataError::Card { file, source });
             }
-            if let Some(other) = names.insert(card.name.clone(), card.id.clone()) {
+            // Tokens may share a name, as in Magic: a Soldier with lifelink
+            // and one without are both "Soldier".
+            if !token && let Some(other) = names.insert(card.name.clone(), card.id.clone()) {
                 return Err(DataError::DuplicateName {
                     file,
                     name: card.name,
@@ -546,9 +548,9 @@ mod tests {
         // The commanders: never in a deck, a reward or a shop.
         let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (82, 32));
+        assert_eq!((creatures, others), (85, 40));
         assert_eq!(legends, 7);
-        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 8);
+        assert_eq!(data().cards.iter().filter(|card| card.token).count(), 12);
     }
 
     /// Cost, power/toughness and keywords of the M1 to M3 creatures, as
@@ -724,7 +726,8 @@ mod tests {
             [Effect::ModifyPtUntilEot {
                 target: creature,
                 power: 3,
-                toughness: 3
+                toughness: 3,
+                for_each: None
             }]
         );
         assert_eq!(card("cancel").types, [CardType::Instant]);
@@ -895,7 +898,8 @@ mod tests {
 
     /// A card nobody can ever meet is dead weight: every card is in a test
     /// deck, a starting deck or an enemy deck. Non-basic lands are the
-    /// exception (they come from rewards and shops), and so are tokens.
+    /// exception (they come from rewards and shops), and so are tokens and
+    /// the spells on `RUN_STRANGERS`, which rewards and drafts offer.
     #[test]
     fn every_card_is_in_some_deck() {
         let run = &data().run;
@@ -913,7 +917,10 @@ mod tests {
                 || run.planeswalkers.iter().any(|def| leads(&def.commander))
                 || run.enemies.iter().any(|def| leads(&def.commander));
             let reward_land = card.is_land() && card.supertypes.is_empty();
-            assert!(used || reward_land, "{id} is in no deck");
+            assert!(
+                used || reward_land || RUN_STRANGERS.contains(&id),
+                "{id} is in no deck"
+            );
         }
     }
 
@@ -943,7 +950,20 @@ mod tests {
 
     /// Spells no enemy or starting deck uses yet. Those in a character's
     /// colours still turn up as rewards.
-    const RUN_STRANGERS: [&str; 0] = [];
+    const RUN_STRANGERS: [&str; 11] = [
+        // The go-wide package of the green-white pool.
+        "captains_call",
+        "collective_blessing",
+        "fists_of_ironwood",
+        "good_fortune_unicorn",
+        "impassioned_orator",
+        "inspired_charge",
+        "intangible_virtue",
+        "might_of_the_masses",
+        "overrun",
+        "sworn_companions",
+        "trostanis_summoner",
+    ];
 
     #[test]
     fn the_run_content_is_what_the_roadmap_asks_for() {

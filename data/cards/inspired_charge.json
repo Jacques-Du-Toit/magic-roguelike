@@ -1,0 +1,25 @@
+{
+  "id": "inspired_charge",
+  "name": "Inspired Charge",
+  "mana_cost": "{2}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "common",
+  "oracle_text": "Creatures you control get +2/+1 until end of turn.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "your_creatures_get_until_eot",
+          "power": 2,
+          "toughness": 1
+        }
+      ]
+    }
+  ]
+}
