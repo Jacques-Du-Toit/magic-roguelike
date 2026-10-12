@@ -49,6 +49,41 @@ pub struct LandFloodBalance {
 #[serde(deny_unknown_fields)]
 pub struct AiBalance {
     pub mulligan: AiMulliganBalance,
+    pub search: AiSearchBalance,
+}
+
+/// How hard the searching AI thinks. For each thing it might do it plays
+/// the game forward in `worlds` guesses at the cards it can't see, so its
+/// thinking time grows with `worlds` times the number of things it tries.
+/// These are counts, never a time limit: the same position is always
+/// thought about in the same way, on any machine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AiSearchBalance {
+    /// Guesses at the hidden cards per decision.
+    pub worlds: u32,
+    /// How many spells and abilities are tried besides passing: the ones
+    /// that look best at a glance.
+    pub candidates: u32,
+    /// How many ways of aiming one spell or ability are among them.
+    pub targets_per_spell: u32,
+    /// How far each imagined game is played: to the start of the turn this
+    /// many turns after the current one.
+    pub turns: u32,
+    /// An imagined game stops after this many actions, however far it got.
+    pub max_actions: u32,
+    /// In an imagined game, how many choices of targets, one after another,
+    /// a player thinks through when weighing a spell (the real version 1
+    /// thinks through two). 0 makes the imagined players cheapest.
+    pub rollout_lookahead: u8,
+    /// What winning is worth, on the scale positions are scored on (a
+    /// creature is worth about 5 to 15). Positions are capped just below
+    /// it, so that a small chance of winning counts as a small chance.
+    pub win_value: i32,
+    /// Whether the AI knows which cards are in the opponent's deck (never
+    /// which of them are in their hand, or the order of their library).
+    /// Without it, it guesses from the cards of the colours they have shown.
+    pub knows_decklist: bool,
 }
 
 /// The AI keeps a hand with `min_lands..=max_lands` lands, and never
@@ -94,6 +129,11 @@ pub enum BalanceError {
     SmoothingCandidates,
     #[error("`ai.mulligan.min_lands` must not be above `max_lands`")]
     AiMulliganLands,
+    #[error(
+        "`ai.search`: `worlds`, `candidates`, `targets_per_spell`, `turns`, `max_actions` and \
+         `win_value` must all be above zero"
+    )]
+    AiSearch,
     #[error("`sim.turn_cap` must be above zero")]
     TurnCap,
     #[error("`run.hearts` must be above zero")]
@@ -121,6 +161,16 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
     }
     if balance.ai.mulligan.min_lands > balance.ai.mulligan.max_lands {
         return Err(BalanceError::AiMulliganLands);
+    }
+    let search = &balance.ai.search;
+    if search.worlds == 0
+        || search.candidates == 0
+        || search.targets_per_spell == 0
+        || search.turns == 0
+        || search.max_actions == 0
+        || search.win_value <= 0
+    {
+        return Err(BalanceError::AiSearch);
     }
     if balance.sim.turn_cap == 0 {
         return Err(BalanceError::TurnCap);
@@ -327,6 +377,14 @@ mod tests {
             Err(BalanceError::AiMulliganLands)
         );
         assert_eq!(check(|b| b.sim.turn_cap = 0), Err(BalanceError::TurnCap));
+        assert_eq!(
+            check(|b| b.ai.search.worlds = 0),
+            Err(BalanceError::AiSearch)
+        );
+        assert_eq!(
+            check(|b| b.ai.search.win_value = 0),
+            Err(BalanceError::AiSearch)
+        );
     }
 
     #[test]

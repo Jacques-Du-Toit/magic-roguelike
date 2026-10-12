@@ -35,7 +35,10 @@ pairing uses seed S + i (S defaults to 1), so a run can be repeated exactly.
 In the report's game i (counting from 0), the first-named deck is P1 when i
 is even and P2 when i is odd.
 
---ai chooses the AI that plays: `old`, the heuristic one.
+--ai chooses the AI that plays: `old`, the heuristic one, or `new`, the one
+that searches by imagined games. `new-knowing` and `new-guessing` are `new`
+with and without knowledge of the opponent's decklist, whatever
+data/balance.json says.
 --decks keeps only the pairings between the decks named, for a quick sample.
 With --enemies it names planeswalkers and enemies: a pairing is kept unless
 its planeswalker or its enemy is left out of a list that names others.
@@ -64,13 +67,21 @@ Every report ends with how long the AIs took to decide.";
 pub fn ai_name(ai: AiKind) -> &'static str {
     match ai {
         AiKind::Heuristic => "old",
+        AiKind::Search => "new",
+        AiKind::SearchKnowing => "new-knowing",
+        AiKind::SearchGuessing => "new-guessing",
     }
 }
 
 fn parse_ai(flag: &str, text: &str) -> Result<AiKind, String> {
     match text {
         "old" => Ok(AiKind::Heuristic),
-        _ => Err(format!("{flag}: `{text}` is not an AI (try `old`)")),
+        "new" => Ok(AiKind::Search),
+        "new-knowing" => Ok(AiKind::SearchKnowing),
+        "new-guessing" => Ok(AiKind::SearchGuessing),
+        _ => Err(format!(
+            "{flag}: `{text}` is not an AI (old, new, new-knowing, new-guessing)"
+        )),
     }
 }
 
@@ -609,7 +620,7 @@ mod tests {
         );
         assert_eq!(
             parse_args(&args("--ai clever")),
-            Err("--ai: `clever` is not an AI (try `old`)".to_string())
+            Err("--ai: `clever` is not an AI (old, new, new-knowing, new-guessing)".to_string())
         );
         assert_eq!(
             parse_args(&args("--replay deck_b")),
@@ -788,6 +799,33 @@ mod tests {
         assert!(output.timing.starts_with("Timing"), "{}", output.timing);
         // Three pairings, both ways round, four games each.
         assert!(output.timing.contains("\n24 games, "), "{}", output.timing);
+    }
+
+    #[test]
+    fn the_new_ai_can_be_played_against_the_old() {
+        let options = parse_args(&args("--versus --ai new --games 1 --decks deck_c"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(options.ai, AiKind::Search);
+        let output = run_output(&options).unwrap();
+        assert!(!output.failed, "{}", output.report);
+        assert!(
+            output.report.contains("the `new` AI against the `old` AI"),
+            "{}",
+            output.report
+        );
+        // Each of them played one side of both games.
+        for ai in ["old", "new"] {
+            assert!(
+                output.timing.lines().any(|line| line.starts_with(ai)),
+                "{}",
+                output.timing
+            );
+        }
+        assert_eq!(
+            parse_args(&args("--ai new-guessing")).unwrap().unwrap().ai,
+            AiKind::SearchGuessing
+        );
     }
 
     #[test]

@@ -820,3 +820,60 @@ fn a_state_restored_from_a_save_plays_on_the_same() {
     assert_eq!(restored, state);
     assert!(state.result.is_some());
 }
+
+// ---- Choices that cannot differ are weighed once ----
+
+#[test]
+fn interchangeable_cards_make_one_choice_not_several() {
+    let (mut state, me, opponent) = empty_board(1);
+    let vampire = put_on_battlefield(&mut state, me, "bloodthrone_vampire");
+    let goblins: Vec<ObjectId> = (0..3)
+        .map(|_| put_on_battlefield(&mut state, me, "goblin_token"))
+        .collect();
+    put_on_battlefield(&mut state, opponent, "goblin_token");
+    let actions = legal_actions(&state, me);
+    let sacrificed = |actions: &[&Action]| -> Vec<ObjectId> {
+        actions
+            .iter()
+            .filter_map(|action| match action {
+                Action::ActivateAbility { sacrifice, .. } => *sacrifice,
+                _ => None,
+            })
+            .collect()
+    };
+    // Any of its four creatures can be sacrificed to the Vampire.
+    let all: Vec<&Action> = actions.iter().collect();
+    assert_eq!(sacrificed(&all).len(), 4);
+    // The three Goblins are one choice: the first of them stands for all.
+    let kept = distinct::distinct(&state, &actions).unwrap();
+    assert_eq!(sacrificed(&kept), [vampire, goblins[0]]);
+    assert!(kept.contains(&&Action::PassPriority));
+
+    // A Goblin that differs in any way is a choice of its own again.
+    state.objects.get_mut(&goblins[1]).unwrap().damage = 1;
+    let kept = distinct::distinct(&state, &actions).unwrap();
+    assert_eq!(sacrificed(&kept), [vampire, goblins[0], goblins[1]]);
+}
+
+#[test]
+fn two_copies_of_a_spell_aimed_at_twins_are_one_choice() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "mountain", 2);
+    let shock = put_in_hand(&mut state, me, "shock");
+    put_in_hand(&mut state, me, "shock");
+    let bears = put_on_battlefield(&mut state, opponent, "grizzly_bears");
+    put_on_battlefield(&mut state, opponent, "grizzly_bears");
+    let actions = legal_actions(&state, me);
+    // Two Shocks, each at either player or either Bears.
+    assert_eq!(actions.len(), 1 + 2 * 4);
+    let kept = distinct::distinct(&state, &actions).unwrap();
+    assert_eq!(
+        kept,
+        [
+            &Action::PassPriority,
+            &cast_at(shock, face(PlayerId::P1)),
+            &cast_at(shock, face(PlayerId::P2)),
+            &cast_at(shock, at(bears)),
+        ]
+    );
+}

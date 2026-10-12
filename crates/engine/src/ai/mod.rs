@@ -19,7 +19,9 @@
 //! - Scry: bottom a land it has no use for or a spell it can't cast soon.
 
 mod combat;
+mod distinct;
 mod evaluate;
+mod search;
 
 use crate::cards::{Color, ManaCost};
 use crate::data;
@@ -28,7 +30,7 @@ use crate::duel::{
     apply_trusted, legal_actions, scry_card,
 };
 
-/// How many choices of targets, one after another, the AI thinks through
+/// How many choices of targets, one after another, version 1 thinks through
 /// when it imagines a spell resolving.
 const LOOKAHEAD: u8 = 2;
 
@@ -37,6 +39,14 @@ const LOOKAHEAD: u8 = 2;
 pub enum AiKind {
     /// Version 1: the heuristics described at the top of this file.
     Heuristic,
+    /// Version 2: the search in `search.rs`, set up as `ai.search` in
+    /// `balance.json` says.
+    Search,
+    /// The search, knowing the opponent's decklist whatever the balance
+    /// file says. This and the next are for measuring that setting.
+    SearchKnowing,
+    /// The search, not knowing the opponent's decklist.
+    SearchGuessing,
 }
 
 /// Chooses an action for `player`, who the game must be waiting on, with
@@ -46,13 +56,6 @@ pub fn ai_choose_action_with(
     player: PlayerId,
     kind: AiKind,
 ) -> Result<Action, ActionError> {
-    match kind {
-        AiKind::Heuristic => ai_choose_action(state, player),
-    }
-}
-
-/// Chooses an action for `player`, who the game must be waiting on.
-pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, ActionError> {
     let Some(decision) = state
         .decision
         .filter(|decision| decision.player() == player)
@@ -60,22 +63,22 @@ pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, A
         return Err(ActionError::NotWaitingOn(player));
     };
     let actions = legal_actions(state, player);
-    let choice = match decision {
-        Decision::Mulligan { .. } => mulligan(state, player, &actions)?,
-        Decision::BottomCards { .. } => Action::BottomCard {
-            card: least_wanted_card(state, player)?,
-        },
-        Decision::Discard { .. } => Action::Discard {
-            card: least_wanted_card(state, player)?,
-        },
-        Decision::Priority { .. } => priority(state, player, &actions)?,
-        Decision::DeclareAttackers { .. } => combat::declare_attackers(state, player, &actions)?,
-        Decision::DeclareBlockers { .. } => combat::declare_blockers(state, player, &actions)?,
-        // The division on offer is the automatic one, which kills as many
-        // blockers as the damage allows.
-        Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,
-        Decision::ChooseTargets { .. } => best_choice(state, player, &actions, LOOKAHEAD)?,
-        Decision::Scry { kept, surveil, .. } => scry(state, player, kept, surveil)?,
+    let choice = match kind {
+        AiKind::Heuristic => heuristic(state, player, decision, &actions, LOOKAHEAD)?,
+        AiKind::Search | AiKind::SearchKnowing | AiKind::SearchGuessing => {
+            let mut settings = data::embedded()
+                .map_err(|error| InternalError::new(error.to_string()))?
+                .balance
+                .ai
+                .search
+                .clone();
+            match kind {
+                AiKind::SearchKnowing => settings.knows_decklist = true,
+                AiKind::SearchGuessing => settings.knows_decklist = false,
+                AiKind::Heuristic | AiKind::Search => {}
+            }
+            search::choose(state, player, decision, &actions, &settings)?
+        }
     };
     if actions.contains(&choice) {
         Ok(choice)
@@ -84,6 +87,40 @@ pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, A
     }
 }
 
+/// Chooses an action for `player`, who the game must be waiting on, the
+/// way version 1 does.
+pub fn ai_choose_action(state: &DuelState, player: PlayerId) -> Result<Action, ActionError> {
+    ai_choose_action_with(state, player, AiKind::Heuristic)
+}
+
+/// Version 1's answer to `decision`, which is `player`'s to make, from
+/// their legal `actions`. `lookahead` is how many choices of targets, one
+/// after another, it thinks through when it imagines a spell resolving.
+fn heuristic(
+    state: &DuelState,
+    player: PlayerId,
+    decision: Decision,
+    actions: &[Action],
+    lookahead: u8,
+) -> Result<Action, InternalError> {
+    Ok(match decision {
+        Decision::Mulligan { .. } => mulligan(state, player, actions)?,
+        Decision::BottomCards { .. } => Action::BottomCard {
+            card: least_wanted_card(state, player)?,
+        },
+        Decision::Discard { .. } => Action::Discard {
+            card: least_wanted_card(state, player)?,
+        },
+        Decision::Priority { .. } => priority(state, player, actions, lookahead)?,
+        Decision::DeclareAttackers { .. } => combat::declare_attackers(state, player, actions)?,
+        Decision::DeclareBlockers { .. } => combat::declare_blockers(state, player, actions)?,
+        // The division on offer is the automatic one, which kills as many
+        // blockers as the damage allows.
+        Decision::AssignCombatDamage { .. } => Action::ConfirmDamage,
+        Decision::ChooseTargets { .. } => best_choice(state, player, actions, lookahead)?,
+        Decision::Scry { kept, surveil, .. } => scry(state, player, kept, surveil)?,
+    })
+}
 fn lands_in_hand(state: &DuelState, player: PlayerId) -> Result<Vec<ObjectId>, InternalError> {
     let mut lands = Vec::new();
     for &card in &state.player(player).hand {
@@ -153,6 +190,7 @@ fn priority(
     state: &DuelState,
     player: PlayerId,
     actions: &[Action],
+    lookahead: u8,
 ) -> Result<Action, InternalError> {
     if let Some(land) = best_land(state, player, actions)? {
         return Ok(Action::PlayLand { card: land });
@@ -167,16 +205,16 @@ fn priority(
         return Ok(Action::PassPriority);
     }
 
-    let baseline = outcome(state, player, None, LOOKAHEAD)?;
+    let baseline = outcome(state, player, None, lookahead)?;
     let mut best: Option<(&Action, i32)> = None;
-    for action in actions {
+    for action in distinct::distinct(state, actions)? {
         if !matches!(
             action,
             Action::CastSpell { .. } | Action::ActivateAbility { .. }
         ) {
             continue;
         }
-        let gain = outcome(state, player, Some(action), LOOKAHEAD)? - baseline;
+        let gain = outcome(state, player, Some(action), lookahead)? - baseline;
         if gain > 0 && best.is_none_or(|(_, best_gain)| gain > best_gain) {
             best = Some((action, gain));
         }
@@ -193,7 +231,7 @@ fn best_choice(
     lookahead: u8,
 ) -> Result<Action, InternalError> {
     let mut best: Option<(&Action, i32)> = None;
-    for action in actions {
+    for action in distinct::distinct(state, actions)? {
         let score = outcome(state, player, Some(action), lookahead)?;
         if best.is_none_or(|(_, best_score)| score > best_score) {
             best = Some((action, score));
@@ -343,5 +381,7 @@ fn land_color(state: &DuelState, card: ObjectId) -> Result<Option<Color>, Intern
     }))
 }
 
+#[cfg(test)]
+mod search_tests;
 #[cfg(test)]
 mod tests;

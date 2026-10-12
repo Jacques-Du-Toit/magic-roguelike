@@ -105,6 +105,23 @@ pub(super) fn position(state: &DuelState, player: PlayerId) -> Result<i32, Inter
     Ok(side(player)? - side(player.opponent())?)
 }
 
+/// The position from `player`'s side on a scale that ends at `win_value`:
+/// a won game is worth that, a lost one its opposite, and a game still
+/// going is kept just inside the two. Scores of this kind can be averaged
+/// over imagined games, where one unlikely win must not outweigh the rest.
+pub(super) fn bounded(
+    state: &DuelState,
+    player: PlayerId,
+    win_value: i32,
+) -> Result<i32, InternalError> {
+    Ok(match state.result {
+        Some(GameResult::Win { player: winner, .. }) if winner == player => win_value,
+        Some(GameResult::Win { .. }) => -win_value,
+        Some(GameResult::Draw) => -win_value / 2,
+        None => position(state, player)?.clamp(1 - win_value, win_value - 1),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

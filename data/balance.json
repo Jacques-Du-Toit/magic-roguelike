@@ -15,6 +15,16 @@
       "min_lands": 2,
       "max_lands": 5,
       "min_hand_size": 5
+    },
+    "search": {
+      "worlds": 6,
+      "candidates": 4,
+      "targets_per_spell": 2,
+      "turns": 2,
+      "max_actions": 400,
+      "rollout_lookahead": 0,
+      "win_value": 150,
+      "knows_decklist": true
     }
   },
   "sim": {

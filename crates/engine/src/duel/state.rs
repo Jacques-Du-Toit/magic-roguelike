@@ -926,6 +926,47 @@ impl DuelState {
         Ok(new_id)
     }
 
+    /// Deals the physical cards of `objects` out again among those same
+    /// objects, in an order taken from `rng`. For the AI's guesses at cards
+    /// it can't see: only for objects in a hand or a library, where a card
+    /// has no status of its own.
+    pub(crate) fn redeal_cards(
+        &mut self,
+        objects: &[ObjectId],
+        rng: &mut DuelRng,
+    ) -> Result<(), InternalError> {
+        let mut cards = Vec::with_capacity(objects.len());
+        for &id in objects {
+            let object = self.object_mut(id)?;
+            let def = std::mem::replace(&mut object.def, CardDefId(String::new()));
+            cards.push((object.card, def, object.found_def));
+        }
+        // Start from the cards in a fixed order, so the deal depends on the
+        // dice alone and not on where the cards really were.
+        cards.sort_by_key(|(card, _, _)| *card);
+        rng.shuffle(&mut cards);
+        for (&id, (card, def, found_def)) in objects.iter().zip(cards) {
+            let object = self.object_mut(id)?;
+            object.card = card;
+            object.def = def;
+            object.found_def = found_def;
+        }
+        Ok(())
+    }
+
+    /// Makes the object a copy of another card. For the AI's guesses at a
+    /// card it can't see, in a hand or a library.
+    pub(crate) fn imagine_card(
+        &mut self,
+        id: ObjectId,
+        def: &'static CardDef,
+    ) -> Result<(), InternalError> {
+        let object = self.object_mut(id)?;
+        object.def = def.id.clone();
+        object.found_def = FoundDef(Some(def));
+        Ok(())
+    }
+
     /// Tokens that have left the battlefield cease to exist. Returns
     /// whether any did.
     pub(crate) fn remove_stray_tokens(&mut self) -> bool {
