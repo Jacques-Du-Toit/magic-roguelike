@@ -1,0 +1,51 @@
+{
+  "id": "pelakka_wurm",
+  "name": "Pelakka Wurm",
+  "mana_cost": "{4}{G}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Wurm"
+  ],
+  "power": 7,
+  "toughness": 7,
+  "rarity": "uncommon",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nWhen this creature enters, you gain 7 life.\nWhen this creature dies, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 7
+        }
+      ]
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "dies",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

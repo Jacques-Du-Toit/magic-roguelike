@@ -70,6 +70,9 @@ pub struct CardDef {
     /// `enters_tapped`.
     #[serde(default)]
     pub enters_with_counters: u32,
+    /// "This spell can't be countered."
+    #[serde(default)]
+    pub cant_be_countered: bool,
     /// Our text differs from the printed card's on purpose. The Scryfall
     /// check then leaves the oracle text alone.
     #[serde(default)]
@@ -228,6 +231,13 @@ pub enum Condition {
     LifeGainedThisTurn { at_least: u32 },
     /// Their life is at least this much above their starting life total.
     LifeAboveStarting { at_least: i32 },
+    /// They control a creature with at least this much power; with
+    /// `another`, one other than the permanent the ability is on.
+    ControlCreatureWithPower {
+        at_least: i32,
+        #[serde(default)]
+        another: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -265,11 +275,16 @@ pub enum SacrificeCost {
 pub enum Trigger {
     EntersBattlefield {
         subject: TriggerSubject,
+        /// "With power N or greater": only for a creature that enters
+        /// with at least this much power.
+        #[serde(default)]
+        min_power: Option<i32>,
     },
+    /// The permanent the ability is on leaves the battlefield, for
+    /// anywhere.
+    LeavesBattlefield {},
     /// The subject is put into a graveyard from the battlefield.
-    Dies {
-        subject: TriggerSubject,
-    },
+    Dies { subject: TriggerSubject },
     /// The permanent the ability is on attacks.
     Attacks {},
     /// The permanent the ability is on deals damage to an opponent.
@@ -279,9 +294,7 @@ pub enum Trigger {
     /// Any player sacrifices a permanent.
     Sacrifice {},
     /// The controller casts a spell of this kind.
-    CastSpell {
-        kind: CastKind,
-    },
+    CastSpell { kind: CastKind },
     /// At the beginning of its controller's upkeep.
     BeginningOfUpkeep {},
     /// At the beginning of combat on its controller's turn.
@@ -346,6 +359,8 @@ pub enum StaticAbility {
     /// control, that many plus `amount` are put on it instead." The one
     /// replacement effect there is; see `put_counters`.
     ExtraCounters { amount: u32 },
+    /// "This creature can't be blocked by creatures with power N or less."
+    CantBeBlockedByPower { at_most: i32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -488,7 +503,14 @@ pub enum Effect {
         toughness: i32,
         #[serde(default)]
         keyword: Option<Keyword>,
+        /// "With toughness N or greater": only those.
+        #[serde(default)]
+        min_toughness: Option<i32>,
     },
+    /// The controller puts a basic land card from their library onto the
+    /// battlefield tapped, then shuffles. The game picks the land: one of
+    /// the colour they have the fewest lands for.
+    FetchBasicLand {},
     /// Taps the target. With `skip_next_untap` it also stays tapped through
     /// its controller's next untap step.
     Tap {
@@ -513,6 +535,7 @@ impl Effect {
             Effect::Destroy { .. } => "destroy",
             Effect::Discard { .. } => "discard",
             Effect::DrawCards { .. } => "draw_cards",
+            Effect::FetchBasicLand {} => "fetch_basic_land",
             Effect::GainLife { .. } => "gain_life",
             Effect::GainLifeEqualTo { .. } => "gain_life_equal_to",
             Effect::GrantKeywordUntilEot { .. } => "grant_keyword_until_eot",
@@ -551,6 +574,7 @@ impl Effect {
             | Effect::AddCountersToYourCreatures { .. }
             | Effect::DoubleCountersOnYourCreatures {}
             | Effect::GainLifeEqualTo { .. }
+            | Effect::FetchBasicLand {}
             | Effect::Scry { .. }
             | Effect::Surveil { .. }
             | Effect::YourCreaturesGetUntilEot { .. } => Vec::new(),
@@ -809,6 +833,8 @@ pub enum CardError {
     },
     #[error("`{0}` needs an amount above zero")]
     ZeroAmount(&'static str),
+    #[error("a keyword can't be granted on a condition about a creature's power")]
+    KeywordFromPower,
     #[error("`{0}` changes nothing")]
     ChangesNothing(&'static str),
     #[error("a mana ability must cost `tap`")]
@@ -952,6 +978,12 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
                 | Affects::This => Err(CardError::EmblemOnly("a restriction on your creatures")),
             }
         }
+        // A creature's power depends on its keywords (an anthem "with
+        // flying"), so a keyword can't depend on a creature's power.
+        AbilityDef::Static(StaticAbility::GrantKeyword {
+            condition: Some(Condition::ControlCreatureWithPower { .. }),
+            ..
+        }) => Err(CardError::KeywordFromPower),
         AbilityDef::Static(
             StaticAbility::Anthem { affects, .. } | StaticAbility::GrantKeyword { affects, .. },
         ) => {
@@ -959,6 +991,13 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
                 return Err(CardError::EnchantedOnNonAura);
             }
             Ok(())
+        }
+        AbilityDef::Static(StaticAbility::CantBeBlockedByPower { .. }) => {
+            if card.is_creature() {
+                Ok(())
+            } else {
+                Err(CardError::PowerToughness)
+            }
         }
         AbilityDef::Static(StaticAbility::ExtraCounters { amount }) => {
             if *amount == 0 {
@@ -991,7 +1030,8 @@ pub(crate) fn validate_triggered(trigger: &Trigger, effects: &[Effect]) -> Resul
         Trigger::EntersBattlefield {
             subject: TriggerSubject::CreatureYouControl
                 | TriggerSubject::AnotherCreatureYouControl
-                | TriggerSubject::TokenYouControl
+                | TriggerSubject::TokenYouControl,
+            ..
         } | Trigger::Dies {
             subject: TriggerSubject::CreatureYouControl | TriggerSubject::AnotherCreatureYouControl
         }
@@ -1077,6 +1117,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         | Effect::AddCountersToYourCreatures { .. }
         | Effect::DoubleCountersOnYourCreatures {}
         | Effect::GainLifeEqualTo { .. }
+        | Effect::FetchBasicLand {}
         | Effect::Discard { .. }
         | Effect::DrawCards { .. }
         | Effect::GainLife { .. }
@@ -1108,6 +1149,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
             power: 0,
             toughness: 0,
             keyword: None,
+            ..
         } => Err(CardError::ChangesNothing(effect.name())),
         _ => Ok(()),
     }

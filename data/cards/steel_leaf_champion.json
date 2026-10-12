@@ -1,0 +1,26 @@
+{
+  "id": "steel_leaf_champion",
+  "name": "Steel Leaf Champion",
+  "mana_cost": "{G}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elf",
+    "Knight"
+  ],
+  "power": 5,
+  "toughness": 4,
+  "rarity": "rare",
+  "oracle_text": "This creature can't be blocked by creatures with power 2 or less.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "cant_be_blocked_by_power",
+      "at_most": 2
+    }
+  ]
+}

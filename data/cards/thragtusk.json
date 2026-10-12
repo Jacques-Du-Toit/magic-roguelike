@@ -1,0 +1,46 @@
+{
+  "id": "thragtusk",
+  "name": "Thragtusk",
+  "mana_cost": "{4}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast"
+  ],
+  "power": 5,
+  "toughness": 3,
+  "rarity": "rare",
+  "oracle_text": "When this creature enters, you gain 5 life.\nWhen this creature leaves the battlefield, create a 3/3 green Beast creature token.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "leaves_battlefield"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "beast_token"
+        }
+      ]
+    }
+  ]
+}

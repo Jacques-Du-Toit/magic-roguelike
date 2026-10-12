@@ -159,7 +159,7 @@ fn can_block(
             return Ok(false);
         }
     }
-    Ok(true)
+    state.can_be_blocked_by(attacker, blocker)
 }
 
 /// Every block the defending player could add to their declaration.

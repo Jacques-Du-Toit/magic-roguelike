@@ -1,0 +1,20 @@
+{
+  "id": "wurm_token",
+  "name": "Wurm",
+  "mana_cost": "",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Wurm"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "common",
+  "keywords": [
+    "trample"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "armada_wurm",
+  "name": "Armada Wurm",
+  "mana_cost": "{2}{G}{G}{W}{W}",
+  "colors": [
+    "W",
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Wurm"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "rare",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "Trample\nWhen this creature enters, create a 5/5 green Wurm creature token with trample.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "wurm_token"
+        }
+      ]
+    }
+  ]
+}

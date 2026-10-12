@@ -23,6 +23,10 @@ enters_tapped: boolean,
  */
 enters_with_counters: number, 
 /**
+ * "This spell can't be countered."
+ */
+cant_be_countered: boolean, 
+/**
  * Our text differs from the printed card's on purpose. The Scryfall
  * check then leaves the oracle text alone.
  */

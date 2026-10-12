@@ -1,0 +1,17 @@
+{
+  "id": "beast_token",
+  "name": "Beast",
+  "mana_cost": "",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "common"
+}

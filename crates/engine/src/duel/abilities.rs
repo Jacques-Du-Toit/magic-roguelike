@@ -47,7 +47,9 @@ pub(crate) fn legal_activations(
             if *sorcery_speed && !has_sorcery_timing(state, player) {
                 continue;
             }
-            if condition.is_some_and(|condition| !state.condition_holds(player, condition)) {
+            if condition
+                .is_some_and(|condition| !state.condition_holds(player, Some(source), condition))
+            {
                 continue;
             }
             if cost.tap {

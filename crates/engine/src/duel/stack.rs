@@ -314,9 +314,9 @@ pub(crate) fn resolve_top(
         StackItemKind::Trigger { ability } => {
             let mut effects = ability_effects(state, ability)?;
             // "If you gained 3 or more life this turn": checked again now.
-            if ability_condition(state, ability)?
-                .is_some_and(|condition| !state.condition_holds(item.controller, condition))
-            {
+            if ability_condition(state, ability)?.is_some_and(|condition| {
+                !state.condition_holds(item.controller, Some(item.source()), condition)
+            }) {
                 effects.clear();
             }
             state.stack.pop();

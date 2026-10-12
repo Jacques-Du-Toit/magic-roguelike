@@ -1,0 +1,54 @@
+{
+  "id": "garruks_uprising",
+  "name": "Garruk's Uprising",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.\nCreatures you control have trample. (Each of those creatures can deal excess combat damage to the player or planeswalker it's attacking.)\nWhenever a creature you control with power 4 or greater enters, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ],
+      "condition": {
+        "type": "control_creature_with_power",
+        "at_least": 4
+      }
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "creatures_you_control",
+      "keyword": "trample"
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "creature_you_control",
+        "min_power": 4
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "nessian_hornbeetle",
+  "name": "Nessian Hornbeetle",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Insect"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "At the beginning of combat on your turn, if you control another creature with power 4 or greater, put a +1/+1 counter on this creature.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_combat"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "this": {}
+          },
+          "amount": 1
+        }
+      ],
+      "condition": {
+        "type": "control_creature_with_power",
+        "at_least": 4,
+        "another": true
+      }
+    }
+  ]
+}

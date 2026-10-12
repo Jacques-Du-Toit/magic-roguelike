@@ -3,4 +3,4 @@
 /**
  * Something about a player that an ability depends on.
  */
-export type Condition = { "type": "life_gained_this_turn", at_least: number, } | { "type": "life_above_starting", at_least: number, };
+export type Condition = { "type": "life_gained_this_turn", at_least: number, } | { "type": "life_above_starting", at_least: number, } | { "type": "control_creature_with_power", at_least: number, another: boolean, };

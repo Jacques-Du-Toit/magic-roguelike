@@ -31,6 +31,8 @@ pub(crate) enum Happening {
         player: PlayerId,
         spell: ObjectId,
     },
+    /// A permanent is about to leave the battlefield.
+    Left(ObjectId),
     /// A player's upkeep has begun.
     Upkeep(PlayerId),
     /// Combat has begun on a player's turn.
@@ -64,7 +66,9 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
             else {
                 continue;
             };
-            if condition.is_some_and(|condition| !state.condition_holds(controller, condition)) {
+            if condition
+                .is_some_and(|condition| !state.condition_holds(controller, Some(id), condition))
+            {
                 continue;
             }
             let holder = Holder::Permanent(id);
@@ -121,7 +125,9 @@ pub(crate) fn fire(state: &mut DuelState, happening: Happening) -> Result<(), In
                 continue;
             };
             let controller = emblem.controller;
-            if condition.is_some_and(|condition| !state.condition_holds(controller, condition)) {
+            if condition
+                .is_some_and(|condition| !state.condition_holds(controller, None, condition))
+            {
                 continue;
             }
             if let Some(subject) =
@@ -222,8 +228,21 @@ fn triggers_on(
         })
     };
     Ok(match (*trigger, happening) {
-        (Trigger::EntersBattlefield { subject }, Happening::Entered(object))
-        | (Trigger::Dies { subject }, Happening::Dies(object)) => by_subject(subject, object)?,
+        (Trigger::EntersBattlefield { subject, min_power }, Happening::Entered(object)) => {
+            let big_enough = match min_power {
+                Some(min_power) => state.is_creature(object)? && state.power(object)? >= min_power,
+                None => true,
+            };
+            if big_enough {
+                by_subject(subject, object)?
+            } else {
+                None
+            }
+        }
+        (Trigger::Dies { subject }, Happening::Dies(object)) => by_subject(subject, object)?,
+        (Trigger::LeavesBattlefield {}, Happening::Left(object)) => {
+            is_holder(object).then_some(None)
+        }
         (Trigger::Attacks {}, Happening::Attacked(object))
         | (Trigger::DealsDamageToOpponent {}, Happening::DealtDamageToOpponent(object)) => {
             is_holder(object).then_some(None)

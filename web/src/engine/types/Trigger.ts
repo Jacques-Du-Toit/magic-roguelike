@@ -2,4 +2,9 @@
 import type { CastKind } from "./CastKind";
 import type { TriggerSubject } from "./TriggerSubject";
 
-export type Trigger = { "type": "enters_battlefield", subject: TriggerSubject, } | { "type": "dies", subject: TriggerSubject, } | { "type": "attacks", } | { "type": "deals_damage_to_opponent", } | { "type": "gain_life", } | { "type": "sacrifice", } | { "type": "cast_spell", kind: CastKind, } | { "type": "beginning_of_upkeep", } | { "type": "beginning_of_combat", } | { "type": "beginning_of_end_step", each_player: boolean, };
+export type Trigger = { "type": "enters_battlefield", subject: TriggerSubject, 
+/**
+ * "With power N or greater": only for a creature that enters
+ * with at least this much power.
+ */
+min_power: number | null, } | { "type": "leaves_battlefield", } | { "type": "dies", subject: TriggerSubject, } | { "type": "attacks", } | { "type": "deals_damage_to_opponent", } | { "type": "gain_life", } | { "type": "sacrifice", } | { "type": "cast_spell", kind: CastKind, } | { "type": "beginning_of_upkeep", } | { "type": "beginning_of_combat", } | { "type": "beginning_of_end_step", each_player: boolean, };

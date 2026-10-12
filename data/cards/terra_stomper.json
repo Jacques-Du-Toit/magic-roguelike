@@ -1,0 +1,23 @@
+{
+  "id": "terra_stomper",
+  "name": "Terra Stomper",
+  "mana_cost": "{3}{G}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast"
+  ],
+  "power": 8,
+  "toughness": 8,
+  "rarity": "rare",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "This spell can't be countered.\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "cant_be_countered": true,
+  "abilities": []
+}

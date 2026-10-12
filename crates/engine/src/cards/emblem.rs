@@ -59,10 +59,13 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
                 if matches!(
                     trigger,
                     Trigger::EntersBattlefield {
-                        subject: TriggerSubject::This
-                    } | Trigger::Dies {
-                        subject: TriggerSubject::This
-                    } | Trigger::Attacks {}
+                        subject: TriggerSubject::This,
+                        ..
+                    } | Trigger::LeavesBattlefield {}
+                        | Trigger::Dies {
+                            subject: TriggerSubject::This
+                        }
+                        | Trigger::Attacks {}
                         | Trigger::DealsDamageToOpponent {}
                 ) {
                     return Err(EmblemError::SelfTrigger);
@@ -79,6 +82,9 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
             }
             AbilityDef::Static(StaticAbility::Restriction { .. }) => {
                 return Err(EmblemError::UnsupportedAbility("restriction"));
+            }
+            AbilityDef::Static(StaticAbility::CantBeBlockedByPower { .. }) => {
+                return Err(EmblemError::UnsupportedAbility("cant_be_blocked_by_power"));
             }
             AbilityDef::Static(StaticAbility::ExtraCounters { .. }) => {
                 return Err(EmblemError::UnsupportedAbility("extra_counters"));

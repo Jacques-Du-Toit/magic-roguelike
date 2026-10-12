@@ -1,0 +1,30 @@
+{
+  "id": "sight_of_the_scalelords",
+  "name": "Sight of the Scalelords",
+  "mana_cost": "{4}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "At the beginning of combat on your turn, creatures you control with toughness 4 or greater get +2/+2 and gain vigilance until end of turn.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_combat"
+      },
+      "effects": [
+        {
+          "type": "your_creatures_get_until_eot",
+          "power": 2,
+          "toughness": 2,
+          "keyword": "vigilance",
+          "min_toughness": 4
+        }
+      ]
+    }
+  ]
+}

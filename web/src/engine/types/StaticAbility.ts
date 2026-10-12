@@ -16,4 +16,4 @@ with_counter: boolean,
 /**
  * "As long as...": only while this holds for their controller.
  */
-condition: Condition | null, } | { "type": "extra_counters", amount: number, };
+condition: Condition | null, } | { "type": "extra_counters", amount: number, } | { "type": "cant_be_blocked_by_power", at_most: number, };

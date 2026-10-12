@@ -11,6 +11,7 @@ use super::error::InternalError;
 use super::ids::{CardId, ObjectId, PlayerId};
 use super::mana::ManaPool;
 use super::rng::DuelRng;
+use super::triggers::{Happening, fire};
 use crate::cards::{
     AbilityDef, Affects, CardDef, CardDefId, Condition, Effect, EmblemDef, Keyword, Restricted,
     StaticAbility,
@@ -653,7 +654,9 @@ impl DuelState {
                 let affects = match ability {
                     StaticAbility::Anthem { affects, .. }
                     | StaticAbility::GrantKeyword { affects, .. } => *affects,
-                    StaticAbility::Restriction { .. } | StaticAbility::ExtraCounters { .. } => {
+                    StaticAbility::Restriction { .. }
+                    | StaticAbility::ExtraCounters { .. }
+                    | StaticAbility::CantBeBlockedByPower { .. } => {
                         continue;
                     }
                 };
@@ -732,7 +735,8 @@ impl DuelState {
                 ..
             } = ability
                 && (has_counter || !with_counter)
-                && condition.is_none_or(|condition| self.condition_holds(controller, condition))
+                && condition
+                    .is_none_or(|condition| self.condition_holds(controller, None, condition))
             {
                 keywords.push(*keyword);
             }
@@ -764,14 +768,45 @@ impl DuelState {
     }
 
     /// Whether `condition` holds for `player` right now.
-    pub(crate) fn condition_holds(&self, player: PlayerId, condition: Condition) -> bool {
-        let player = self.player(player);
+    /// `source` is the permanent the ability is on, if it is on one.
+    pub(crate) fn condition_holds(
+        &self,
+        player: PlayerId,
+        source: Option<ObjectId>,
+        condition: Condition,
+    ) -> bool {
+        let state = self.player(player);
         match condition {
-            Condition::LifeGainedThisTurn { at_least } => player.life_gained_this_turn >= at_least,
+            Condition::LifeGainedThisTurn { at_least } => state.life_gained_this_turn >= at_least,
             Condition::LifeAboveStarting { at_least } => {
-                player.life >= player.starting_life.saturating_add(at_least)
+                state.life >= state.starting_life.saturating_add(at_least)
+            }
+            Condition::ControlCreatureWithPower { at_least, another } => {
+                self.permanents_of(player).any(|permanent| {
+                    let id = permanent.id;
+                    !(another && source == Some(id))
+                        && self.is_creature(id).unwrap_or(false)
+                        && self.power(id).is_ok_and(|power| power >= at_least)
+                })
             }
         }
+    }
+
+    /// Whether `blocker` is a creature `attacker`'s own abilities let block
+    /// it ("can't be blocked by creatures with power 2 or less").
+    pub(crate) fn can_be_blocked_by(
+        &self,
+        attacker: ObjectId,
+        blocker: ObjectId,
+    ) -> Result<bool, InternalError> {
+        for ability in &self.def(attacker)?.abilities {
+            if let AbilityDef::Static(StaticAbility::CantBeBlockedByPower { at_most }) = ability
+                && self.power(blocker)? <= *at_most
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// How many more +1/+1 counters a creature of `player`'s gets whenever
@@ -960,6 +995,11 @@ impl DuelState {
             let object = self.object(id)?;
             (object.owner, object.zone)
         };
+        // "When this leaves the battlefield" sees it go from here, wherever
+        // it is going.
+        if from == Zone::Battlefield {
+            fire(self, Happening::Left(id))?;
+        }
         let not_in_zone = || InternalError::new(format!("{id:?} is not in its zone {from:?}"));
         match self.zone_mut(owner, from) {
             Some(list) => {

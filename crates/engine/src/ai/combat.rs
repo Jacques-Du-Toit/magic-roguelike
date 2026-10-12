@@ -56,9 +56,10 @@ fn can_block(
     if state.object(blocker)?.tapped || state.is_restricted(blocker, Restricted::Block)? {
         return Ok(false);
     }
-    Ok(!state.has_keyword(attacker, Keyword::Flying)?
+    Ok((!state.has_keyword(attacker, Keyword::Flying)?
         || state.has_keyword(blocker, Keyword::Flying)?
         || state.has_keyword(blocker, Keyword::Reach)?)
+        && state.can_be_blocked_by(attacker, blocker)?)
 }
 
 /// The creatures of `defender` that could block `attacker`.

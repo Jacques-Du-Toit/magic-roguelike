@@ -7,6 +7,8 @@ mod action;
 #[cfg(test)]
 mod aura_tests;
 #[cfg(test)]
+mod big_creature_tests;
+#[cfg(test)]
 mod choice_tests;
 mod combat;
 #[cfg(test)]

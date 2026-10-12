@@ -243,12 +243,17 @@ pub(crate) fn apply_effect(
                 return Ok(Applied::Waiting);
             }
         }
+        Effect::FetchBasicLand {} => fetch_basic_land(state, events, controller)?,
         Effect::YourCreaturesGetUntilEot {
             power,
             toughness,
             keyword,
+            min_toughness,
         } => {
             for permanent in state.creatures_of(controller)? {
+                if min_toughness.is_some_and(|min| state.toughness(permanent).unwrap_or(0) < min) {
+                    continue;
+                }
                 let creature = state.object_mut(permanent)?;
                 if power != 0 || toughness != 0 {
                     creature.power_bonus += power;
@@ -376,12 +381,61 @@ fn object(effect: &Effect, targets: &[Target], index: usize) -> Result<ObjectId,
     }
 }
 
+/// Puts a basic land from the player's library onto the battlefield tapped
+/// and shuffles the library. The land is one of the colour the player has
+/// the fewest lands for on the battlefield (the first in WUBRG order on a
+/// tie). With no basic land in the library, it is only shuffled.
+fn fetch_basic_land(
+    state: &mut DuelState,
+    events: &mut Vec<GameEvent>,
+    player: PlayerId,
+) -> Result<(), InternalError> {
+    let mut lands_for = std::collections::BTreeMap::new();
+    for permanent in state.permanents_of(player) {
+        let def = state.def(permanent.id)?;
+        if def.is_land() {
+            for color in def.mana_colors() {
+                *lands_for.entry(color).or_insert(0u32) += 1;
+            }
+        }
+    }
+    let mut best: Option<(u32, crate::cards::Color, ObjectId)> = None;
+    for &card in &state.player(player).library {
+        let def = state.def(card)?;
+        let basic = def.is_land() && def.supertypes.contains(&crate::cards::Supertype::Basic);
+        let Some(&color) = def.mana_colors().first().filter(|_| basic) else {
+            continue;
+        };
+        let have = lands_for.get(&color).copied().unwrap_or(0);
+        if best.is_none_or(|(least, first, _)| (have, color) < (least, first)) {
+            best = Some((have, color, card));
+        }
+    }
+    if let Some((_, _, card)) = best {
+        let land = state.move_object(card, Zone::Battlefield)?;
+        state.object_mut(land)?.tapped = true;
+        events.push(GameEvent::PermanentEntered {
+            player,
+            card: state.card_ref(land)?,
+        });
+        permanent_entered(state, land)?;
+    }
+    let mut library = std::mem::take(&mut state.player_mut(player).library);
+    state.rng.shuffle(&mut library);
+    state.player_mut(player).library = library;
+    Ok(())
+}
+
 /// Counters a spell: it leaves the stack for its owner's graveyard.
 fn counter_spell(
     state: &mut DuelState,
     events: &mut Vec<GameEvent>,
     spell: ObjectId,
 ) -> Result<(), InternalError> {
+    // "This spell can't be countered."
+    if state.def(spell)?.cant_be_countered {
+        return Ok(());
+    }
     let player = state
         .stack
         .iter()

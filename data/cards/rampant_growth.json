@@ -1,0 +1,23 @@
+{
+  "id": "rampant_growth",
+  "name": "Rampant Growth",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "fetch_basic_land"
+        }
+      ]
+    }
+  ]
+}

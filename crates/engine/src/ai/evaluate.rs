@@ -94,7 +94,9 @@ fn ability_value(ability: &AbilityDef) -> i32 {
                 // is dying something to keep it alive for.
                 Trigger::EntersBattlefield {
                     subject: TriggerSubject::This,
+                    ..
                 }
+                | Trigger::LeavesBattlefield {}
                 | Trigger::Dies {
                     subject: TriggerSubject::This,
                 } => 0,
