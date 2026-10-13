@@ -186,6 +186,23 @@ Added after that table (2026-10-13): a sixth shared feat, **Decisive** (deal 6 /
 
 **Slice 11 (2026-10-13): the balance pass of the Warden's first act.** Merged as the working baseline, read but not yet played by the owner (`DECISIONS.md` #70); the Firebrand is parked (#71). Everything measured, tried and left open is in `docs/BALANCE_REPORT.md`, whose section 11 lists the questions still the owner's. In short: no starting emblems; a weaker starting deck; a pool of 104 offered cards in five packages, with 22 generic or too-strong cards held back (`"reserved"`); 24 cards and twelve small rules added; enemies in five tiers (a new `hard` tier for rows 9 and 10) with the late ones built from decks that scale; the boss at 50 life led by Borborygmos; six relics tamed, three added, two held back. `sim` has lab modes (`--lift`, `--ideal`, `--leave-out`, `--act`, `--data`). With the AI on both sides the random picker wins 32.0% of acts (600 runs, +/- 3.7) and the five packages' ideal decks 83 to 91% (600 runs each, +/- 3). Known gaps: the big deck is 2 points short of the 85 to 95% aimed at; most of the gap between a random and a focused deck is made in the boss duel; the boss's drain makes lifegain every package's answer; relic tiers are suggested and not built. Checks: 657 engine tests, 38 sim tests, 12 wasm-crate tests, 72 web tests and 22 end-to-end tests pass; 231 cards match Scryfall. Next: card upgrades, proposed to the owner first.
 
+**Slice 12 (2026-10-13): card upgrades.** Every card has an upgraded side of its own, and a rest site upgrades one card in place of healing a wound (`DECISIONS.md` #72, chosen by the owner from three designs; `GAME_DESIGN.md` §6.1). Removing a card is now the shop's service only. An upgraded side is data in the card's file (`"upgraded"`: only what differs), which the loader turns into a card of its own, "Raise the Alarm+"; a deck's `CardInstance` is `{ card_id, upgraded }` and the duel plays an upgraded copy as that card, so nothing in the duel, the AI or the rules changed and no rule was added. All 112 cards the Warden can hold have one: the 8 of the starting deck, 34 commons, 41 uncommons and 29 rares. 39 cost a generic mana less (two for Sight of the Scalelords), 34 are bigger, and 39 do something more or sooner (a third token, more life, two counters, a counter to enter with, a keyword, a lower threshold, a cheaper ability, a card drawn). Commons and starting cards got the large upgrades and rares the small ones. Each is my first guess and none was tuned. On screen: the rest site's "Upgrade a card" opens the deck with each card shown as it would become and what changes written under it; an upgraded card has a gold rim and a "+" in the deck and in a duel.
+
+Checks: `.\tools\check-all.ps1` passes all ten steps. 690 engine tests (33 new: the loader, the rest site, a table of all 112 sides checked on the battlefield and at their casting cost, and a played-out test of each of the 37 that change an ability or a counter; the two that only gain a keyword are in the table), 39 sim tests, 12 wasm-crate tests, 73 web tests and 22 end-to-end tests; 231 cards match Scryfall. The Warden's end-to-end act (seed 17) upgrades a card at its first rest and sees it in the deck.
+
+`sim --runs --games 600 --decks warden`, in 206 s, with the policy the owner asked for (upgrade the first of the rarest cards at every rest; at the rest before the boss heal a wound first):
+
+| | Before (slice 11) | With upgrades | Change |
+|---|---|---|---|
+| Won the act | 32.0% (+/- 3.7) | 28.3% (+/- 3.6) | -3.7 (+/- 5.2) |
+| Reached the boss | 83.0% | 77.2% | -5.8 (+/- 4.5) |
+| Beat the boss, having arrived | 38.6% | 36.7% | -1.9 (+/- 6.1) |
+| Arrived with no wound / one wound | 55.5% / 27.5% | 46.3% / 30.8% | |
+| Wounds taken per run | 1.73 | 1.71 | |
+| Normal duels / elites won | 72.0% / 18.0% | 72.0% / 18.6% | |
+
+The floor is 3.7 points lower, which is inside the margin of the difference, so nothing was retuned. What did move outside its margin is how many runs reach the boss: the picker used to heal at every rest and now only at the last, so more runs die of a third wound on the way (22.8% where it was 17.0%). That is the policy's trade and not the upgrades' strength: the duels themselves are won as often as before. The sim says little about what an upgrade is worth, for three reasons: a run passes one to three rests, the certain one is the last node before the boss, so its upgrade is used in one duel, and the picker upgrades its rarest card, which has the smallest upgrade. Not measured: the same runs with the picker healing first (it would separate the two effects), any single upgrade's lift, and the ideal decks with upgrades. Not built: upgrades for the Firebrand's cards (it can't upgrade anything; it is parked, #71), an event that removes a card, and any second source of upgrades. Next: the owner plays it and tunes the sides; then consumables.
+
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 **M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
@@ -345,7 +362,7 @@ What the new AI still plays badly:
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
-- [ ] Draft node (built), Treasure node (built), Event node (built, five events), wounds and feats in place of hearts and boons (built, to be played), card upgrades.
+- [ ] Draft node (built), Treasure node (built), Event node (built, five events), wounds and feats in place of hearts and boons (built, to be played), card upgrades (built, to be played and tuned).
 - [ ] 3 acts, 3 bosses, ~20 relics (15 so far, 13 of them offered), 4+ planeswalkers.
 - [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.

@@ -133,7 +133,7 @@ An `EmblemDef` is a name, a text and a list of abilities in the card ability for
 
 `RulesConfig` holds duel-wide numbers (max hand size, opening-hand smoothing, fatigue progression). Defaults for all of these come from `data/balance.json`; nothing is hard-coded.
 
-A **`CardInstance`** is `{ card_id, upgrades }`, not a bare card id. `upgrades` is empty until card upgrades exist (M4), but decklists, rewards and saves are built on instances from day one.
+A **`CardInstance`** is `{ card_id, upgraded }`, not a bare card id: a card of a deck, and whether this copy has been upgraded (`DECISIONS.md` #72). The duel never sees the flag. `new_duel` asks `CardDatabase::played_as(instance)` for the definition each copy is played as, the card or its upgraded side (§4), and creates the object from that; an upgraded copy of a card with no upgraded side is a `ConfigError`.
 
 ## 3. Determinism
 
@@ -324,6 +324,28 @@ Two effects on one target ("target creature gets +3/+0 and gains first strike") 
 
 `discard` takes `"random": true` for a discard at random, which uses the duel's seeded RNG.
 
+### Upgraded sides
+A card file may have `"upgraded"`: what the card becomes when a copy of it is upgraded in a run (`DECISIONS.md` #72). It lists only what differs, and a field that is there replaces the card's whole field: `mana_cost`, `power`, `toughness`, `keywords`, `enchant`, `enters_with_counters`, `abilities` (all of them, restated), and `oracle_text` whenever what the card does has changed.
+
+```json
+{
+  "id": "raise_the_alarm",
+  "name": "Raise the Alarm",
+  "mana_cost": "{1}{W}",
+  "...": "...",
+  "upgraded": {
+    "oracle_text": "Create three 1/1 white Soldier creature tokens.",
+    "abilities": [
+      { "kind": "spell", "effects": [ { "type": "create_token", "token": "soldier_token", "count": 3 } ] }
+    ]
+  }
+}
+```
+
+The loader makes a card of its own from it: id `raise_the_alarm+`, name "Raise the Alarm+", `upgrade_of` naming the card, and the card's `upgrade` naming it back (both are set by the loader, never written in a file). It is validated like any card, must differ from its card in something other than text, and may change only the generic mana of the cost, because the deck's basic lands are split by the coloured symbols of the cards as printed. Lands and tokens have none. `CardDatabase::get` finds an upgraded side by its id, so the duel, the AI and the UI treat it as one more card; `CardDatabase::iter` leaves the sides out (`upgraded_sides` lists them), so nothing offers one, counts one or guesses one into an opponent's hand. A decklist may name one (`"card": "raise_the_alarm+"`). The Scryfall check doesn't look inside `upgraded`.
+
+Every card the Warden starts with or can be offered has one, 112 in all, and a test (`upgrade_tests.rs`) holds the table of them: a new card for the Warden's pool fails it until it has an upgraded side and a row. The other colours' cards have none yet.
+
 ### Tokens
 A token is defined like a card, in `data/tokens/` (one file per token, e.g. `soldier_token.json`): a creature with a name, colours, subtypes and power and toughness, and no mana cost. (One token is an artifact instead: `festering_wound.json`, which a wound of the run starts a duel with.) The loader marks everything in that folder as a token (`CardDef::token`), whatever the file says, and puts it in the same card database, so the engine and the UI treat a token on the battlefield like any other permanent. `{ "type": "create_token", "token": "soldier_token", "count": 2 }` creates them under the controller's control; a token named by an effect must exist. Two tokens may share a name (a Soldier with lifelink and one without); cards may not. Tokens are never in a deck, a reward or a shop, and `tools/scryfall.mjs check` doesn't look at them. A token that leaves the battlefield goes where it was sent and then ceases to exist the next time state-based actions are checked, as in Magic, so "when this dies" abilities see it die.
 
@@ -370,7 +392,8 @@ The run is `crates/engine/src/run/`, built in M3 for one act. It has the duel's 
 
 - **`RunState`**: seed, planeswalker, the starting emblem chosen, wounds, gold, deck, relics, the map, the path walked, the phase, the duel in progress (if any) with its stats and the feats picked for it, the enemies and events already met, what an event has left for the next duel, and the RNG. The deck is the player's spells and non-basic lands as `CardInstance`s; basic lands are not stored.
 - **Phases**: `Map` (choose a node), `Feats` (a duel is ahead: pick feats for it), `Duel`, `Reward` (pick a card or none), `Rest`, `Shop`, `Draft` (a pack is open), `Treasure` (relics or gold are on offer), `Event` (an event has been met), `Over`. `run_legal_actions` lists what can be done in each, and is empty only when the run is over.
-- **Run actions**: `Travel`, `ChooseFeats`, `Concede`, `FinishDuel`, `TakeReward`, `SkipReward`, `HealWound`, `RemoveCard`, `Buy`, `TakeDraft`, `TakeTreasure`, `TakeGold`, `TakeEvent`, `Leave`.
+- **Run actions**: `Travel`, `ChooseFeats`, `Concede`, `FinishDuel`, `TakeReward`, `SkipReward`, `HealWound`, `UpgradeCard`, `RemoveCard`, `Buy`, `TakeDraft`, `TakeTreasure`, `TakeGold`, `TakeEvent`, `Leave`.
+- **Rest sites and upgrades** (`DECISIONS.md` #72): a rest site allows one thing, `HealWound { wound }` or `UpgradeCard { card }`, or `Leave`. `UpgradeCard` is a legal action for each card of the deck that has an upgraded side and is not upgraded yet; it sets the copy's `upgraded` flag and reports `CardUpgraded`. The copy keeps its `card_id`, so its rarity, its place in the deck, and what the Wandering Smith would make of it are the card's. `RemoveCard` is a shop's service only.
 - **The duel inside a run** is created by the run and kept in `RunState::duel`, so one state holds everything and the same seed and actions replay the run, duels included. Duel actions go through `apply_duel_action`. While the duel is being played the run offers only `Concede`; once it has a result, only `FinishDuel`, which applies the consequences (gold, the feats' score, a wound, a relic, a card reward, the end of the run). The human is always P1. Arriving at the boss starts its duel at once.
 - **Wounds** (`data/run/wounds.json`, `DECISIONS.md` #68): a lost duel adds a wound to `RunState::wounds`, one of the file's at random (there is one), and the run ends when there are `run.max_wounds`. A wound is a `ModifierDef` like a relic, and joins the player's modifiers in every duel; the Festering Wound's one effect is `starting_token`. `HealWound { wound }` at a rest site takes one off, and an event's `take_wound` and `heal_wound` do the same (the latest wound, for healing). After a loss that doesn't end the run the phase is `Reward` with `run.rewards.loss_choices` cards.
 - **Feats** (`feats.rs`, `data/run/feats.json`, `DECISIONS.md` #69): a `FeatDef` is a name, a text with `{n}` where a tier's number goes, a `measure`, up to three `tiers`, an optional `by_turn` and the `planeswalkers` it is offered to (empty for all). `Travel` to a duel or an elite picks the enemy, draws `run.feats.offered` feats from the character's pool with the run's RNG and stops in `Phase::Feats`; `ChooseFeats { feats }` names `run.feats.picks` of them by their places, in rising order (every such set is a legal action), and starts the duel. With no feats in the data the duel starts at once. While a duel is played, `RunState::duel_stats` (`DuelStats`) is brought up to date inside `apply_duel_action` from each action's events and the state after it: the player's own turns begun, their lowest life, their creatures that died, and for each stretch from one of their turns to the next the high points reached (greatest power, power lead over the enemy, creatures, +1/+1 counters, enchantments, and the most damage the enemy player was dealt in one turn, which is added up from the events as they come). The stats don't depend on which feats were picked, and the position is looked at once per action, so a high point that came and went inside one action is not seen. A feat's score is the number of its tiers the stats meet (`FeatDef::score`); for the measures where fewer is better (turns taken, creatures lost) a tier is "at most". On a win `FinishDuel` reports `FeatsScored`, and the points pick a row of `run.feats.rewards`: how many cards to choose from, how many steps up the ladder of rarity weights (`rewards.duel`, `elite`, `top`; an elite starts one step up) and how much gold. `feat_scores` says what the feats picked would score if the duel were won now; `RunView::feats` and the wasm handle's `duel_feats()` carry it to the screen.

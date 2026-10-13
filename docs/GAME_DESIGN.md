@@ -92,18 +92,22 @@ These are original characters (or generic archetypes) — not MTG's named planes
 | **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. |
 | **Draft** | Open a pack of five cards in your colours and keep up to two. Built (`DECISIONS.md` #57). |
 | **Shop** | Buy cards, lands (incl. duals), relics. Pay to remove a card. |
-| **Rest** | Choose: heal a wound, or remove a card. Upgrading a card is to come. |
+| **Rest** | Choose: heal a wound, or upgrade a card (§6.1). Removing a card is the shop's service. |
 | **Event** | Short text event with a trade-off choice (e.g. "add a powerful card with a drawback", "sacrifice a relic for two cards"). Built with five events, each of which can be walked away from (`DECISIONS.md` #66). |
 | **Treasure** | Choose one of two relics you don't own, or take gold instead. Built (`DECISIONS.md` #64). |
 
 ### 6.1 Card upgrades
 
-MTG cards don't have upgrades, so upgrades are run-specific modifiers. Options to playtest:
-- Permanent +1/+1 counter on a creature card.
-- Reduce generic cost by 1 (min 1 total).
-- Kicker / additional cost waived.
-- Add a minor keyword from an approved list.
-Upgraded cards show a visible foil/frame treatment.
+MTG cards don't have upgrades, so an upgrade is the run's own. Built as in Slay the Spire (`DECISIONS.md` #72): **every card has one upgraded side of its own**, written by hand, and upgrading a copy turns it into that side for the rest of the run. "Raise the Alarm+" makes three Soldiers; "Grizzly Bears+" costs {G}; "Lightwalker+" enters with a +1/+1 counter.
+
+- **Where**: a rest site, in place of healing a wound. One card a rest, one upgrade a card. Nothing else gives one yet.
+- **What a side changes**, in rough order of how common it is: generic mana off the cost, power and toughness, a number in the text (tokens made, life gained, counters put, a threshold), a counter to enter with, a keyword, or a line of text. Coloured mana never changes.
+- **How much**: the weaker the card, the better its upgrade. Commons and the starting deck get the big ones (+1/+1 on a two-drop, a third token, a card drawn); uncommons a mana or a point of toughness; rares a small one (+0/+1, a cheaper ability). So the best card to upgrade is often not the rarest, and a starting card kept and upgraded is a real card.
+- **By cost**: a cheap card's upgrade is small in absolute terms and large for the card; a six- or seven-drop gets a whole mana off or two points of size.
+- Upgrades stay inside the rules that are built: no upgrade needs a new one. Kicker is out of scope.
+- An upgraded card has a gold rim and a "+" after its name, in the deck and in a duel.
+
+Every one of the 112 is a first guess, to be tuned by play. Not built: upgrades for the other colours' cards, an upgrade from an event, a shop or a feat, and anything for the commander, which may get something of its own (as in Monster Train).
 
 ## 7. Relics
 

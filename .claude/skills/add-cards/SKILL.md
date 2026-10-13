@@ -56,6 +56,8 @@ One test a card, in the `*_tests.rs` file of its package under `crates/engine/sr
 
 Then update the pool's size in `the_card_pool_has_the_expected_size` (`crates/engine/src/data.rs`): creatures, other spells, tokens.
 
+A card the Warden can be offered (green or white, not `reserved`) also needs an **upgraded side** (`DECISIONS.md` #72): an `"upgraded"` block in its file with only what differs (`docs/ARCHITECTURE.md` section 4), a row in the `SIDES` table of `crates/engine/src/duel/upgrade_tests.rs`, and a test there if it changes what the card does. `every_card_the_warden_can_hold_has_an_upgraded_side_and_no_other_card_has` fails until it has one. Propose the upgrade to the owner with the card: a common's is large, a rare's small, and only generic mana may change.
+
 ## 4. Check, measure, write up
 
 ```
