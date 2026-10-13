@@ -4,20 +4,20 @@ One overnight session (2026-10-13) on the branch `balance-lab`. Everything here 
 
 ## 1. In short
 
-The Warden starts with a weaker deck and no emblem. The pool is 104 cards in five packages, with the cards that are good in any deck held back. The enemies are rebuilt in five tiers, the late ones from decks that grow as the game goes on, and the boss has 50 life. Against that field a random pile wins about a third of acts and a deck that commits to a package wins four in five or better.
+The Warden starts with a weaker deck and no emblem. The pool is 104 cards in five packages, with the cards that are good in any deck held back. The enemies are rebuilt in five tiers, the late ones from decks that grow as the game goes on, and the boss has 50 life. Against that field a random pile wins a third of acts and a deck that commits to a package wins 83 to 91%.
 
 | Criterion | Target | Measured | Met? |
 |---|---|---|---|
-| 1. Floor: the random picker, with relics | about 33% | **34.2%** (600 runs, +/- 3.8) | Yes |
-| 2. Ceiling: each package's ideal deck, no relics | 85 to 95%, within about 10 points | wide **89.3**, lifegain **86.0**, big **82.7**, auras **80.3**, counters **77.7** (300 runs each, +/- 3.5 to 4.7) | Partly: two in the band, three 2 to 7 points under it; the spread is 11.6 |
-| 3. The gap comes from the whole act | through wounds and feats | The random picker takes 1.67 wounds a run, dies before the boss in 17% of runs and beats it 41% of the time. Ideal decks take 0.6 to 0.9, die before it in 1 to 7% and beat it 83 to 91% | Partly: most of the gap is still made in the boss duel |
-| 4. No relic, common or uncommon worth more than about 5 points | 5 | All relics together are worth 7 points of act win rate (34.2 against 27.0). Card by card, see section 3 | See section 3 |
-| 5. Strong and versatile cards are out | | A deck of the best 18 cards of every package wins 58% of single duels where the package decks win 81 to 86% | Yes |
+| 1. Floor: the random picker, with relics | about 33% | **33.7%** (600 runs, +/- 3.8) | Yes |
+| 2. Ceiling: each package's ideal deck, no relics | 85 to 95%, within about 10 points | lifegain **90.9**, wide **88.8**, counters **88.0**, auras **88.0**, big **83.2** (600 runs each, +/- 2.3 to 3.0) | Nearly: four in the band and within 3 points of each other; big is 2 under it; the spread is 7.7 |
+| 3. The gap comes from the whole act | through wounds and feats | The random picker takes 1.70 wounds a run, dies before the boss in 17% of runs and beats it 41% of the time. Ideal decks take 0.5 to 0.7, die before it in 1 to 3% and beat it 86 to 92% | Partly: most of the gap is still made in the boss duel |
+| 4. No relic, common or uncommon worth more than about 5 points | 5 | Cards: the highest common is +4.4 and the highest uncommon +3.8 (each +/- 3.2). Relics: all of them together are worth 6 points of act win rate; three measure 5 to 9 when held for the whole act | Cards yes. Relics close, not to the letter |
+| 5. Strong and versatile cards are out | | A deck of the best 18 cards of every package wins 58% of single duels where the package decks win 82 to 90% | Yes, with three rares to watch |
 | 6. Tiers | | Applied; four judgement calls listed | Mostly |
 | 7. Relics small, conditional, glue, in tiers | | 13 offered, 10 of them tied to a package and 6 of those to a pair; two strong ones held back; tiers proposed, not built | Partly |
 | 8 to 12. Fun | | Not measurable by the sim; what was done for each is in section 3 | For you to play |
 
-What is plainly **not met**: three of the five ceilings; the 10-point spread (by 1.6); relic tiers as a mechanism. What I could not judge at all: the fun criteria.
+What is plainly **not met**: the big deck's ceiling, by 2 points, which is inside its margin; the 5-point limit for three relics (Traveller's Rations, Drover's Bell, Weaver's Thread); relic tiers as a mechanism; a gap that comes mostly from the road to the boss. What I could not judge at all: the fun criteria.
 
 Two things to know before reading further:
 
@@ -29,8 +29,9 @@ Two things to know before reading further:
 - The new AI plays both sides of everything reported. The old AI was tested for screening and turned down for decks (section 10).
 - **Random picker**: the sim's whole-run policy as it was. It takes the first card of every reward and draft, the first relic, buys the first thing it can afford and heals at every rest.
 - **Ideal deck**: 18 spells and no starting-deck cards, at most two copies of a common or uncommon and one of a rare, with lands worked out as the game does. Played through whole acts taking no card and no relic (`sim --act`). The lists are data: `data/sim/ideal_decks.json`.
+- **Each ceiling is 600 acts**: 300 on seeds 1 to 300, where the lists were chosen, and 300 on seeds 1001 to 1300, run once after the lists were final. Choosing the best of several lists on one set of seeds flatters the winner, and the second set shows by how much: nothing for four decks (within 2 points), about 4 for the big deck (85.0, then 81.3).
 - **Lift**: single duels of random decks (the starting deck and 9 pool cards); a card's lift is the win rate of the decks that held it less that of the decks that didn't.
-- Margins are 95%. 300 runs at 80 to 90% is +/- 3.5 to 4.7; 600 runs at 34% is +/- 3.8; a cell of a matchup table (100 duels) is +/- 6 to 10.
+- Margins are 95%. 600 runs at 83 to 91% is +/- 2.3 to 3.0; 300 runs at 80 to 90% is +/- 3.5 to 4.7; 600 runs at 34% is +/- 3.8; a cell of a matchup table (100 duels) is +/- 6 to 10.
 - Adding or removing any pool card changes what every seed offers, so two measurements of the same deck on "the same seeds" before and after a pool change differ by noise. The counters deck measured 80.7 and then 77.7 with nothing about it changed.
 
 New sim modes (all in `CLAUDE.md`): `--lift`, `--ideal`, `--leave-out`, `--act`; `--runs` with `--no-cards`, `--no-relics`, `--with-relic`, `--with-card`; `--field`, `--data DIR` (data read at run time, no rebuild), `--threads N` (default three quarters of the cores: 12 here).
@@ -39,51 +40,85 @@ New sim modes (all in `CLAUDE.md`): `--lift`, `--ideal`, `--leave-out`, `--act`;
 
 ### 1. Floor
 
-`sim --runs --games 600 --decks warden`: **34.2%** of acts won (+/- 3.8). It reaches the boss in 82.8% of runs and beats it 41.2% of the time. It wins 73% of its ordinary duels and 19% of its elites.
+`sim --runs --games 600 --decks warden`: **33.7%** of acts won (+/- 3.8). It reaches the boss in 83.0% of runs and beats it 40.6% of the time. It wins 72% of its ordinary duels and 19% of its elites. Without relics it wins 27.7% (600 runs).
 
 Where it came from, in order of size: the boss's life (each 5 life costs the random deck about 4.5 points at the boss and a focused deck about 1), the relics (the four strong ones were worth 12 to 26 points in a single duel), the starting deck (5 points in single duels), and holding back the 22 generic cards.
 
 ### 2. Ceiling
 
-`sim --act --games 300`:
+`sim --act --games 300`, and again with `--seed 1001`; the two pooled:
 
-| Ideal deck | Won the act | +/- | Reached the boss | Beat the boss | Other duels won | Elites won | Wounds taken |
-|---|---|---|---|---|---|---|---|
-| Go wide | 89.3 | 3.5 | 98.7 | 90.5 | 92.6 | 68.0 | 0.56 |
-| Lifegain | 86.0 | 3.9 | 97.7 | 88.1 | 91.0 | 64.3 | 0.65 |
-| Big creatures | 82.7 | 4.3 | 95.0 | 87.0 | 83.6 | 68.2 | 0.90 |
-| Auras | 80.3 | 4.5 | 97.3 | 82.5 | 86.2 | 74.8 | 0.75 |
-| +1/+1 counters | 77.7 | 4.7 | 93.3 | 83.2 | 86.4 | 63.8 | 0.83 |
-| Random picker, with relics (600) | 34.2 | 3.8 | 82.8 | 41.2 | 73.1 | 19.4 | 1.67 |
+| Ideal deck | Won the act | +/- | Seeds 1 to 300 / 1001 to 1300 | Reached the boss | Beat the boss | Other duels won | Elites won | Wounds taken |
+|---|---|---|---|---|---|---|---|---|
+| Lifegain | 90.9 | 2.3 | 91.0 / 90.7 | 99.0 | 91.8 | 94.1 | 72.6 | 0.47 |
+| Go wide | 88.8 | 2.5 | 89.3 / 88.3 | 97.9 | 90.8 | 92.3 | 68.1 | 0.57 |
+| +1/+1 counters | 88.0 | 2.6 | 87.3 / 88.7 | 98.5 | 89.4 | 90.5 | 71.1 | 0.62 |
+| Auras | 88.0 | 2.6 | 89.0 / 87.0 | 97.2 | 90.6 | 89.7 | 78.2 | 0.59 |
+| Big creatures | 83.2 | 3.0 | 85.0 / 81.3 | 97.2 | 85.6 | 89.4 | 65.0 | 0.71 |
+| Random picker, with relics | 33.7 | 3.8 | (seeds 1 to 600) | 83.0 | 40.6 | 72.4 | 19.2 | 1.70 |
 
-On main's field these five won 56 to 81% of single duels and a random pile with a relic won 57%, so two of the "ideal" decks were worse than random. Now all five are 43 to 55 points above the floor.
+On main's field these five won 56 to 81% of single duels and a random pile with a relic won 57%, so two of the "ideal" decks were worse than random. Now all five are 50 to 57 points above the floor.
 
-Why three are short: the boss. Its emblem drains a life a turn, which a deck with lifegain shrugs off. Every list that reached the mid-80s did it by taking its package's bridge to lifegain (Impassioned Orator and Sworn Companions in wide; Battle Priest and Pridemate in counters; Honey Mammoth in big; Daybreak Coronet in auras). That is a real finding about the boss, and one of the questions in section 11.
+**What got them there: the boss asks for lifegain and evasion.** Its emblem drains a life a turn, which a deck that gains life shrugs off. Every list rose when it took its package's bridge to lifegain:
 
-The counters package is the weakest. A +1/+1 counter is a small effect, and its payoffs that should scale (Kalonian Hydra, High Sentinels, Hardened Scales, Abzan Falconer) are the kind the AI plays badly. Three rebuilt lists all landed at 71 to 78.
+| Deck | Before | After | What went in |
+|---|---|---|---|
+| Counters | 63 | 81 | Two Ajani's Pridemates beside the Battle Priests |
+| Counters | 78 | 87 | Two Healer's Hawks |
+| Go wide | 75 | 90 | Impassioned Orator and Sworn Companions |
+| Big | 74 | 84 | Honey Mammoth |
+| Auras | 80 | 89 | Two Healer's Hawks |
+| Lifegain | 86 | 91 | A second Orator and a Battle Priest |
 
-The lever that would close the gap, if you want it closed in the sim: boss life. At 40 life instead of 50 the ideal decks gain about 2 points each and the floor rises to about 42.
+(Each a step of 150 or 300 acts, +/- 4 to 7.) That is the main finding about the boss, and question 2 in section 11.
+
+**The big deck is the one short.** Ten lists were tried. It loses the most ordinary duels of the five: it is slow against the aggro decks of the normal tier. The list that did best lowered its curve (two Rumbling Baloths for Terra Stomper and Pelakka Wurm).
+
+The lever that moves all five at once is boss life: at 40 life instead of 50 the ideal decks gain about 2 points each and the floor rises to about 42.
 
 ### 3. The whole act
 
 | | Random picker | Ideal decks |
 |---|---|---|
-| Wounds taken per run | 1.67 | 0.56 to 0.90 |
-| Dies before the boss (three wounds) | 17.2% | 1.3 to 6.7% |
-| Arrives with no wound / one wound | 58.0% / 24.8% | 82 to 91% / 7 to 12% |
-| Beats the boss, having arrived | 41.2% | 82.5 to 90.5% |
+| Wounds taken per run | 1.70 | 0.47 to 0.71 |
+| Dies before the boss (three wounds) | 17.0% | 1.0 to 2.8% |
+| Arrives with no wound / one wound | 57.2% / 25.8% | 89 to 95% / 4 to 8% |
+| Beats the boss, having arrived | 40.6% | 85.6 to 91.8% |
 
 Nobody arrives with two wounds: the last row is a rest, and it heals one.
 
-Of the gap between 34% and about 83%, the boss duel is much the larger part. Give the random picker the ideal decks' road to the boss and it would win about 40% of acts; give it their boss duel and it would win about 71%. The road counts for more than that sum shows, since the deck that meets the boss was built on it and a quarter of pickers arrive wounded, but the criterion as you wrote it is only partly met. Feats barely count yet: the picker's blind picks score 1.60 points a duel won (2.3 on main), because weaker decks meet fewer tiers, and the AI does not play for them. Feat and wound numbers were not changed.
+Of the gap between 34% and about 88%, the boss duel is much the larger part. Give the random picker the ideal decks' road to the boss and it would win about 40% of acts; give it their boss duel and it would win about 74%. The road counts for more than that sum shows, since the deck that meets the boss was built on it and a quarter of pickers arrive wounded, but the criterion as you wrote it is only partly met. Feats barely count yet: the picker's blind picks score 1.60 points a duel won (2.3 on main), because weaker decks meet fewer tiers, and the AI does not play for them. Feat and wound numbers were not changed.
 
 If you want more of the gap to come before the boss, the lever is the wound itself (it deals 1 damage a turn; a harsher one, or a second kind, hurts the deck that loses more). I did not touch it.
 
 ### 4. No single relic, common or uncommon worth more than 5 points
 
-**Relics**, act level: with relics 34.2%, without 27.0% (300 runs, +/- 5.0). The picker ends a run with 1.2 relics, so the average relic is worth about 6 points of act win rate. That is at the limit, not under it.
+**Relics.** With the relics a run finds, the picker wins 33.7% of acts; with none, 27.7% (600 runs each, a difference of 6.0 +/- 5.2). It ends a run with 1.2 relics.
 
-@@RELICLIFT@@
+One relic at a time, at act level (`sim --runs --games 600 --no-relics --with-relic X`). The picker owns that relic from its first duel, which is more than a relic found at a treasure halfway is worth. Each figure is +/- 3.7 and each difference +/- 5.2:
+
+| Relic held all act | Won the act | Against no relic |
+|---|---|---|
+| None | 27.7 | |
+| Beast Tamer's Whistle at 1 life (as proposed) | 32.7 | +5.0 |
+| Traveller's Rations | 35.0 | +7.3 |
+| Drover's Bell | 37.0 | +9.3 |
+| Beast Tamer's Whistle at 2 life (as it was) | 41.3 | +13.6 |
+
+All thirteen, in single duels (`sim --lift --weighted --relics 1 --games 12000`: every random deck has one relic, each relic is in about 920 decks). The two relics that do nothing in a duel win 52.0%; against that, each +/- 4:
+
+| Relic | Lift | | Relic | Lift |
+|---|---|---|---|---|
+| Drover's Bell | +9.0 | | Rally Horn (new text) | +3.0 |
+| Traveller's Rations | +7.8 | | Sentinel's Horn | +2.3 |
+| Beast Tamer's Whistle (at 2 life) | +7.5 | | Anointing Oil | +2.3 |
+| Weaver's Thread | +6.5 | | Soothing Spring | +1.1 |
+| Whetstone | +4.1 | | Pilgrim's Flask | +1.1 |
+| Votive Candle | +3.7 | | | |
+
+Before the changes the same measure gave Whetstone +26, Surveyor's Map +25, Soothing Spring +23, War Banner +22 and Rally Horn +10.
+
+Read together: **not met to the letter.** Traveller's Rations, Drover's Bell and Weaver's Thread measure between 5 and 9, with margins of 4 to 5; the Whistle is at 5 after its change; the other nine are under. The three that are over all give life or a body to any deck. The cheap fixes, not made: Rations at 2 life; the Bell and the Thread at "once each duel", which the engine can't say yet.
 
 **Cards**, single duels:
 
@@ -102,7 +137,7 @@ If you want more of the gap to come before the boss, the lever is the wound itse
 
 ### 5. Flexible cards a slight edge, inflexible cards a big one in their deck
 
-- The "all-stars" deck (`allstars` in the ideal decks file: Archangel of Thune, Kalonian Hydra, Thragtusk, Armada Wurm, Resplendent Angel, Steel Leaf Champion, two each of Celestial Unicorn, Ajani's Pridemate, Honey Mammoth, Pacifism and Leatherback Baloth, Glorious Anthem, Collective Blessing) wins 58.4% of single duels against the whole field and 52% against the boss. The package decks win 81 to 86% and 84 to 91%.
+- The "all-stars" deck (`allstars` in the ideal decks file: Archangel of Thune, Kalonian Hydra, Thragtusk, Armada Wurm, Resplendent Angel, Steel Leaf Champion, two each of Celestial Unicorn, Ajani's Pridemate, Honey Mammoth, Pacifism and Leatherback Baloth, Glorious Anthem, Collective Blessing) wins 58.4% of single duels against the whole field and 52% against the boss. The package decks win 82 to 90% and 83 to 92%.
 - The cards with the largest negative lift in a random deck are the build-arounds: Collective Unconscious, Hardened Scales, Sigil of the Empty Throne, Colossal Majesty, Gigantosaurus, Eidolon of Blossoms, Intangible Virtue, Garruk's Uprising.
 - Three strong-anywhere rares were given a condition instead of being cut (section 6).
 
@@ -301,10 +336,10 @@ Offered: 104 cards (34 common, 41 uncommon, 29 rare).
 Eighteen spells; the game adds 12 lands.
 
 - **Go wide** (`wide`): 2 Raise the Alarm, 2 Attended Knight, 2 Captain's Call, 2 Sworn Companions, Call of the Conclave, Trostani's Summoner, 2 Impassioned Orator, 2 Intangible Virtue, Champion of Lambholt, Glorious Anthem, Benalish Marshal, Collective Blessing.
-- **+1/+1 counters** (`counters`): 2 Conclave Mentor, 2 Abzan Battle Priest, 2 Ajani's Pridemate, 2 Ironshell Beetle, 2 Good-Fortune Unicorn, Abzan Falconer, Lightwalker, Pridemalkin, Snakeskin Veil, Basri's Solidarity, Luminarch Aspirant, Kalonian Hydra, Archangel of Thune.
-- **Lifegain** (`lifegain`): 2 Healer's Hawk, 2 Ajani's Pridemate, 2 Celestial Unicorn, Impassioned Orator, Centaur Healer, Nyx-Fleece Ram, Angel of Mercy, Dawning Angel, Angelic Chorus, Angelic Accord, Griffin Aerie, Twinblade Paladin, Speaker of the Heavens, Resplendent Angel, Archangel of Thune.
-- **Big creatures** (`big`): 2 Llanowar Elves, 2 Druid of the Cowl, 2 Leatherback Baloth, 2 Rabid Bite, Garruk's Uprising, Colossal Majesty, Ridgescale Tusker, 2 Honey Mammoth, Thragtusk, Steel Leaf Champion, Armada Wurm, Terra Stomper, Pelakka Wurm.
-- **Auras and enchantments** (`auras`): 2 Gladecover Scout, 2 Cartouche of Solidarity, 2 Divine Favor, Nyx-Fleece Ram, 2 Ethereal Armor, Ancestral Mask, 2 Satyr Enchanter, Rancor, Daybreak Coronet, Kor Spiritdancer, Setessan Champion, Sigil of the Empty Throne, Mantle of the Wolf.
+- **+1/+1 counters** (`counters`): 2 Conclave Mentor, 2 Abzan Battle Priest, 2 Ajani's Pridemate, 2 Healer's Hawk, 2 Good-Fortune Unicorn, Abzan Falconer, Ironshell Beetle, Pridemalkin, Snakeskin Veil, Basri's Solidarity, Luminarch Aspirant, Kalonian Hydra, Archangel of Thune.
+- **Lifegain** (`lifegain`): 2 Healer's Hawk, 2 Ajani's Pridemate, 2 Celestial Unicorn, 2 Impassioned Orator, Centaur Healer, Nyx-Fleece Ram, Angel of Mercy, Abzan Battle Priest, Angelic Accord, Griffin Aerie, Twinblade Paladin, Speaker of the Heavens, Resplendent Angel, Archangel of Thune.
+- **Big creatures** (`big`): 2 Llanowar Elves, 2 Druid of the Cowl, 2 Leatherback Baloth, 2 Rabid Bite, Garruk's Uprising, Colossal Majesty, Ridgescale Tusker, 2 Rumbling Baloth, 2 Honey Mammoth, Thragtusk, Steel Leaf Champion, Armada Wurm.
+- **Auras and enchantments** (`auras`): 2 Gladecover Scout, 2 Healer's Hawk, 2 Cartouche of Solidarity, Divine Favor, 2 Ethereal Armor, Ancestral Mask, 2 Satyr Enchanter, Rancor, Daybreak Coronet, Kor Spiritdancer, Setessan Champion, Sigil of the Empty Throne, Mantle of the Wolf.
 
 Leaving cards out showed which carry a deck (40 duels a cell, 8 enemies, +/- 5 a row). In the counters deck only Conclave Mentor (-8 to -10 for the pair), Abzan Battle Priest (-5 to -6.5) and Luminarch Aspirant (-4 to -8.5) were worth more than the Grizzly Bears put in their place. In the wide deck it was the token makers and Intangible Virtue (-7 to -9 each pair).
 
@@ -374,31 +409,32 @@ Rot Farmers is gone: it milled itself with no payoff. Sir Shandlar and Tobias An
 
 | Enemy | Tier | start | wide | counters | lifegain | big | auras | all-stars |
 |---|---|---|---|---|---|---|---|---|
-| Forest Pack | easy | 81 | 96 | 92 | 99 | 91 | 90 | 74 |
-| Sky Patrol | easy | 83 | 90 | 85 | 94 | 91 | 88 | 61 |
-| Grave Robbers | easy | 68 | 99 | 92 | 98 | 92 | 95 | 89 |
-| Goblin Raid | easy | 93 | 96 | 88 | 93 | 78 | 84 | 58 |
-| Storm Scholars | easy | 85 | 91 | 80 | 92 | 81 | 82 | 65 |
-| Border Legion | normal | 84 | 92 | 81 | 91 | 82 | 85 | 61 |
-| Blood Cult | normal | 64 | 92 | 90 | 92 | 89 | 86 | 70 |
-| Tide Weavers | normal | 60 | 91 | 82 | 97 | 83 | 88 | 60 |
-| Dragon Brood | normal | 74 | 83 | 85 | 89 | 75 | 78 | 55 |
-| Bog Stalkers | normal | 6 | 99 | 85 | 93 | 88 | 88 | 68 |
-| Primal Stampede | hard | 8 | 88 | 81 | 78 | 94 | 89 | 61 |
-| Grove Wardens | hard | 11 | 87 | 76 | 82 | 88 | 88 | 57 |
-| Ashen Coven | hard | 11 | 83 | 85 | 91 | 88 | 88 | 54 |
-| Fire Giants | hard | 27 | 86 | 87 | 88 | 90 | 91 | 76 |
-| Town Militia | elite | 0 | 60 | 59 | 63 | 70 | 74 | 28 |
-| Plague Court | elite | 1 | 77 | 85 | 85 | 78 | 85 | 43 |
-| Angelic Host | elite | 14 | 52 | 62 | 42 | 62 | 73 | 25 |
-| Wild Hunt | elite | 1 | 76 | 63 | 73 | 83 | 79 | 52 |
-| The Pyre Tyrant | boss | 1 | 91 | 85 | 87 | 84 | 88 | 52 |
-| **All 19** | | **40.6** | **85.7** | **81.2** | **85.6** | **83.5** | **85.2** | **58.4** |
+| Forest Pack | easy | 81 | 96 | 91 | 99 | 92 | 91 | 74 |
+| Sky Patrol | easy | 83 | 90 | 90 | 98 | 89 | 95 | 61 |
+| Grave Robbers | easy | 68 | 99 | 90 | 99 | 95 | 97 | 89 |
+| Goblin Raid | easy | 93 | 96 | 85 | 96 | 86 | 85 | 58 |
+| Storm Scholars | easy | 85 | 91 | 86 | 94 | 91 | 83 | 65 |
+| Border Legion | normal | 84 | 92 | 79 | 97 | 88 | 86 | 61 |
+| Blood Cult | normal | 64 | 92 | 88 | 97 | 93 | 88 | 70 |
+| Tide Weavers | normal | 60 | 91 | 85 | 98 | 87 | 87 | 60 |
+| Dragon Brood | normal | 74 | 83 | 83 | 92 | 84 | 86 | 55 |
+| Bog Stalkers | normal | 6 | 99 | 84 | 94 | 92 | 91 | 68 |
+| Primal Stampede | hard | 8 | 88 | 81 | 83 | 93 | 89 | 61 |
+| Grove Wardens | hard | 11 | 87 | 76 | 86 | 90 | 88 | 57 |
+| Ashen Coven | hard | 11 | 83 | 90 | 95 | 91 | 90 | 54 |
+| Fire Giants | hard | 27 | 86 | 86 | 93 | 94 | 92 | 76 |
+| Town Militia | elite | 0 | 60 | 65 | 69 | 71 | 80 | 28 |
+| Plague Court | elite | 1 | 77 | 84 | 87 | 79 | 89 | 43 |
+| Angelic Host | elite | 14 | 52 | 62 | 62 | 66 | 75 | 25 |
+| Wild Hunt | elite | 1 | 76 | 75 | 74 | 94 | 82 | 52 |
+| The Pyre Tyrant | boss | 1 | 91 | 83 | 92 | 87 | 88 | 52 |
+| **All 19** | | **40.6** | **85.7** | **82.3** | **89.7** | **87.5** | **87.5** | **58.4** |
 
-- Every package has enemies it beats nine times in ten and enemies it struggles with. The worst cell of a package deck is 42 (lifegain against Angelic Host). Nobody is shut out.
-- Angelic Host is every package's worst or near-worst matchup except auras'. It is the weakest I could make it while Radiant leads it; say so if an elite at 42 to 73 is too hard.
+- Every package has enemies it beats nine times in ten and enemies it struggles with. The worst cell of a package deck is 52 (wide against Angelic Host). Nobody is shut out.
+- Angelic Host is every package's worst matchup. It is the weakest I could make it while Radiant leads it; say so if an elite at 52 to 75 is too hard. Town Militia is next (60 to 80).
+- Good and bad by package: wide is best against Bog Stalkers and Grave Robbers (99) and worst against the two white elites; counters is flattest (62 to 91); lifegain beats everything outside the elites and Primal Stampede 86 or better; big beats the other big decks (Wild Hunt and Primal Stampede 93 to 94) and is worst against fliers; auras has the best elite matchups (75 to 89).
 - The bare starting deck loses to everything from Bog Stalkers on (0 to 27%). It is not meant to meet them bare: the first of them comes after two rewards and a draft.
-- Bog Stalkers is in the normal tier on the strength of what drafted decks do against it (85 to 99). Against the bare starting deck it is the hardest "normal" enemy by far (6%).
+- Bog Stalkers is in the normal tier on the strength of what the package decks do against it (84 to 99). Against the bare starting deck it is the hardest "normal" enemy by far (6%).
 
 ## 8. Relics
 
@@ -474,14 +510,16 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 - **Weakening the normal and hard decks to raise the ceiling.** It raises the random deck as much as the ideal ones.
 - **Engines in AI hands.** Cathars' Crusade costs the wide and counters decks 4 to 5 points against a Grizzly Bears in its place; Hardened Scales, High Sentinels, Ridgescale Tusker and Abzan Falconer are worth no more than the Bears. I left them in the pool, because this is the AI's limit and not the cards'.
 - **Yavimaya Enchantress and Battle Mastery in the auras deck**: 6 points worse than the hexproof Gladecover Scouts they replaced.
-- **New rares in the lists.** Avatar of the Resolute and Inspiring Call (counters), Overwhelming Stampede (big), Jade Mage and Angel of Renewal (wide) changed nothing measurable (150 runs, +/- 7). Daybreak Coronet and Kor Spiritdancer in place of Unflinching Courage did help auras (80 to 85 on 150 runs; 80.3 on 300).
+- **New rares in the lists.** Avatar of the Resolute and Inspiring Call (counters), Overwhelming Stampede (big), Jade Mage and Angel of Renewal (wide) changed nothing measurable (150 runs, +/- 7). Daybreak Coronet and Kor Spiritdancer took Unflinching Courage's place in the auras deck at no cost. What moved every deck was a common: Healer's Hawk.
+- **The big deck with white lifegain.** Two Healer's Hawks (78.7), two Angels of Mercy (76.0), two Centaur Healers (79.3), two Pacifisms (81.0), two Sentinel Spiders (82.3), Spearbreaker Behemoth (78.7) and a second Tusker and Wurm (82.0), each against 82.7 for the list they started from: its mana is green, and it wants bodies, not white cards.
 - **A relic without "once a turn".** Drover's Bell first read "whenever a creature with power 4 or greater enters". Under Collective Blessing its own Soldier is a 4/4, so it rang itself for ever; one sim game sat on that for 20 minutes. It is once a turn now, with a test, and the sim stops any single duel with more than 90 permanents on the battlefield.
-- **Three counters lists** (the current one; a hybrid with Celestial Unicorn and both Falconers; one with both Tuskers): 77.7, 71.0 and 77.0 on 300 runs each.
+- **Counters lists that leaned on the package's own payoffs.** A hybrid with Celestial Unicorn and both Falconers (71.0), one with both Tuskers (77.0), one with tokens for Good-Fortune Unicorn and the Mentor to grow (74.7), one with Hardened Scales and two Solidarities (77.0), against 77.7 before the Hawks and 87.3 with them (300 runs each).
+- **Auras with Celestial Ancient and Knightly Valor** in place of the Hawks' slots: 74.7.
 
 ## 11. Questions that are yours
 
 1. **The boss at 50 life.** You said to use real decks, not extra life. I kept to that for 18 enemies and broke it for the boss, where life turned out to be the one lever that hurts a random deck four times as much as a focused one. Is a 50-life boss with a 1-a-turn drain the fight you want? The table: 20 life, ideal 88.8 / random 68.3; 30, 87.0 / 55.7; 35, 86.6 / 46.8; 40, 85.4 / 42.5; 45, 84.2 / 37.3 (single duels against it). The floor at 34% needs about 50.
-2. **The Pyre makes lifegain the answer.** Every package's best list leans on its lifegain bridge. Do you want a boss that asks one question of every deck, or should the drain go and something else separate (and then what)?
+2. **The Pyre makes lifegain the answer.** Every package's best list leans on its lifegain bridge, and three of the five hold two Healer's Hawks. That reads as "every deck splashes the same white common", which is not five packages. Do you want a boss that asks one question of every deck, or should the drain go and something else separate (and then what)? A second boss with a different question would fix it too.
 3. **The starting deck.** Lions, Pacifism and the Baloth are out. The bare deck wins 68 to 93% against the easy decks, so the first two duels are no longer free. Is that the "weak start" you meant?
 4. **Hardened Scales.** A second "that many plus one". It needs your word under #61. With two Mentors it is three extra counters a time.
 5. **The three altered rares** (Archangel, Thragtusk, Aspirant). Archangel and Thragtusk are your wordings. The Aspirant's is mine.
@@ -489,7 +527,7 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 7. **Event candidates**: Aerial Responder, Inspiring Overseer, Unflinching Courage, Serra Angel, War Banner, Surveyor's Map.
 8. **Glorious Anthem or Benalish Marshal.** Same effect. I added the Marshal as the conditional one ({W}{W}{W}), and it measured as the stronger in a random deck (+5.1 against +1.9). Keep one.
 9. **Commanders.** Radiant, Archangel leads Angelic Host; Borborygmos leads the boss; The Lady of the Mountain moved to Wild Hunt. Sir Shandlar and Tobias Andrion are out of work.
-10. **Relic tiers.** A suggestion in section 8. Building them means deciding where each tier comes from (treasure, elite, shop, event).
+10. **Relics.** Tiers are a suggestion in section 8; building them means deciding where each tier comes from (treasure, elite, shop, event). Rally Horn and Beast Tamer's Whistle are yours from #65 and I changed both (the Horn's wording is mine). Three relics still measure over 5: do you want Rations at 2 life, and the Bell and the Thread once a duel?
 11. **Feats.** Untouched, and the picker's blind score fell from 2.3 to 1.60 a duel because its deck is weaker. Tempered and Adorned are met in 6 to 7% of wins. They want a pass once you have played this.
 12. **The Firebrand.** 2.7%. Do you want it kept playable while the Warden is balanced (an easier field for it, or its emblem back), or parked?
 13. **Rares I looked at and did not add**, for want of a rule or of time: Beastmaster Ascension (a threshold of 7 attacks, then +5/+5: needs a counter on an enchantment); Enduring Scalelord (grows whenever another creature gets counters: needs a trigger on counters being put); Crusader of Odric and Geist-Honored Monk (power equal to your creature count: the Scryfall tool refuses a `*` power); Serra Ascendant (a 6/6 flier at 30 life: a second Speaker of the Heavens); Craterhoof Behemoth (8 mana, never cast in a 30-card deck); Elite Scaleguard (needs bolster); Citadel Siege and Verdurous Gearhulk (modes, dividing counters). Say which you want.
@@ -520,4 +558,6 @@ Single duels unless it says acts. All with the new AI.
 | v7, acts | Boss at 40 life; weaker elites | 79, 63, 90, 76, 76; picker **41.7** |
 | Acts | Boss at 45; counters deck takes its lifegain bridge | 75, 81, 90, 74, 79; picker **37.7** |
 | Acts | Wide and big take theirs | wide 90, big 84 |
-| Final | Boss at 50; Unflinching Courage held back; Coronet and Spiritdancer in auras | **89.3, 77.7, 86.0, 82.7, 80.3; picker 34.2** |
+| Acts | Boss at 50; Unflinching Courage held back; Coronet and Spiritdancer in auras | 89.3, 77.7, 86.0, 82.7, 80.3; picker 34.2 |
+| Acts | Relics: Drover's Bell once a turn, Rally Horn conditional, the Whistle at 1 life | picker 33.7; without relics 27.7 |
+| Final, acts | Healer's Hawks in counters and auras; a second Orator and a Battle Priest in lifegain; a lower curve in big | **wide 88.8, counters 88.0, lifegain 90.9, big 83.2, auras 88.0 (600 runs each); picker 33.7** |

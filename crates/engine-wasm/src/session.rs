@@ -420,7 +420,7 @@ mod tests {
             .map(|planeswalker| planeswalker.name.as_str())
             .collect();
         assert_eq!(names, ["The Warden", "The Firebrand"]);
-        assert_eq!(content.relics.len(), 12);
+        assert_eq!(content.relics.len(), 15);
     }
 
     #[test]
