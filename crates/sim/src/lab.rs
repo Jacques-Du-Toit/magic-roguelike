@@ -355,7 +355,14 @@ fn lift_line(name: &str, note: &str, with: Tally, all: Tally) -> (f64, String) {
 pub fn lift(options: &Options, timing: &mut Timing) -> Result<(String, bool), String> {
     let lab = Lab::new(options)?;
     let pool: Vec<&CardDef> = offered_spells(&lab.data.cards, &lab.planeswalker.colors);
-    let relics = &lab.data.run.relics;
+    // The relics a run can offer: not the ones held back.
+    let relics: Vec<&ModifierDef> = lab
+        .data
+        .run
+        .relics
+        .iter()
+        .filter(|relic| !relic.reserved)
+        .collect();
     let start = lab.starting_spells();
     let played = in_parallel(options.games, |game| {
         let mut rng = DuelRng::from_seed(options.seed.wrapping_add(u64::from(game)));
@@ -380,7 +387,7 @@ pub fn lift(options: &Options, timing: &mut Timing) -> Result<(String, bool), St
         );
         let modifiers: Vec<&ModifierDef> = owned
             .iter()
-            .filter_map(|&index| relics.get(index))
+            .filter_map(|&index| relics.get(index).copied())
             .collect();
         let config = lab.config(&spells, &modifiers, lab.field[enemy]);
         let (won, took) = play_duel(config, rng.next_seed(), options);
@@ -772,8 +779,14 @@ mod tests {
         assert!(report.contains("6 duels"), "{report}");
         assert!(report.contains("Against: "), "{report}");
         let data = data::embedded().unwrap();
+        // Every relic a run can offer is listed; one held back is not.
         for relic in &data.run.relics {
-            assert!(report.contains(relic.id.as_str()), "{report}");
+            assert_eq!(
+                report.contains(relic.id.as_str()),
+                !relic.reserved,
+                "{}",
+                relic.id
+            );
         }
         assert!(report.contains("raise_the_alarm"), "{report}");
         // A card held back is in nobody's random deck.

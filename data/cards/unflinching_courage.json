@@ -17,6 +17,7 @@
   "enchant": {
     "creature": {}
   },
+  "reserved": true,
   "abilities": [
     {
       "kind": "static",

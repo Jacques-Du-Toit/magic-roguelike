@@ -15,7 +15,7 @@
   ],
   "power": 2,
   "toughness": 3,
-  "rarity": "common",
+  "rarity": "uncommon",
   "oracle_text": "Constellation — Whenever this creature or another enchantment you control enters, target creature gets +1/+1 until end of turn.",
   "abilities": [
     {

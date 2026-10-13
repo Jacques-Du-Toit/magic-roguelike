@@ -14,7 +14,7 @@
   ],
   "power": 1,
   "toughness": 1,
-  "rarity": "common",
+  "rarity": "uncommon",
   "oracle_text": "{T}: You gain 1 life.",
   "abilities": [
     {
