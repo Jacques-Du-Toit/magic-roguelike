@@ -11,9 +11,9 @@ Status key: **In** = implement properly · **Simplified** = implement with state
 | Rule | Status | Notes |
 |---|---|---|
 | Two-player duel, 20 starting life | In | Default; per-player in `DuelConfig`. |
-| Starting player chosen at random | In | Seeded RNG. Starting player skips first draw. |
+| Starting player | In | Project rule: in a run's duels the player always starts (`DECISIONS.md` #74). Elsewhere (practice duels, the sim's deck pairings) it is the seeded coin flip. Starting player skips first draw. |
 | Lands in the library, one land drop per turn | In | As in normal Magic. |
-| 7-card opening hand with smoothing | In | Project rule. Deal several candidate hands, keep the one closest to the deck's land ratio. Numbers in `balance.json`. |
+| 7-card opening hand with smoothing | In | Project rule, for both players and for every mulligan hand. Deal hands until one is right (its land count fits the deck's land ratio, and every colour among its spells has a land in the hand that makes it; a dual land is a source of each of its colours), up to 5, then keep the one that misses least. The cap is in `balance.json`. |
 | London mulligan | In | |
 | Lose by 0 life | In | |
 | Fatigue instead of losing on an empty library | In | Project rule. Drawing from an empty library costs 1 life, then 2, then 3... |

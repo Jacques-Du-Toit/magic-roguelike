@@ -13,8 +13,8 @@ use crate::duel::{
 use super::defs::{EnemyId, EventId, FeatId, ModifierId, PlaneswalkerId};
 use super::feats::{DuelStats, FeatScore};
 
-/// The human's seat in every duel of a run. The starting player is still
-/// the duel's seeded coin flip.
+/// The human's seat in every duel of a run. The player takes the first turn
+/// of each (`duel_config`).
 pub const PLAYER: PlayerId = PlayerId::P1;
 /// The enemy's seat.
 pub const ENEMY: PlayerId = PlayerId::P2;

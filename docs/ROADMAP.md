@@ -20,8 +20,9 @@ What is built, what comes next, and what is further off. The record of each mile
 | Wounds and feats | In place of hearts and boons (#68, #69) | Done, numbers untuned |
 | The balance pass | A weaker start, five enemy tiers, a boss at 50 life (#70, `BALANCE_REPORT.md`) | Done, played; some questions open |
 | Card upgrades | Every Warden card has an upgraded side; a rest site upgrades one (#72) | Done, to be tuned |
+| The player starts; stronger smoothing | The player takes the first turn of a run's duels; hands are dealt until the lands fit and every colour has a source, up to 5 (#74) | Done, to be played |
 
-Where the numbers stand, with the AI on both sides (`sim --runs --games 600 --decks warden`): the random picker wins 28.3% of acts (+/- 3.6), reaches the boss in 77% and beats it 37% of the time; it wins 72% of its ordinary duels and 19% of its elites. Each package's ideal deck won 83 to 91% of acts before upgrades (not measured since).
+Where the numbers stand, with the AI on both sides (`sim --runs --games 600 --decks warden`): the random picker wins 29.3% of acts (+/- 3.6), reaches the boss in 81% and beats it 36% of the time; it wins 76% of its ordinary duels and 15% of its elites. Each package's ideal deck won 83 to 91% of acts before upgrades (not measured since).
 
 ## Next: the backlog
 
@@ -29,20 +30,7 @@ From the owner's playtest of 2026-10-13. Each item is meant to be done on its ow
 
 For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test for every rule, the docs in the same change, and `sim --runs --games 600 --decks warden` before and after (the baseline is the table above; say what moved, with the margin, and don't retune the field without asking).
 
-### 1. The player goes first, and stronger land smoothing
-
-**Asked:** the player always starts. Smoothing goes harder: keep dealing opening hands until one has the right ratio of lands, stop after 5 and keep the best; do it for every mulligan; and a hand must hold a land for each colour its spells need (white cards in hand means at least one Plains). A dual land counts as one source of each of its colours.
-
-**Now:** the starting player is the duel's seeded coin flip and skips their first draw. Smoothing deals `duel.smoothing_candidates` (3) hands and keeps the one whose land count is closest to the deck's land ratio; mulligan hands are smoothed the same way. It looks at the number of lands only, never their colours. Both players are smoothed alike (`setup.rs`, `mulligan.rs`).
-
-**Notes:**
-- Going first is an advantage in Magic even without the first draw, and every enemy was tiered with the coin flip. Expect the floor to rise by a few points and the aggro enemies to get easier.
-- "At least one land of each colour the hand needs" can be impossible (a seven-card hand of two lands and three colours' worth of spells in a later character). Suggest scoring it: a hand is right when its land count fits and every colour among its spells has a source; among five, keep the one that misses least.
-- Feats that count turns (Swift, Towering's "by your turn 7") get a little easier on the play.
-
-**To settle:** is the enemy smoothed the same way, or only by ratio as now? (`GAME_DESIGN.md` §4.1 says opponents follow the same rules.) Does the player also go first in practice duels, or only in a run?
-
-### 2. A rest heals every wound; wounds of more than one kind
+### 1. A rest heals every wound; wounds of more than one kind
 
 **Asked:** healing at a rest removes all wounds, not one: as it is, the upgrade is much the better choice. Wounds should differ and be small nuisances: lose 1 life a turn, a random enemy creature gets +1/+1 each turn, and so on.
 
@@ -56,17 +44,17 @@ For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test
 
 **To settle:** the list of wounds (four or five, proposed with their numbers), whether the Moneylender heals one or all, and whether a wound is drawn at random or follows from who beat you.
 
-### 3. Seeing what is ahead: the boss on the map, and each elite's commander
+### 2. Seeing what is ahead: the boss on the map, and each elite's commander
 
 **Asked:** the boss should be visible from the start so the player can plan for it, and an elite node should show the elite's commander so the player can choose the elites that suit their deck.
 
 **Now:** an enemy is picked when the player travels to its node (`flow.rs`, with the run's RNG and the `fought` list), so the map can't show it. There is one boss. The feats screen, after travelling, shows the enemy, its commander and its emblems.
 
-**Notes:** this means picking the boss when the run starts and each elite when the map is made, and keeping them in `RunState`; a seed will then give different enemies than it does now, so the end-to-end seeds may need to move. Ordinary duels can stay hidden. It pays off most once there is more than one boss (item 5).
+**Notes:** this means picking the boss when the run starts and each elite when the map is made, and keeping them in `RunState`; a seed will then give different enemies than it does now, so the end-to-end seeds may need to move. Ordinary duels can stay hidden. It pays off most once there is more than one boss (item 4).
 
 **To settle:** only the commander's name and card, or the enemy's emblems too? Elites only, or hard-tier duels as well?
 
-### 4. Elites are very hard
+### 3. Elites are very hard
 
 **Asked:** "elites are really hard: what do the stats show?"
 
@@ -82,9 +70,9 @@ For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test
 
 So they are hard for everyone and close to unwinnable for an unfinished deck. The cause is mostly where they sit: an elite can be met on row 5, after two easy duels, a draft and a treasure or an event, with the starting deck and about four more cards; the same four elites are also the pool for row 9. An elite is always optional, and losing one leaves a wound and no relic.
 
-**Options:** (a) item 3, so that the player picks the fight; (b) two elite tiers, an early pool for row 5 built like the normal tier with a commander, and the present four for row 9; (c) keep one pool and move the first elite row later; (d) pay more for an elite, so the risk is worth it. I would do (a) and (b).
+**Options:** (a) item 2, so that the player picks the fight; (b) two elite tiers, an early pool for row 5 built like the normal tier with a commander, and the present four for row 9; (c) keep one pool and move the first elite row later; (d) pay more for an elite, so the risk is worth it. I would do (a) and (b).
 
-### 5. The Pyre, and more bosses
+### 4. The Pyre, and more bosses
 
 **Asked:** the Pyre is fine as it stands (and so is the boss at 50 life: `DECISIONS.md` #73). Perhaps make its emblem more conditional, or have it attack with a 1/1 each turn in place of the drain.
 
@@ -97,7 +85,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle:** after the measurements, which version the Pyre keeps, and what the second and third bosses ask (proposals wanted: one that punishes going wide, one that punishes one big threat, for instance).
 
-### 6. More life as the act goes on
+### 5. More life as the act goes on
 
 **Asked:** later enemies should have more life, and the player's life might rise at points in the run too.
 
@@ -110,7 +98,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle:** by row or by tier, and how much (suggest a `life` number per map row or per tier in `balance.json`); where the player's life comes from.
 
-### 7. Potions (propose first)
+### 6. Potions (propose first)
 
 **Asked:** single-use potions as in Slay the Spire, common to rare: "destroy target creature with flying", "destroy all creatures", "gain 5 life". They are attrition too, in that one spent is gone.
 
@@ -124,7 +112,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle (the proposal):** how many can be carried, where they come from, the timing rule, the first ten or so with rarities, and what the sim does with them.
 
-### 8. Lands apart from card rewards (propose first)
+### 7. Lands apart from card rewards (propose first)
 
 **Asked:** separate lands from the normal rewards, and let the player adjust their lands, for example to pivot into one colour.
 
@@ -134,7 +122,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle (the proposal):** where non-basic lands come from once rewards don't hold them, whether the number of lands can change or only their colours, and whether the choice is made on the deck screen at any time or at certain nodes.
 
-### 9. Quality of life
+### 8. Quality of life
 
 Small and separate; any of them fits beside another item.
 
@@ -143,7 +131,7 @@ Small and separate; any of them fits beside another item.
 - **A red outline on cards in hand when discarding,** to show that the click is a loss.
 - **Reordering cards in hand.** The order is the UI's own: the engine's hand order means nothing to the rules.
 
-### 10. Left from earlier work
+### 9. Left from earlier work
 
 - **Tune the upgraded sides.** All 112 are first guesses (`GAME_DESIGN.md` §6.1). To look at first: Lightwalker+ (a 3/2 flier for two), Pacifism+ ({W}), Glorious Anthem+ ({W}{W}), Gigantosaurus+ (trample).
 - **An event that removes a card,** now that a rest doesn't (#72).

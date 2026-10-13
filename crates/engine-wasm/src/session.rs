@@ -17,7 +17,8 @@ use engine::{AiKind, ai_choose_action_with};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// The human's seat. The starting player is still a seeded coin flip.
+/// The human's seat. In a practice duel the starting player is still a
+/// seeded coin flip; in a run's duels the human starts.
 pub const HUMAN: PlayerId = PlayerId::P1;
 /// The AI's seat.
 pub const AI: PlayerId = PlayerId::P2;

@@ -109,7 +109,11 @@ Mana abilities are always available, so "the only legal action is pass" is never
 `DuelConfig` is per-player from the start, because relics, wounds, bosses and planeswalker passives all need asymmetric setups:
 
 ```rust
-pub struct DuelConfig { pub players: [PlayerConfig; 2], pub rules: RulesConfig }
+pub struct DuelConfig {
+    pub players: [PlayerConfig; 2],
+    pub rules: RulesConfig,
+    pub starting_player: Option<PlayerId>, // None: the seeded coin flip
+}
 pub struct PlayerConfig {
     pub library: Vec<CardInstance>,     // lands and spells together
     pub starting_life: i32,
@@ -144,7 +148,7 @@ A **`CardInstance`** is `{ card_id, upgraded }`, not a bare card id: a card of a
   - **`ObjectId(u32)`**, assigned in creation order. A card changing zones becomes a new object (per MTG rules), so rules references ("target creature") correctly stop pointing at it.
   - **`CardId(u32)`**, one per physical card or token for the whole duel. It never changes. Events and `PlayerView` carry both, so the UI can animate one card moving between zones.
 - `DuelState` and everything in it derive `Serialize`/`Deserialize` from the start. Card definitions are referenced by id, never embedded in state. This keeps save/resume and replays cheap to add.
-- The starting player is chosen by the seeded RNG.
+- The starting player is `DuelConfig::starting_player` when it names one, as the run's `duel_config` does (the player, P1); otherwise it is chosen by the seeded RNG.
 
 ## 4. Card data format
 
@@ -371,7 +375,11 @@ The Rust types list only what a card in the pool uses, and unknown fields, keywo
 ## 5. Duel internals
 
 - **Zones**: library, hand, battlefield, graveyard, exile, stack, command (emblems, and a commander waiting to be cast). Lands are in the library, as in normal Magic.
-- **Opening-hand smoothing**: at the start of the duel the engine shuffles and deals `smoothing_candidates` opening hands (default 3) using the seeded RNG, and keeps the one whose land count is closest to the deck's land ratio × hand size (ties: the first dealt). The rest of the library is then shuffled normally. Setting the number to 1 turns smoothing off. Mulligan hands are smoothed the same way.
+- **Opening-hand smoothing** (`setup.rs`, `deal_opening_hand`): the engine shuffles the library with the seeded RNG and looks at the top cards as a candidate hand, again and again until a hand is **right** or `smoothing_candidates` hands (5, from `duel.smoothing_candidates`) have been dealt. Both players are smoothed alike, and so is every mulligan hand, which goes through the same function. The rest of the library is then shuffled normally. Setting the number to 1 turns smoothing off.
+  - A hand is right when it misses nothing (`HandMiss`). Its **land count fits**: the deck's land ratio × hand size, rounded down or up, both fit (2.8 wanted: 2 or 3; exactly 3 wanted: only 3). Its **colours have sources**: every colour in the mana costs of its non-land cards is made by a tap ability of at least one land in the hand (`CardDef::mana_colors`, so a Guildgate is a source of each of its two colours). Only lands count as sources, and the commander's cost is not looked at: it is not in the hand.
+  - When no hand is right, the one that misses least is kept: one point for each land too few or too many, one for each colour without a source, the fewest points winning. Ties go to the land count closest to the exact ratio, then to the first dealt.
+  - How many hands a deal takes depends on the cards, so the RNG is used a different number of times from one deal to the next. It is still only the duel's RNG: the same seed and actions give the same hands.
+- **Starting player**: `DuelConfig::starting_player`. The run's `duel_config` names P1, the player, for every duel of a run (and for the sim's duels built from loadouts: `--enemies` and the balance lab). `None`, as `DuelConfig::from_decks` gives for practice duels and the sim's deck pairings, is the seeded coin flip. Whoever starts skips the draw of turn 1.
 - **Mulligan**: London mulligan. Draw a fresh hand, then put one card on the bottom per mulligan taken. The starting player decides first and players who haven't kept take turns deciding; the bottoming happens when a player keeps.
 - **Fatigue**: if a player would draw from an empty library, they instead lose life: 1 the first time, 2 the second, and so on (per-player counter). There is no lose-on-empty-library rule.
 - **Turn structure**: full MTG steps (see `RULES_SCOPE.md`).

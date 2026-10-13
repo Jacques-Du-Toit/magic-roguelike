@@ -48,12 +48,12 @@ Real Magic rules within the subset in `RULES_SCOPE.md`, with these run-specific 
 ### 4.1 Lands
 
 Lands are **in the deck**, as in normal Magic, so every card works as printed. Two things keep mana problems from deciding runs:
-- **Opening-hand smoothing**: the game deals a few candidate opening hands behind the scenes and gives you the one whose land count best matches your deck. Plus the London mulligan.
+- **Opening-hand smoothing**: behind the scenes the game deals opening hands until one is right, and gives you that one. A hand is right when its land count fits your deck's share of lands (2 or 3 of seven, at 40%) and every colour among its spells has a land in the hand that makes it: white cards in hand mean at least one Plains, or a land that taps for white. A dual land counts as one source of each of its colours. After five hands it stops and gives you the one that misses least. Every mulligan hand is dealt the same way. Plus the London mulligan.
 - **Automatic basic lands** (run layer, M3): the game keeps your basic land count at a target share of the deck (starting guess: 40%, split by the colours of your spells) and adjusts it as you add and remove cards. No land-ratio busywork.
 
 **Interesting lands are deck-building choices.** Dual lands, utility lands and the like are cards you earn (shops, rewards, relics) and add to your deck. Each one takes the place of a basic, so it improves your mana rather than diluting your spells.
 
-Opponents follow exactly the same rules.
+Opponents follow exactly the same rules, the stronger smoothing included.
 
 Future idea, not planned: a **separate land deck**, where lands live in their own shuffled deck and you choose which deck to draw from on every draw. It removes screw and flood completely, but changes how scry, card draw, explore, landfall and mill behave, so it would need its own card pool review.
 
@@ -66,9 +66,9 @@ Small decks so each pick shows up in games.
 
 ### 4.3 Opening hand and mulligans
 
-Opening hand of 7, smoothed as above. London mulligan.
+Opening hand of 7, smoothed as above. London mulligan: seven fresh cards, smoothed again, then one to the bottom for each mulligan taken.
 
-The starting player is chosen by coin flip and skips their first draw.
+In a run the player always takes the first turn, and skips their first draw as the starting player does in Magic (`DECISIONS.md` #74). A practice duel still flips a coin.
 
 ## 5. Planeswalkers (player characters)
 
@@ -203,6 +203,6 @@ From the owner's M3 playtest (2026-10-11), the direction to explore once saving 
 
 - Self-mill in a 25-card deck runs into fatigue (seen in the M4a sim). What makes a graveyard deck worth it here?
 
-Settled for the one-act prototype (see `DECISIONS.md`): rest sites heal a wound or upgrade a card (#72); elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.
+Settled for the one-act prototype (see `DECISIONS.md`): rest sites heal a wound or upgrade a card (#72); elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols; the player takes the first turn of every duel in a run, and hands are smoothed for land count and for colours (#74).
 
-Under discussion after the owner's playtest of 2026-10-13, each with a brief in `ROADMAP.md`: the player always going first and stronger land smoothing; a rest healing every wound, and wounds of several kinds; the boss and the elites' commanders shown on the map; easier early elites; a different question from the Pyre, and more bosses; more life for later enemies and for the player; potions; lands apart from card rewards, with a way to adjust them.
+Under discussion after the owner's playtest of 2026-10-13, each with a brief in `ROADMAP.md`: a rest healing every wound, and wounds of several kinds; the boss and the elites' commanders shown on the map; easier early elites; a different question from the Pyre, and more bosses; more life for later enemies and for the player; potions; lands apart from card rewards, with a way to adjust them.

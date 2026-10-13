@@ -123,7 +123,8 @@ pub struct DuelBalance {
     pub starting_life: i32,
     pub opening_hand_size: u8,
     pub max_hand_size: u8,
-    /// How many candidate opening hands are dealt; 1 turns smoothing off.
+    /// The most candidate hands dealt for one opening or mulligan hand; 1
+    /// turns smoothing off.
     pub smoothing_candidates: u8,
     pub fatigue: FatigueBalance,
     /// Generic mana a commander costs more for each time it has already
