@@ -146,6 +146,23 @@ pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelC
     }
 }
 
+/// The life an enemy starts a duel with by its own modifiers, before
+/// anything the player brings (a wound may add to it).
+pub fn enemy_starting_life(
+    enemy: &EnemyDef,
+    cards: &CardDatabase,
+    balance: &Balance,
+) -> Result<i32, InternalError> {
+    let nobody = Loadout {
+        library: Vec::new(),
+        modifiers: Vec::new(),
+        main_land: None,
+        commander: None,
+    };
+    let [_, theirs] = duel_config(nobody, Loadout::enemy(enemy, cards)?, balance).players;
+    Ok(theirs.starting_life)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,6 +253,14 @@ mod tests {
         let [player, boss] = &config.players;
         // Tyrant's Vigour: 30 more life.
         assert_eq!(boss.starting_life, 50);
+        assert_eq!(
+            enemy_starting_life(enemy("pyre_tyrant"), &data.cards, &data.balance),
+            Ok(50)
+        );
+        assert_eq!(
+            enemy_starting_life(enemy("forest_pack"), &data.cards, &data.balance),
+            Ok(20)
+        );
         assert_eq!(boss.emblems.len(), 1);
         assert_eq!(boss.emblems[0].name, "The Pyre");
         assert_eq!(

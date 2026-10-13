@@ -13,7 +13,7 @@ use super::defs::{
 };
 use super::feats::{DuelStats, FeatScore};
 use super::loadout::{Loadout, duel_config, starting_deck};
-use super::map::generate_map;
+use super::map::{generate_map, place_enemies};
 use super::rewards::{
     card_reward, discounted, draft_pack, event_cards, list_price, pick_one, random_relic,
     relic_offer, shop_stock, transmutations, treasure_relics,
@@ -36,7 +36,19 @@ pub fn new_run(config: RunConfig, seed: u64) -> Result<RunState, RunError> {
     }
     let balance = &data.balance.run;
     let mut rng = DuelRng::from_seed(seed);
-    let map = generate_map(&mut rng, &balance.map);
+    let mut map = generate_map(&mut rng, &balance.map);
+    // The boss and the elites are on the map from the start (`DECISIONS.md`
+    // #76). They are drawn after the map, so a seed's map is what it was.
+    let of_tier = |tier| -> Vec<EnemyId> {
+        let enemies = data.run.enemies_of(tier);
+        enemies.map(|enemy| enemy.id.clone()).collect()
+    };
+    place_enemies(
+        &mut rng,
+        &mut map,
+        &of_tier(EnemyTier::Boss),
+        &of_tier(EnemyTier::Elite),
+    );
     Ok(RunState {
         seed,
         planeswalker: config.planeswalker,
@@ -361,8 +373,25 @@ fn player_modifiers<'a>(
     Ok(modifiers)
 }
 
-/// Picks an enemy of the tier, one not met before if possible. With no
-/// hard enemies in the data, a normal one stands in.
+/// The enemy that has waited at an elite's node or the boss's since the run
+/// started.
+fn enemy_at<'a>(
+    state: &RunState,
+    data: &'a GameData,
+    node: NodeId,
+) -> Result<&'a EnemyDef, InternalError> {
+    let id = state
+        .map
+        .node(node)
+        .and_then(|node| node.enemy.as_ref())
+        .ok_or_else(|| InternalError::new(format!("nobody waits at node {node:?}")))?;
+    data.run
+        .enemy(id)
+        .ok_or_else(|| InternalError::new(format!("no enemy `{id}`")))
+}
+
+/// Picks the enemy of an ordinary duel: one of the tier, not met before if
+/// possible. With no hard enemies in the data, a normal one stands in.
 fn pick_enemy<'a>(
     state: &mut RunState,
     data: &'a GameData,
@@ -502,7 +531,7 @@ fn travel(
             offer_feats(state, events, data, enemy, DuelKind::Normal)?;
         }
         NodeKind::Elite => {
-            let enemy = pick_enemy(state, data, EnemyTier::Elite)?;
+            let enemy = enemy_at(state, data, node)?;
             offer_feats(state, events, data, enemy, DuelKind::Elite)?;
         }
         NodeKind::Rest => state.phase = Phase::Rest,
@@ -555,7 +584,7 @@ fn travel(
         }
         // The boss is only to be beaten: no feats.
         NodeKind::Boss => {
-            let boss = pick_enemy(state, data, EnemyTier::Boss)?;
+            let boss = enemy_at(state, data, node)?;
             start_duel(state, events, data, boss, DuelKind::Boss, Vec::new())?;
         }
     }

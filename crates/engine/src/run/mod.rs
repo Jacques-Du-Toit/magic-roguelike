@@ -29,11 +29,11 @@ pub use flow::{
     apply_duel_action, apply_run_action, current_enemy, feat_scores, new_run, run_legal_actions,
 };
 pub use lands::{basic_land, basic_lands, color_weights, main_color};
-pub use loadout::{Loadout, duel_config, library_with_lands, starting_deck};
-pub use map::generate_map;
+pub use loadout::{Loadout, duel_config, enemy_starting_life, library_with_lands, starting_deck};
+pub use map::{generate_map, place_enemies};
 pub use rewards::{is_offered, offered_spells};
 pub use state::{
     DuelKind, DuelOutcome, ENEMY, GoldReason, MapNode, NodeId, NodeKind, PLAYER, Phase, RunAction,
     RunConfig, RunError, RunEvent, RunMap, RunState, ShopItem, Ware,
 };
-pub use view::{RunContent, RunView, run_content, run_view};
+pub use view::{BossView, RunContent, RunView, run_content, run_view};

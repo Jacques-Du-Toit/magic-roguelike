@@ -56,6 +56,10 @@ pub struct MapNode {
     pub kind: NodeKind,
     /// The nodes of the next row this one leads to.
     pub next: Vec<NodeId>,
+    /// Who waits here, for an elite and for the boss: picked when the run
+    /// starts, so the map can show them. `None` for every other node; an
+    /// ordinary duel's enemy is picked on arriving.
+    pub enemy: Option<EnemyId>,
 }
 
 /// One act's map: a layered graph. Every edge goes one row forward, and
@@ -185,7 +189,8 @@ pub struct RunState {
     pub duel_stats: Option<DuelStats>,
     /// The feats picked for that duel. None for the boss.
     pub feats: Vec<FeatId>,
-    /// Enemies already met, so the next one is someone new if possible.
+    /// Enemies already met, so the next ordinary duel is against someone
+    /// new if possible. Elites and the boss are on the map from the start.
     pub fought: Vec<EnemyId>,
     /// Events already met, likewise.
     pub events_met: Vec<EventId>,

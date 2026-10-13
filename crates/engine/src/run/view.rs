@@ -12,11 +12,14 @@ use crate::data;
 use crate::decks::DeckEntry;
 use crate::duel::CardInstance;
 
-use super::defs::{EnemyDef, EventDef, ModifierDef, ModifierId, PlaneswalkerDef, PlaneswalkerId};
+use super::defs::{
+    EnemyDef, EnemyId, EventDef, ModifierDef, ModifierId, PlaneswalkerDef, PlaneswalkerId,
+};
 use super::feats::{FeatDef, FeatScore};
 use super::flow::{feat_scores, run_legal_actions};
 use super::lands::basic_lands;
-use super::state::{NodeId, Phase, RunAction, RunError, RunMap, RunState};
+use super::loadout::enemy_starting_life;
+use super::state::{NodeId, NodeKind, Phase, RunAction, RunError, RunMap, RunState};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -38,7 +41,12 @@ pub struct RunView {
     pub relics: Vec<ModifierId>,
     /// Modifiers from events, for the next duel only.
     pub next_duel: Vec<ModifierId>,
+    /// An elite's node and the boss's say who waits there (`MapNode::enemy`).
+    /// The enemy of an ordinary duel isn't picked until the player arrives,
+    /// so it is nowhere in here.
     pub map: RunMap,
+    /// The act's boss, known from the start.
+    pub boss: Option<BossView>,
     /// The nodes visited, in order. The last is where the player is.
     pub path: Vec<NodeId>,
     pub phase: Phase,
@@ -49,9 +57,30 @@ pub struct RunView {
     pub actions: Vec<RunAction>,
 }
 
+/// What the map says of the boss beyond its definition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct BossView {
+    pub enemy: EnemyId,
+    /// The life it starts the duel with by its own modifiers.
+    pub life: i32,
+}
+
 /// Builds the view of the run.
 pub fn run_view(state: &RunState) -> Result<RunView, RunError> {
     let data = data::embedded()?;
+    let boss = state
+        .map
+        .nodes
+        .iter()
+        .filter(|node| node.kind == NodeKind::Boss)
+        .find_map(|node| data.run.enemy(node.enemy.as_ref()?))
+        .map(|enemy| {
+            Ok::<_, RunError>(BossView {
+                enemy: enemy.id.clone(),
+                life: enemy_starting_life(enemy, &data.cards, &data.balance)?,
+            })
+        })
+        .transpose()?;
     let colors = data
         .run
         .planeswalker(&state.planeswalker)
@@ -73,6 +102,7 @@ pub fn run_view(state: &RunState) -> Result<RunView, RunError> {
         relics: state.relics.clone(),
         next_duel: state.next_duel.clone(),
         map: state.map.clone(),
+        boss,
         path: state.path.clone(),
         phase: state.phase.clone(),
         feats: feat_scores(state)?,

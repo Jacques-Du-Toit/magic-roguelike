@@ -956,6 +956,125 @@ fn the_player_meets_a_new_enemy_each_time_while_there_are_any() {
     assert_ne!(state.fought[0], state.fought[1]);
 }
 
+// ---- What is ahead: the boss and the elites are on the map ----
+
+#[test]
+fn the_boss_is_fixed_from_the_start_and_is_the_one_met() {
+    let data = data::embedded().unwrap();
+    for seed in 0..6 {
+        let mut state = run("warden", seed);
+        let shown = state.map.nodes.last().unwrap().enemy.clone().unwrap();
+        assert_eq!(data.run.enemy(&shown).unwrap().tier, EnemyTier::Boss);
+        // The view says who it is and what life it starts with.
+        let view = run_view(&state).unwrap();
+        let boss = view.boss.unwrap();
+        assert_eq!(boss.enemy, shown);
+        assert_eq!(boss.life, 50);
+
+        let rng = state.rng.clone();
+        let node = walk_to(&mut state, NodeKind::Boss).unwrap();
+        // Nothing on the way changed it.
+        assert_eq!(state.map.node(node).unwrap().enemy, Some(shown.clone()));
+        assert_eq!(run_view(&state).unwrap().boss.unwrap().enemy, shown);
+        assert_ne!(state.rng, rng);
+        act(&mut state, RunAction::Travel { node });
+        assert_eq!(
+            state.phase,
+            Phase::Duel {
+                enemy: shown,
+                kind: DuelKind::Boss
+            }
+        );
+    }
+}
+
+#[test]
+fn an_elite_node_meets_the_elite_it_showed() {
+    let data = data::embedded().unwrap();
+    let mut met = std::collections::BTreeSet::new();
+    for seed in 0..60 {
+        let mut state = run("warden", seed);
+        // What the map showed before a step was taken.
+        let shown = run_view(&state).unwrap().map;
+        while let Some(node) = walk_to(&mut state, NodeKind::Elite) {
+            let elite = shown.node(node).unwrap().enemy.clone().unwrap();
+            assert_eq!(data.run.enemy(&elite).unwrap().tier, EnemyTier::Elite);
+            apply_run_action(&mut state, RunAction::Travel { node }).unwrap();
+            // The feats screen names the same enemy, and so does the duel.
+            let Phase::Feats { enemy, kind, .. } = state.phase.clone() else {
+                panic!("seed {seed}: expected the feats of an elite");
+            };
+            assert_eq!((&enemy, kind), (&elite, DuelKind::Elite), "seed {seed}");
+            let first = run_legal_actions(&state).remove(0);
+            apply_run_action(&mut state, first).unwrap();
+            assert_eq!(current_enemy(&state), Some(&elite));
+            assert!(met.insert((seed, elite)), "seed {seed}: an elite met twice");
+            finish(&mut state, win());
+        }
+        // The map itself never changed.
+        assert_eq!(state.map, shown);
+    }
+    // Every elite is met somewhere, and some runs meet two.
+    let elites: std::collections::BTreeSet<&EnemyId> = met.iter().map(|(_, id)| id).collect();
+    assert_eq!(elites.len(), data.run.enemies_of(EnemyTier::Elite).count());
+    assert!(met.len() > 60, "{} elites met in 60 runs", met.len());
+}
+
+#[test]
+fn every_elite_node_of_a_run_is_a_different_elite() {
+    for seed in 0..200 {
+        let state = run("warden", seed);
+        let elites: Vec<&EnemyId> = state
+            .map
+            .nodes
+            .iter()
+            .filter(|node| node.kind == NodeKind::Elite)
+            .map(|node| node.enemy.as_ref().unwrap())
+            .collect();
+        let different: std::collections::BTreeSet<&EnemyId> = elites.iter().copied().collect();
+        assert_eq!(different.len(), elites.len(), "seed {seed}: {elites:?}");
+    }
+}
+
+#[test]
+fn the_view_never_says_who_an_ordinary_duel_is_against() {
+    let data = data::embedded().unwrap();
+    let hidden: Vec<&EnemyDef> = data
+        .run
+        .enemies
+        .iter()
+        .filter(|enemy| !matches!(enemy.tier, EnemyTier::Elite | EnemyTier::Boss))
+        .collect();
+    assert!(hidden.len() > 10);
+    for seed in 0..40 {
+        let mut state = run("warden", seed);
+        let view = run_view(&state).unwrap();
+        for node in &view.map.nodes {
+            let shows = matches!(node.kind, NodeKind::Elite | NodeKind::Boss);
+            assert_eq!(node.enemy.is_some(), shows, "seed {seed}: {node:?}");
+        }
+        // Nothing else in the view names one either, and the state has
+        // not picked one: there is nothing to leak.
+        let sent = serde_json::to_string(&view).unwrap();
+        let kept = serde_json::to_string(&state).unwrap();
+        for enemy in &hidden {
+            let id = format!("\"{}\"", enemy.id);
+            assert!(!sent.contains(&id), "seed {seed}: the view names {id}");
+            assert!(!kept.contains(&id), "seed {seed}: the state names {id}");
+        }
+
+        // Once the player is there, it is said, and only then.
+        let node = travels(&state)[0];
+        apply_run_action(&mut state, RunAction::Travel { node }).unwrap();
+        let view = run_view(&state).unwrap();
+        let Phase::Feats { enemy, .. } = &view.phase else {
+            panic!("seed {seed}: the first row is duels");
+        };
+        assert_eq!(data.run.enemy(enemy).unwrap().tier, EnemyTier::Easy);
+        assert_eq!(view.map.node(node).unwrap().enemy, None);
+    }
+}
+
 // ---- Elites ----
 
 #[test]
