@@ -242,19 +242,17 @@ async function playRun(page: Page, well: boolean): Promise<Seen> {
   throw new Error('the run did not end')
 }
 
-test('the menu starts a run with the chosen commander and emblem', async ({ page }) => {
+test('the menu starts a run with the chosen commander, and no emblem', async ({ page }) => {
   const errors = watchForErrors(page)
   await page.goto('/')
   await expect(page.getByTestId('planeswalker-warden')).toBeChecked()
   await shot(page, 'menu')
-  // Each character shows its commander, and comes with its usual emblem.
+  // Each character shows its commander. There are no starting emblems for
+  // now, so the menu doesn't ask for one.
   await expect(page.getByTestId('menu-commander').first()).toContainText('Jasmine Boreal')
-  await expect(page.getByTestId('emblem-emblem_welcome')).toBeChecked()
+  await expect(page.locator('input[name="emblem"]')).toHaveCount(0)
   await page.getByTestId('planeswalker-firebrand').check()
-  await expect(page.getByTestId('emblem-emblem_fury')).toBeChecked()
-  // Any emblem goes with any commander.
-  await page.getByTestId('emblem-emblem_welcome').check()
-  await shot(page, 'menu-firebrand-welcome')
+  await shot(page, 'menu-firebrand')
   await page.getByTestId('run-seed-input').fill('nine')
   await page.getByTestId('start-run').click()
   await expect(page.getByRole('alert')).toHaveText('The seed must be a whole number.')
@@ -265,7 +263,7 @@ test('the menu starts a run with the chosen commander and emblem', async ({ page
   await expect(page.getByTestId('seed')).toHaveText('Seed 9')
   await expect(page.getByTestId('wounds')).toContainText('0/3 wounds')
   await expect(page.getByTestId('gold')).toHaveText('30 gold')
-  await expect(page.getByTestId('starting-emblem')).toContainText('Warm Welcome')
+  await expect(page.getByTestId('starting-emblem')).toHaveCount(0)
   await expect(page.getByTestId('run-commander')).toContainText('Boris Devilboon')
   // Three ways to start, and the boss at the far end.
   await expect(page.locator('.map-node-open')).toHaveCount(3)
@@ -311,8 +309,8 @@ test('feats are picked before a duel, and a duel conceded leaves a wound', async
   await expect(page.getByTestId('duel-feat').nth(1)).toContainText(names[1])
   await expect(page.getByTestId('stakes')).toContainText('0 of 3 wounds')
   await expect(page.getByTestId('stakes')).toContainText('Losing this duel leaves a wound.')
-  // The starting emblem is on show in the duel.
-  await expect(page.getByTestId('emblem')).toContainText('Warm Welcome')
+  // The run started with no emblem, so the duel shows none.
+  await expect(page.getByTestId('emblem')).toHaveCount(0)
   await page.getByRole('button', { name: 'Concede' }).click()
   await page.getByTestId('concede').click()
 
