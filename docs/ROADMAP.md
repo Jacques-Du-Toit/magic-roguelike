@@ -184,6 +184,8 @@ Over 1142 and 1001 duels won, so each figure is within about 3 points. Two feats
 
 Added after that table (2026-10-13): a sixth shared feat, **Decisive** (deal 6 / 9 / 12 damage to the enemy in one turn), in place of the two the owner turned down (Flourishing and Champion). The Warden's pool is nine and the Firebrand is offered five of six. It is not in the table above, and the run numbers were not measured again, at the owner's word; a feat added to the pool changes which feats and enemies a seed gives, so they will have moved a little. Checks: 611 engine tests, 12 wasm-crate tests, 29 sim tests, 72 web tests and 22 end-to-end tests pass. The Firebrand's end-to-end act moved to seed 26.
 
+**Slice 11 (2026-10-13): the balance pass of the Warden's first act.** Merged as the working baseline, read but not yet played by the owner (`DECISIONS.md` #70); the Firebrand is parked (#71). Everything measured, tried and left open is in `docs/BALANCE_REPORT.md`, whose section 11 lists the questions still the owner's. In short: no starting emblems; a weaker starting deck; a pool of 104 offered cards in five packages, with 22 generic or too-strong cards held back (`"reserved"`); 24 cards and twelve small rules added; enemies in five tiers (a new `hard` tier for rows 9 and 10) with the late ones built from decks that scale; the boss at 50 life led by Borborygmos; six relics tamed, three added, two held back. `sim` has lab modes (`--lift`, `--ideal`, `--leave-out`, `--act`, `--data`). With the AI on both sides the random picker wins 32.0% of acts (600 runs, +/- 3.7) and the five packages' ideal decks 83 to 91% (600 runs each, +/- 3). Known gaps: the big deck is 2 points short of the 85 to 95% aimed at; most of the gap between a random and a focused deck is made in the boss duel; the boss's drain makes lifegain every package's answer; relic tiers are suggested and not built. Checks: 657 engine tests, 38 sim tests, 12 wasm-crate tests, 72 web tests and 22 end-to-end tests pass; 231 cards match Scryfall. Next: card upgrades, proposed to the owner first.
+
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 **M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
@@ -344,7 +346,7 @@ What the new AI still plays badly:
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
 - [ ] Draft node (built), Treasure node (built), Event node (built, five events), wounds and feats in place of hearts and boons (built, to be played), card upgrades.
-- [ ] 3 acts, 3 bosses, ~20 relics (12 so far), 4+ planeswalkers.
+- [ ] 3 acts, 3 bosses, ~20 relics (15 so far, 13 of them offered), 4+ planeswalkers.
 - [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.
 
