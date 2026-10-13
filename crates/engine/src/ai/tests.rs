@@ -780,6 +780,7 @@ fn plays_whole_games_with_decks_drawn_from_the_whole_pool() {
             let config = crate::duel::DuelConfig {
                 players: [pool_deck(*pair, seed), pool_deck(other, seed + 100)],
                 rules: crate::duel::RulesConfig::from_balance(&data.balance.duel),
+                starting_player: None,
             };
             let mut state = new_duel(config, seed).unwrap();
             let mut steps = 0;

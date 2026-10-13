@@ -5,7 +5,7 @@ use crate::balance::Balance;
 use crate::cards::{CardDefId, Color};
 use crate::data::CardDatabase;
 use crate::decks::DeckEntry;
-use crate::duel::{CardInstance, DuelConfig, InternalError, PlayerConfig, RulesConfig};
+use crate::duel::{CardInstance, DuelConfig, InternalError, PlayerConfig, PlayerId, RulesConfig};
 
 use super::defs::{EnemyDef, ModifierDef, ModifierEffect, PlaneswalkerDef, Who};
 use super::lands::{basic_land, basic_lands, main_color};
@@ -88,7 +88,8 @@ impl<'a> Loadout<'a> {
     }
 }
 
-/// The duel between two loadouts. `p1` sits in seat P1.
+/// The duel between two loadouts. `p1` sits in seat P1 and takes the first
+/// turn: in a run's duels the player always starts.
 pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelConfig {
     let mut players = [&p1, &p2].map(|loadout| PlayerConfig {
         library: loadout.library.clone(),
@@ -142,6 +143,7 @@ pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelC
     DuelConfig {
         players,
         rules: RulesConfig::from_balance(&balance.duel),
+        starting_player: Some(PlayerId::P1),
     }
 }
 
@@ -220,6 +222,7 @@ mod tests {
         assert_eq!(opponent.library.len(), 25);
         assert!(opponent.emblems.is_empty());
         assert_eq!(opponent.commander, None);
+        assert_eq!(config.starting_player, Some(PlayerId::P1));
         assert!(new_duel(config, 1).is_ok());
     }
 

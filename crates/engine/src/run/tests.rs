@@ -353,6 +353,18 @@ fn a_duel_node_starts_a_duel_set_up_from_the_run() {
 }
 
 #[test]
+fn the_player_takes_the_first_turn_of_a_runs_duels() {
+    for seed in 0..20 {
+        let mut state = run("warden", seed);
+        let node = travels(&state)[0];
+        act(&mut state, RunAction::Travel { node });
+        let duel = state.duel.as_ref().unwrap();
+        assert_eq!(duel.starting_player, PLAYER, "seed {seed}");
+        assert_eq!(duel.waiting_on(), Some(PLAYER), "seed {seed}");
+    }
+}
+
+#[test]
 fn duel_actions_go_through_the_run() {
     let mut state = run("firebrand", 4);
     assert_eq!(

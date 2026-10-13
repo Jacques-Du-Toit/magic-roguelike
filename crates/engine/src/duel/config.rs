@@ -7,12 +7,17 @@ use crate::balance::{DuelBalance, FatigueBalance};
 use crate::cards::{CardDefId, EmblemDef};
 use crate::decks::DeckDef;
 
+use super::ids::PlayerId;
+
 /// Per-player from the start, because boons, relics, bosses and planeswalker
 /// passives all need asymmetric setups.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DuelConfig {
     pub players: [PlayerConfig; 2],
     pub rules: RulesConfig,
+    /// Who takes the first turn. `None` is the duel's seeded coin flip.
+    #[serde(default)]
+    pub starting_player: Option<PlayerId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +109,7 @@ impl DuelConfig {
                 PlayerConfig::from_deck(p2, balance),
             ],
             rules: RulesConfig::from_balance(balance),
+            starting_player: None,
         }
     }
 }

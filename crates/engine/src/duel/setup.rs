@@ -60,9 +60,12 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
     };
 
     let mut rng = DuelRng::from_seed(seed);
-    let starting_player = match rng.below(2) {
-        0 => PlayerId::P1,
-        _ => PlayerId::P2,
+    let starting_player = match config.starting_player {
+        Some(player) => player,
+        None => match rng.below(2) {
+            0 => PlayerId::P1,
+            _ => PlayerId::P2,
+        },
     };
     let players = config
         .players
@@ -270,6 +273,19 @@ mod tests {
             .collect();
         let p1_starts = starters.iter().filter(|p| **p == PlayerId::P1).count();
         assert!((10..=30).contains(&p1_starts), "P1 started {p1_starts}/40");
+    }
+
+    #[test]
+    fn a_config_can_name_the_starting_player() {
+        for first in PlayerId::ALL {
+            for seed in 0..20 {
+                let mut named = config("deck_a", "deck_b");
+                named.starting_player = Some(first);
+                let state = new_duel(named, seed).unwrap();
+                assert_eq!(state.starting_player, first);
+                assert_eq!(state.decision, Some(Decision::Mulligan { player: first }));
+            }
+        }
     }
 
     #[test]
