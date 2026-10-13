@@ -391,8 +391,12 @@ pub enum Trigger {
     CastSpell { kind: CastKind },
     /// At the beginning of its controller's upkeep.
     BeginningOfUpkeep {},
-    /// At the beginning of combat on its controller's turn.
-    BeginningOfCombat {},
+    /// At the beginning of combat on its controller's turn, or on each
+    /// opponent's turn instead.
+    BeginningOfCombat {
+        #[serde(default)]
+        opponents_turn: bool,
+    },
     /// At the beginning of its controller's end step, or of each player's.
     BeginningOfEndStep {
         #[serde(default)]
@@ -822,6 +826,10 @@ pub enum TargetSpec {
     /// Not a target: the spell or ability's controller ("deals 2 damage to
     /// you").
     You {},
+    /// Not a target: "a random creature an opponent controls", picked with
+    /// the duel's RNG when the effect resolves. With no such creature the
+    /// effect does nothing.
+    RandomOpponentCreature {},
     /// A spell on the stack.
     Spell(SpellFilter),
 }
@@ -914,6 +922,7 @@ impl TargetSpec {
                 | TargetSpec::This {}
                 | TargetSpec::Triggering {}
                 | TargetSpec::You {}
+                | TargetSpec::RandomOpponentCreature {}
         )
     }
 
@@ -929,6 +938,7 @@ impl TargetSpec {
             TargetSpec::This {} => "this",
             TargetSpec::Triggering {} => "triggering",
             TargetSpec::You {} => "you",
+            TargetSpec::RandomOpponentCreature {} => "random_opponent_creature",
             TargetSpec::Spell(_) => "spell",
         }
     }
@@ -1243,6 +1253,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
                 | TargetSpec::Same {}
                 | TargetSpec::This {}
                 | TargetSpec::Triggering {}
+                | TargetSpec::RandomOpponentCreature {}
         )
     };
     let bad_target = match effect {

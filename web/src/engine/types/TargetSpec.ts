@@ -7,4 +7,4 @@ import type { SpellFilter } from "./SpellFilter";
  * What a target must be. Written as `{ "creature": {} }`; the braces hold
  * any further conditions, e.g. `{ "creature": { "min_power": 4 } }`.
  */
-export type TargetSpec = { "any_target": Record<symbol, never> } | { "creature": CreatureFilter } | { "card_in_your_graveyard": GraveyardFilter } | { "opponent": Record<symbol, never> } | { "player": Record<symbol, never> } | { "same": Record<symbol, never> } | { "this": Record<symbol, never> } | { "triggering": Record<symbol, never> } | { "you": Record<symbol, never> } | { "spell": SpellFilter };
+export type TargetSpec = { "any_target": Record<symbol, never> } | { "creature": CreatureFilter } | { "card_in_your_graveyard": GraveyardFilter } | { "opponent": Record<symbol, never> } | { "player": Record<symbol, never> } | { "same": Record<symbol, never> } | { "this": Record<symbol, never> } | { "triggering": Record<symbol, never> } | { "you": Record<symbol, never> } | { "random_opponent_creature": Record<symbol, never> } | { "spell": SpellFilter };

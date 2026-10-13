@@ -259,9 +259,11 @@ fn triggers_on(
         }
         (Trigger::Sacrifice {}, Happening::Sacrificed(_)) => own,
         (Trigger::GainLife {}, Happening::GainedLife(player))
-        | (Trigger::BeginningOfUpkeep {}, Happening::Upkeep(player))
-        | (Trigger::BeginningOfCombat {}, Happening::BeginCombat(player)) => {
+        | (Trigger::BeginningOfUpkeep {}, Happening::Upkeep(player)) => {
             (player == controller).then_some(None)
+        }
+        (Trigger::BeginningOfCombat { opponents_turn }, Happening::BeginCombat(player)) => {
+            ((player == controller) != opponents_turn).then_some(None)
         }
         (Trigger::BeginningOfEndStep { each_player }, Happening::EndStep(player)) => {
             (each_player || player == controller).then_some(None)

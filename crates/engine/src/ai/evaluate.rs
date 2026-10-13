@@ -109,7 +109,7 @@ fn ability_value(ability: &AbilityDef) -> i32 {
                 // every turn of its controller's, or every creature or
                 // token of theirs that enters.
                 Trigger::BeginningOfUpkeep {}
-                | Trigger::BeginningOfCombat {}
+                | Trigger::BeginningOfCombat { .. }
                 | Trigger::BeginningOfEndStep { .. }
                 | Trigger::EntersBattlefield { .. } => ENGINE_ABILITY,
                 // When something else goes right: it attacks or connects,

@@ -422,3 +422,99 @@ fn a_duel_with_emblems_survives_a_json_round_trip_and_is_deterministic() {
     assert_eq!(serde_json::from_str::<DuelState>(&json).unwrap(), state);
     assert_eq!(new_duel(build(), 5).unwrap(), state);
 }
+
+// ---- "A random creature an opponent controls", on the opponent's turn ----
+
+fn gash() -> EmblemDef {
+    emblem(
+        "Gash",
+        json!([{ "kind": "triggered",
+            "trigger": { "type": "beginning_of_combat", "opponents_turn": true },
+            "effects": [{ "type": "modify_pt_until_eot",
+                "target": { "random_opponent_creature": {} }, "power": 1, "toughness": 1 }] }]),
+    )
+}
+
+/// A duel in which the first player has the Gash, with one Grizzly Bears
+/// of their own and `enemy_bears` of the opponent's. Returns the bonuses of
+/// the opponent's bears, in the order they entered, once the ability has
+/// resolved in the opponent's beginning of combat.
+fn gashed(seed: u64, enemy_bears: usize) -> (DuelState, PlayerId, Vec<(i32, i32)>) {
+    let mut config = config("deck_a", "deck_c");
+    config.starting_player = Some(PlayerId::P1);
+    config.players[0].emblems = vec![gash()];
+    let (mut state, me, opponent) = main_phase(config, seed);
+    let mine = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs: Vec<_> = (0..enemy_bears)
+        .map(|_| put_on_battlefield(&mut state, opponent, "grizzly_bears"))
+        .collect();
+
+    // Not in its controller's own combat.
+    pass_until(&mut state, 1, Step::BeginCombat);
+    assert!(state.stack.is_empty());
+
+    // In the opponent's: it goes on the stack, and nothing has changed yet.
+    pass_until(&mut state, 2, Step::BeginCombat);
+    assert_eq!(state.stack.len(), 1);
+    assert!(theirs.iter().all(|id| state.objects[id].power_bonus == 0));
+    pass_both(&mut state);
+    assert!(state.stack.is_empty());
+    // Never the controller's own creature.
+    assert_eq!(state.objects[&mine].power_bonus, 0);
+    let bonuses = theirs
+        .iter()
+        .map(|id| {
+            (
+                state.objects[id].power_bonus,
+                state.objects[id].toughness_bonus,
+            )
+        })
+        .collect();
+    (state, opponent, bonuses)
+}
+
+#[test]
+fn a_random_enemy_creature_is_pumped_in_the_enemys_combat_until_end_of_turn() {
+    let mut picked = std::collections::BTreeSet::new();
+    for seed in 1..=12 {
+        let (mut state, opponent, bonuses) = gashed(seed, 3);
+        // One creature, +1/+1.
+        let pumped: Vec<usize> = (0..3).filter(|&index| bonuses[index] != (0, 0)).collect();
+        assert_eq!(pumped.len(), 1, "seed {seed}: {bonuses:?}");
+        assert_eq!(bonuses[pumped[0]], (1, 1));
+        picked.insert(pumped[0]);
+        // The same seed picks the same creature.
+        assert_eq!(gashed(seed, 3).2, bonuses);
+
+        // It wears off at the end of the turn, so it never builds up.
+        pass_until(&mut state, 3, Step::PrecombatMain);
+        let any_bonus = state
+            .permanents_of(opponent)
+            .any(|permanent| permanent.power_bonus != 0 || permanent.toughness_bonus != 0);
+        assert!(!any_bonus);
+        state.assert_consistent();
+    }
+    // The pick is random: over a dozen duels it is not always the same one.
+    assert!(picked.len() > 1, "{picked:?}");
+}
+
+#[test]
+fn with_no_enemy_creature_the_pump_does_nothing_and_draws_nothing_from_the_rng() {
+    let mut config = config("deck_a", "deck_c");
+    config.starting_player = Some(PlayerId::P1);
+    config.players[0].emblems = vec![gash()];
+    let (mut state, me, _) = main_phase(config, 1);
+    let mine = put_on_battlefield(&mut state, me, "grizzly_bears");
+    pass_until(&mut state, 2, Step::BeginCombat);
+    assert_eq!(state.stack.len(), 1);
+    let rng = state.rng.clone();
+    let events = pass_both(&mut state);
+    assert!(state.stack.is_empty());
+    assert_eq!(state.rng, rng);
+    assert_eq!(state.objects[&mine].power_bonus, 0);
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, GameEvent::PowerToughnessChanged { .. }))
+    );
+}

@@ -63,6 +63,28 @@ pub(crate) fn fits_target_spec(
     Ok(candidates(state, player, spec)?.contains(&target))
 }
 
+/// One of the creatures `player` controls, picked with the duel's RNG from
+/// them in the order they entered. None, and the RNG is left alone, when
+/// they control no creature.
+fn random_creature(
+    state: &mut DuelState,
+    player: PlayerId,
+) -> Result<Option<ObjectId>, InternalError> {
+    let mut creatures = Vec::new();
+    for &id in &state.battlefield {
+        if state.object(id)?.owner == player && state.is_creature(id)? {
+            creatures.push(id);
+        }
+    }
+    if creatures.is_empty() {
+        return Ok(None);
+    }
+    let pick = state
+        .rng
+        .below(u32::try_from(creatures.len()).unwrap_or(u32::MAX)) as usize;
+    Ok(creatures.get(pick).copied())
+}
+
 /// Whether `player` may aim a spell or ability at `target`: it fits the
 /// spec, and it isn't an opponent's permanent with hexproof.
 pub(crate) fn is_legal_target(
@@ -172,7 +194,8 @@ fn candidates(
         TargetSpec::Same {}
         | TargetSpec::This {}
         | TargetSpec::Triggering {}
-        | TargetSpec::You {} => {}
+        | TargetSpec::You {}
+        | TargetSpec::RandomOpponentCreature {} => {}
         TargetSpec::Spell(filter) => {
             for item in &state.stack {
                 if item.kind != StackItemKind::Spell {
@@ -343,15 +366,27 @@ pub(crate) fn resolve_top(
     let missing = || InternalError::new(format!("{:?} is short of targets", item.id));
     // Something the ability refers to without targeting it: there to be
     // acted on only while it is still on the battlefield.
-    let known = |object: ObjectId| (Target::Object { object }, state.is_on_battlefield(object));
+    let known = |state: &DuelState, object: ObjectId| {
+        (Target::Object { object }, state.is_on_battlefield(object))
+    };
     for effect in effects {
         let mut targets = Vec::new();
         let mut all_legal = true;
         for spec in effect.targets() {
             let (target, legal) = match spec {
                 TargetSpec::Same {} => last.ok_or_else(missing)?,
-                TargetSpec::This {} => known(item.source()),
-                TargetSpec::Triggering {} => known(item.subject.ok_or_else(missing)?),
+                TargetSpec::This {} => known(state, item.source()),
+                TargetSpec::Triggering {} => known(state, item.subject.ok_or_else(missing)?),
+                TargetSpec::RandomOpponentCreature {} => {
+                    match random_creature(state, item.controller.opponent())? {
+                        Some(object) => (Target::Object { object }, true),
+                        // Nothing to pick: the effect does nothing.
+                        None => {
+                            all_legal = false;
+                            continue;
+                        }
+                    }
+                }
                 TargetSpec::You {} => (
                     Target::Player {
                         player: item.controller,
