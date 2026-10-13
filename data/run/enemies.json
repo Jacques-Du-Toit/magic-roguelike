@@ -22,13 +22,14 @@
     "tier": "easy",
     "cards": [
       {"card":"coral_merfolk","count":3},
-      {"card":"kraken_hatchling","count":2},
+      {"card":"kraken_hatchling","count":1},
       {"card":"wind_drake","count":3},
       {"card":"cloudkin_seer","count":2},
       {"card":"angelic_wall","count":1},
       {"card":"assault_griffin","count":2},
       {"card":"snapping_drake","count":1},
       {"card":"unsummon","count":1},
+      {"card":"air_elemental","count":1},
       {"card":"plains","count":5},
       {"card":"island","count":5}
     ]
@@ -89,7 +90,7 @@
     "name": "Border Legion",
     "tier": "normal",
     "cards": [
-      {"card":"savannah_lions","count":2},
+      {"card":"savannah_lions","count":1},
       {"card":"youthful_knight","count":2},
       {"card":"borderland_marauder","count":2},
       {"card":"skyknight_legionnaire","count":1},
@@ -98,8 +99,9 @@
       {"card":"hill_giant","count":1},
       {"card":"lightning_strike","count":1},
       {"card":"sure_strike","count":1},
-      {"card":"shock","count":1},
       {"card":"glory_seeker","count":1},
+      {"card":"lightning_helix","count":1},
+      {"card":"swiftblade_vindicator","count":1},
       {"card":"mountain","count":5},
       {"card":"plains","count":5}
     ]
@@ -309,10 +311,11 @@
       {"card":"cloudkin_seer","count":2},
       {"card":"inspiring_overseer","count":1},
       {"card":"angel_of_mercy","count":1},
-      {"card":"coral_merfolk","count":3},
+      {"card":"coral_merfolk","count":2},
       {"card":"kraken_hatchling","count":2},
       {"card":"sheltering_light","count":1},
       {"card":"unsummon","count":1},
+      {"card":"empyrean_eagle","count":1},
       {"card":"plains","count":6},
       {"card":"island","count":4}
     ]
@@ -358,12 +361,12 @@
       {
         "id": "tyrants_vigour",
         "name": "Tyrant's Vigour",
-        "text": "The Pyre Tyrant starts with 20 more life.",
+        "text": "The Pyre Tyrant starts with 25 more life.",
         "effects": [
           {
             "type": "starting_life",
             "who": "owner",
-            "change": 20
+            "change": 25
           }
         ]
       },

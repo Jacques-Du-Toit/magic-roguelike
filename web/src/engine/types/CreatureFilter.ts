@@ -23,4 +23,8 @@ keyword: Keyword | null,
  * "You control" or "an opponent controls", from the side of whoever
  * controls the spell or ability.
  */
-controller: ControlledBy | null, };
+controller: ControlledBy | null, 
+/**
+ * "With a +1/+1 counter on it".
+ */
+with_counter: boolean, };

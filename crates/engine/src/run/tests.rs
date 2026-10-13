@@ -871,7 +871,7 @@ fn a_relic_shapes_the_next_duel_and_the_gold_relic_pays_per_win() {
         .iter()
         .map(|emblem| emblem.def.name.as_str())
         .collect();
-    assert_eq!(names, ["Battle Fury", "War Banner"]);
+    assert_eq!(names, ["War Banner"]);
 
     {
         let duel = state.duel.as_mut().unwrap();
@@ -1699,14 +1699,9 @@ fn the_rivals_wager_pays_now_and_costs_life_in_the_next_duel_only() {
 
 /// The duel a run with these relics starts, taken out of the run: both
 /// players have kept, it is the player's first main phase and both hands
-/// are empty. The starting emblem is Battle Fury, which gains no life and
-/// adds no counters.
+/// are empty. There is no starting emblem.
 fn duel_with_relics(relics: &[&str]) -> DuelState {
-    let config = RunConfig {
-        planeswalker: PlaneswalkerId("warden".to_string()),
-        emblem: Some(ModifierId("emblem_fury".to_string())),
-    };
-    let mut state = new_run(config, 3).unwrap();
+    let mut state = run("warden", 3);
     state.relics = relics.iter().map(|id| relic_id(id)).collect();
     let node = travels(&state)[0];
     act(&mut state, RunAction::Travel { node });
@@ -1778,35 +1773,6 @@ fn rally_horn_starts_each_duel_with_a_soldier() {
 
     // Without the relic there is none.
     assert_eq!(count_of(&duel_with_relics(&[]), PLAYER, "soldier_token"), 0);
-}
-
-#[test]
-fn whetstone_puts_a_counter_on_the_first_creature_each_turn() {
-    // With the Rally Horn too: its Soldier was there from the start, so
-    // it is not the first creature to enter.
-    let mut duel = duel_with_relics(&["whetstone", "rally_horn"]);
-    let soldier = duel.permanents_of(PLAYER).next().unwrap().id;
-    put_lands(&mut duel, PLAYER, "forest", 4);
-
-    cast_and_settle(&mut duel, "grizzly_bears");
-    let first = newest_permanent(&duel);
-    assert_eq!(duel.power(first).unwrap(), 3);
-    assert_eq!(duel.toughness(first).unwrap(), 3);
-    assert_eq!(duel.power(soldier).unwrap(), 1);
-
-    // The second creature of the turn gets nothing.
-    cast_and_settle(&mut duel, "grizzly_bears");
-    let second = newest_permanent(&duel);
-    assert_ne!(first, second);
-    assert_eq!(duel.power(second).unwrap(), 2);
-
-    // The counter stays, and the next turn's first creature gets one.
-    let turn = duel.turn + 2;
-    pass_until(&mut duel, turn, Step::PrecombatMain);
-    empty_hand(&mut duel, PLAYER);
-    assert_eq!(duel.power(first).unwrap(), 3);
-    cast_and_settle(&mut duel, "grizzly_bears");
-    assert_eq!(duel.power(newest_permanent(&duel)).unwrap(), 3);
 }
 
 #[test]
@@ -2035,7 +2001,8 @@ fn the_boss_duel_starts_on_arriving_with_the_wounds_carried() {
     assert_eq!(data.run.enemy(&enemy).unwrap().tier, EnemyTier::Boss);
     let duel = state.duel.as_ref().unwrap();
     assert_eq!(duel.player(PLAYER).life, 20);
-    assert_eq!(duel.player(ENEMY).life, 25);
+    // The boss's own emblem gives it more life than a player starts with.
+    assert!(duel.player(ENEMY).life > 20);
     // Nothing but the wound.
     let permanents: Vec<&str> = duel
         .permanents_of(PLAYER)
@@ -2268,4 +2235,107 @@ fn the_view_and_the_content_serialise() {
     );
     let json = serde_json::to_string(&content).unwrap();
     assert_eq!(serde_json::from_str::<RunContent>(&json).unwrap(), content);
+}
+
+#[test]
+fn whetstone_puts_a_counter_on_the_first_creature_token_each_turn() {
+    // With the Rally Horn too: its Soldier was there from the start, so
+    // it is not a token that entered.
+    let mut duel = duel_with_relics(&["whetstone", "rally_horn"]);
+    let soldier = duel.permanents_of(PLAYER).next().unwrap().id;
+    put_lands(&mut duel, PLAYER, "plains", 6);
+
+    // A creature that is no token gets nothing.
+    cast_and_settle(&mut duel, "glory_seeker");
+    assert_eq!(duel.power(newest_permanent(&duel)).unwrap(), 2);
+    assert_eq!(duel.power(soldier).unwrap(), 1);
+
+    // Raise the Alarm makes two Soldiers: the first gets the counter.
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    let powers = |duel: &DuelState| -> Vec<i32> {
+        let mut powers: Vec<i32> = duel
+            .permanents_of(PLAYER)
+            .filter(|permanent| permanent.def.as_str() == "soldier_token")
+            .map(|permanent| duel.power(permanent.id).unwrap())
+            .collect();
+        powers.sort_unstable();
+        powers
+    };
+    assert_eq!(powers(&duel), [1, 1, 2]);
+    // More tokens in the same turn get none.
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    assert_eq!(powers(&duel), [1, 1, 1, 1, 2]);
+
+    // The counter stays, and the next turn's first token gets one.
+    let turn = duel.turn + 2;
+    pass_until(&mut duel, turn, Step::PrecombatMain);
+    empty_hand(&mut duel, PLAYER);
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    assert_eq!(powers(&duel), [1, 1, 1, 1, 1, 2, 2]);
+}
+
+#[test]
+fn soothing_spring_adds_a_life_to_the_first_gain_of_each_turn() {
+    let mut duel = duel_with_relics(&["soothing_spring"]);
+    put_lands(&mut duel, PLAYER, "plains", 4);
+    let life = duel.player(PLAYER).life;
+    // Revitalize gains 3, and the Spring 1 more; its own life sets
+    // nothing more off.
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.player(PLAYER).life, life + 4);
+    assert!(duel.stack.is_empty());
+    // A second gain in the same turn is as printed.
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.player(PLAYER).life, life + 7);
+    // With no life gained it does nothing, turn after turn.
+    let turn = duel.turn + 2;
+    empty_hand(&mut duel, PLAYER);
+    pass_until(&mut duel, turn, Step::PrecombatMain);
+    assert_eq!(duel.player(PLAYER).life, life + 7);
+}
+
+#[test]
+fn sentinels_horn_gives_vigilance_to_creatures_with_a_counter() {
+    let mut duel = duel_with_relics(&["sentinels_horn"]);
+    put_lands(&mut duel, PLAYER, "forest", 3);
+    cast_and_settle(&mut duel, "grizzly_bears");
+    let bears = newest_permanent(&duel);
+    assert!(
+        !duel
+            .has_keyword(bears, crate::cards::Keyword::Vigilance)
+            .unwrap()
+    );
+    let veil = put_in_hand(&mut duel, PLAYER, "snakeskin_veil");
+    let target = crate::duel::Target::Object { object: bears };
+    apply_action(
+        &mut duel,
+        PLAYER,
+        crate::duel::test_support::cast_at(veil, target),
+    )
+    .unwrap();
+    pass_both(&mut duel);
+    assert!(
+        duel.has_keyword(bears, crate::cards::Keyword::Vigilance)
+            .unwrap()
+    );
+}
+
+#[test]
+fn a_relic_held_back_is_never_offered() {
+    let data = data::embedded().unwrap();
+    let held: Vec<&ModifierId> = data
+        .run
+        .relics
+        .iter()
+        .filter(|relic| relic.reserved)
+        .map(|relic| &relic.id)
+        .collect();
+    assert_eq!(held.len(), 2);
+    // However many are asked for, and whatever the dice: only the others.
+    for seed in 0..20 {
+        let mut rng = DuelRng::from_seed(seed);
+        let offered = super::rewards::relic_offer(&mut rng, data, &[], 20);
+        assert_eq!(offered.len(), data.run.relics.len() - held.len());
+        assert!(offered.iter().all(|relic| !held.contains(&relic)));
+    }
 }

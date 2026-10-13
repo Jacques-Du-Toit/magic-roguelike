@@ -10,4 +10,9 @@ export type ModifierDef = { id: ModifierId, name: string,
 /**
  * What it does, in words, for the player.
  */
-text: string, effects: Array<ModifierEffect>, };
+text: string, effects: Array<ModifierEffect>, 
+/**
+ * A relic that is never offered: no treasure, shop, elite or event
+ * gives it. Kept back for later, as a card can be.
+ */
+reserved: boolean, };

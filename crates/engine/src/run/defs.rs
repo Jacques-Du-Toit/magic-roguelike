@@ -60,6 +60,10 @@ pub struct ModifierDef {
     /// What it does, in words, for the player.
     pub text: String,
     pub effects: Vec<ModifierEffect>,
+    /// A relic that is never offered: no treasure, shop, elite or event
+    /// gives it. Kept back for later, as a card can be.
+    #[serde(default)]
+    pub reserved: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]

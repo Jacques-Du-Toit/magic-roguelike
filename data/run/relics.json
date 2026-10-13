@@ -197,5 +197,36 @@
         "percent": 20
       }
     ]
+  },
+  {
+    "id": "war_banner",
+    "name": "War Banner",
+    "text": "Creatures you control get +1/+0.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "static",
+            "type": "anthem",
+            "affects": "creatures_you_control",
+            "power": 1,
+            "toughness": 0
+          }
+        ]
+      }
+    ],
+    "reserved": true
+  },
+  {
+    "id": "surveyors_map",
+    "name": "Surveyor's Map",
+    "text": "You start each duel with a basic land on the battlefield.",
+    "effects": [
+      {
+        "type": "starting_basic_land"
+      }
+    ],
+    "reserved": true
   }
 ]

@@ -584,8 +584,8 @@ mod tests {
         // The commanders: never in a deck, a reward or a shop.
         let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (112, 59));
-        assert_eq!(legends, 7);
+        assert_eq!((creatures, others), (131, 69));
+        assert_eq!(legends, 9);
         // 19 creature tokens and the wound.
         assert_eq!(data().cards.iter().filter(|card| card.token).count(), 20);
     }
@@ -953,8 +953,9 @@ mod tests {
 
     /// A card nobody can ever meet is dead weight: every card is in a test
     /// deck, a starting deck or an enemy deck. Non-basic lands are the
-    /// exception (they come from rewards and shops), and so are tokens and
-    /// the spells on `RUN_STRANGERS`, which rewards and drafts offer.
+    /// exception (they come from rewards and shops), and so are tokens, the
+    /// spells that rewards and drafts offer, and a legendary creature that
+    /// leads no deck for now (a commander kept for later).
     #[test]
     fn every_card_is_in_some_deck() {
         let run = &data().run;
@@ -973,7 +974,7 @@ mod tests {
                 || run.enemies.iter().any(|def| leads(&def.commander));
             let reward_land = card.is_land() && card.supertypes.is_empty();
             assert!(
-                used || reward_land || is_a_reward(card),
+                used || reward_land || is_a_reward(card) || card.is_legendary(),
                 "{id} is in no deck"
             );
         }
@@ -1004,12 +1005,14 @@ mod tests {
         use crate::run::EnemyTier;
         let run = &data().run;
         assert_eq!(run.planeswalkers.len(), 2);
+        // Twelve relics, two of them held back from every offer.
         assert_eq!(run.relics.len(), 12);
+        assert_eq!(run.relics.iter().filter(|relic| relic.reserved).count(), 2);
         assert_eq!(run.events.len(), 5);
         assert_eq!(run.wounds.len(), 1);
         let count = |tier| run.enemies_of(tier).count();
-        assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 7));
-        assert_eq!(count(EnemyTier::Elite), 4);
+        assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 5));
+        assert_eq!((count(EnemyTier::Hard), count(EnemyTier::Elite)), (4, 4));
         assert_eq!(count(EnemyTier::Boss), 1);
         for planeswalker in &run.planeswalkers {
             let spells: u32 = planeswalker.spells.iter().map(|entry| entry.count).sum();

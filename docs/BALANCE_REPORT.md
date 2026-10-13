@@ -43,3 +43,28 @@ Speed: the new AI plays about 16 lift duels a second on 12 threads (16,000 in 17
 - Where random and ideal differ most (v2): against the commander-led elites and the big-creature decks (Primal Stampede +19, Plague Court +28, Angelic Host +24, Wild Hunt +28). Against aggro, burn and removal decks a random pile does as well as a package deck. So the late field (v3) is built from decks that scale, and the aggro and tempo decks are the normal tier.
 - Leave-one-out, counters deck (40 a cell, +/- 5.4 a row): only Luminarch Aspirant (-8.5), Conclave Mentor x2 (-8) and Abzan Battle Priest (-5) carry it; Hardened Scales, the Unicorn, Solidarity, the Tusker and High Sentinels are worth no more than Grizzly Bears; Cathars' Crusade is worth less (+5 without it). Wide deck: the token makers and Intangible Virtue carry it; Crusade again costs it 4.
 - A weaker starting deck (Lions, Pacifism and the Baloth out; a second Seeker and Bears and a Siege Mastodon in): the random deck falls from 36.3 to 31.0 on the probe field.
+
+### Field v3 to v7 (01:40 to 03:40)
+
+- v3 moved the aggro and tempo decks to the normal tier and built the hard tier from decks that scale. With the generic strong cards held back, the weaker starting deck and the tamed relics: ideal decks 65 to 80% in single duels, the "all-stars" pile 52%, the random deck with a relic 44%.
+- Whole acts, 150 runs a deck (+/- 7), 300 for the random picker (+/- 5.5):
+
+| Step | wide | counters | lifegain | big | auras | random picker |
+|---|---|---|---|---|---|---|
+| v4 (boss: ramp, fat, Borborygmos, no extra life) | 62 | 54 | 82 | 77 | 73 | 23.0 |
+| v5 (weaker easy decks and boss; generic cards reserved) | 77 | 59 | 79 | 73 | 71 | 37.0 |
+| v6 (boss without ramp or fat; weaker normal and hard decks) | 79 | 69 | 89 | 84 | 81 | 57.7 |
+
+- v6 showed the wrong lever: a weak boss let the random picker beat it 69.5% of the time. Boss variants in single duels (ideal decks 100 duels each, the random deck with a relic 600):
+
+| Boss | ideal decks, mean of five | random deck |
+|---|---|---|
+| v6 deck, 20 life | 88.8 | 68.3 |
+| v6 deck, 30 life | 87.0 | 55.7 |
+| v6 deck, 35 life | 86.6 | 46.8 |
+| v6 deck, 40 life | 85.4 | 42.5 |
+| v6 deck, 45 life | 84.2 | 37.3 |
+| ramp deck, 20 life | 80.2 | 50.3 |
+| v6 deck, 20 life, a +1/+1 counter on its creatures every upkeep | 35.8 | 4.5 |
+
+- So v7's boss is the weak early deck led by Borborygmos, the Pyre's drain, and 40 life: more life costs a focused deck about a point per 5 life and the random deck about 6.

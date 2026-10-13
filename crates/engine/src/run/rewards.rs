@@ -226,6 +226,7 @@ pub(crate) fn random_relic(
         .run
         .relics
         .iter()
+        .filter(|relic| !relic.reserved)
         .map(|relic| &relic.id)
         .filter(|id| !owned.contains(id))
         .collect();

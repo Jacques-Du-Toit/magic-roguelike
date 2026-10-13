@@ -191,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn a_starting_deck_gets_its_lands_and_its_passive() {
+    fn a_starting_deck_gets_its_lands_and_no_emblem() {
         let data = data::embedded().unwrap();
         let warden = planeswalker("warden");
         let config = duel_config(
@@ -208,11 +208,10 @@ mod tests {
                 .filter(|instance| instance.card_id.as_str() == card)
                 .count()
         };
-        // 4 white symbols and 7 green.
+        // 4 white symbols and 6 green.
         assert_eq!((count("plains"), count("forest")), (3, 4));
         assert_eq!(player.starting_life, 20);
-        assert_eq!(player.emblems.len(), 1);
-        assert_eq!(player.emblems[0].name, "Warm Welcome");
+        assert!(player.emblems.is_empty());
         // The commander waits outside the library.
         assert_eq!(
             player.commander.as_ref().map(|card| card.card_id.as_str()),
@@ -233,17 +232,19 @@ mod tests {
             &data.balance,
         );
         let [player, boss] = &config.players;
-        assert_eq!(boss.starting_life, 25);
+        // Tyrant's Vigour: 25 more life.
+        assert_eq!(boss.starting_life, 45);
         assert_eq!(boss.emblems.len(), 1);
         assert_eq!(boss.emblems[0].name, "The Pyre");
         assert_eq!(
             boss.commander.as_ref().map(|card| card.card_id.as_str()),
-            Some("the_lady_of_the_mountain")
+            Some("borborygmos")
         );
         assert_eq!(player.starting_life, 20);
         let state = new_duel(config, 3).unwrap();
-        assert_eq!(state.player(PlayerId::P2).life, 25);
-        assert_eq!(state.emblems.len(), 2);
+        assert_eq!(state.player(PlayerId::P2).life, 45);
+        // The player brings no emblem of their own.
+        assert_eq!(state.emblems.len(), 1);
     }
 
     #[test]
@@ -262,8 +263,8 @@ mod tests {
         // +3 from the relic.
         assert_eq!(player.starting_life, 23);
         assert_eq!(player.opening_hand_size, 7);
-        // The boss's own +5.
-        assert_eq!(boss.starting_life, 25);
+        // The boss's own +25.
+        assert_eq!(boss.starting_life, 45);
         // The Rally Horn's Soldier, the Surveyor's Map's land (the
         // Firebrand's spells have more red symbols than black), and a
         // Festering Wound for each wound.
@@ -281,19 +282,18 @@ mod tests {
                 "festering_wound"
             ]
         );
-        // The passive and the relics with abilities.
+        // The relics with abilities, the two held back among them.
         let names: Vec<&str> = player.emblems.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(
             names,
             [
-                "Battle Fury",
-                "War Banner",
                 "Sentinel's Horn",
                 "Soothing Spring",
                 "Whetstone",
                 "Pilgrim's Flask",
                 "Beast Tamer's Whistle",
-                "Votive Candle"
+                "Votive Candle",
+                "War Banner"
             ]
         );
         let state = new_duel(config, 3).unwrap();
