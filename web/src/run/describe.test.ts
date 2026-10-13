@@ -86,7 +86,7 @@ describe('describeRunEvents', () => {
     expect(describeRunEvents(gold, names())).toEqual(['+40 gold from the treasure.'])
     const relic: RunEvent[] = [{ type: 'relic_gained', relic: 'rally_horn' }]
     expect(describeRunEvents(relic, names())).toEqual([
-      'You gain a relic: Rally Horn. You start each duel with a 1/1 Soldier token on the battlefield.',
+      'You gain a relic: Rally Horn. The first time a creature token enters under your control each turn, create a 1/1 Soldier token.',
     ])
   })
 
