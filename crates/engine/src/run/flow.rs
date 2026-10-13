@@ -587,13 +587,24 @@ fn heal_wounds(state: &mut RunState, events: &mut Vec<RunEvent>) {
     }
 }
 
-/// The player takes a wound, one of `data/run/wounds.json` at random.
+/// The player takes a wound, one of `data/run/wounds.json` at random: a
+/// kind they don't carry already, while there is one.
 fn take_wound(
     state: &mut RunState,
     events: &mut Vec<RunEvent>,
     data: &GameData,
 ) -> Result<(), InternalError> {
-    let wounds = &data.run.wounds;
+    let fresh: Vec<&ModifierDef> = data
+        .run
+        .wounds
+        .iter()
+        .filter(|wound| !state.wounds.contains(&wound.id))
+        .collect();
+    let wounds = if fresh.is_empty() {
+        data.run.wounds.iter().collect()
+    } else {
+        fresh
+    };
     let pick = state
         .rng
         .below(u32::try_from(wounds.len()).unwrap_or(u32::MAX)) as usize;

@@ -175,7 +175,7 @@ fn run_at(planeswalker: &str, stop_at: NodeKind) -> RunState {
     panic!("no seed leads to a {stop_at:?} node");
 }
 
-/// The one wound there is.
+/// The first wound there was.
 fn wound() -> ModifierId {
     ModifierId("festering_wound".to_string())
 }
@@ -697,9 +697,19 @@ fn losing_a_duel_leaves_a_wound_a_little_gold_and_a_smaller_reward() {
     act(&mut state, RunAction::Travel { node });
     let before = state.gold;
     let events = finish(&mut state, loss());
-    assert_eq!(state.wounds, [wound()]);
+    // One of the wounds of the data.
+    assert_eq!(state.wounds.len(), 1);
+    assert!(
+        data::embedded()
+            .unwrap()
+            .run
+            .wound(&state.wounds[0])
+            .is_some()
+    );
     assert_eq!(state.gold, before + balance.gold.duel_loss);
-    assert!(events.contains(&RunEvent::WoundTaken { wound: wound() }));
+    assert!(events.contains(&RunEvent::WoundTaken {
+        wound: state.wounds[0].clone()
+    }));
     // Fewer cards to pick from than after a win.
     let Phase::Reward { choices } = state.phase.clone() else {
         panic!("expected a reward, got {:?}", state.phase);
@@ -730,6 +740,8 @@ fn a_wound_starts_every_duel_on_the_battlefield_until_it_is_healed() {
     assert_eq!(wounds_of(&state), 0);
     finish(&mut state, loss());
     act(&mut state, RunAction::SkipReward);
+    // Whichever wound the loss gave, this is about the Festering Wound.
+    state.wounds = vec![wound()];
 
     // In the next duel, and the one after: paying it off lasts one duel.
     for _ in 0..2 {
@@ -779,6 +791,126 @@ fn a_drawn_duel_costs_nothing_and_pays_a_little_gold() {
         }
     ));
     assert_eq!(state.phase, Phase::Map);
+}
+
+/// The first duel of a run, started while carrying `wounds`.
+fn wounded_duel(wounds: &[&str]) -> DuelState {
+    let mut state = run("warden", 3);
+    state.wounds = wounds.iter().map(|id| ModifierId(id.to_string())).collect();
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    state.duel.unwrap()
+}
+
+#[test]
+fn concussion_starts_the_player_with_one_card_fewer() {
+    let (healthy, hurt) = (wounded_duel(&[]), wounded_duel(&["concussion"]));
+    let hand = |duel: &DuelState, player: PlayerId| duel.player(player).hand.len();
+    assert_eq!(hand(&hurt, PLAYER), hand(&healthy, PLAYER) - 1);
+    assert_eq!(hand(&hurt, ENEMY), hand(&healthy, ENEMY));
+}
+
+#[test]
+fn shaken_starts_the_enemy_with_2_more_life() {
+    let (healthy, hurt) = (wounded_duel(&[]), wounded_duel(&["shaken"]));
+    assert_eq!(hurt.player(ENEMY).life, healthy.player(ENEMY).life + 2);
+    assert_eq!(hurt.player(PLAYER).life, healthy.player(PLAYER).life);
+}
+
+#[test]
+fn hunted_starts_the_enemy_with_a_soldier_that_can_attack_at_once() {
+    let soldiers = |duel: &DuelState, player: PlayerId| {
+        duel.permanents_of(player)
+            .filter(|permanent| permanent.def.as_str() == "soldier_token")
+            .map(|permanent| permanent.summoning_sick)
+            .collect::<Vec<_>>()
+    };
+    let (healthy, hurt) = (wounded_duel(&[]), wounded_duel(&["hunted"]));
+    assert!(soldiers(&healthy, ENEMY).is_empty());
+    assert_eq!(soldiers(&hurt, ENEMY), [false]);
+    assert!(soldiers(&hurt, PLAYER).is_empty());
+}
+
+#[test]
+fn open_gash_is_the_players_emblem_and_pumps_an_enemy_creature_in_the_enemys_combat() {
+    let mut duel = wounded_duel(&["open_gash"]);
+    let emblems: Vec<_> = duel
+        .emblems
+        .iter()
+        .map(|emblem| (emblem.controller, emblem.def.name.as_str()))
+        .collect();
+    assert_eq!(emblems, [(PLAYER, "Open Gash")]);
+
+    for player in [PLAYER, ENEMY] {
+        apply_action(&mut duel, player, Action::Keep).unwrap();
+    }
+    let bears = duel.create_card(
+        ENEMY,
+        CardDefId("grizzly_bears".to_string()),
+        crate::duel::Zone::Battlefield,
+    );
+    // Not in the player's own combat, which is turn 1's.
+    pass_until(&mut duel, 1, Step::PostcombatMain);
+    assert_eq!(duel.objects[&bears].power_bonus, 0);
+    pass_until(&mut duel, 2, Step::BeginCombat);
+    pass_both(&mut duel);
+    let pumped = &duel.objects[&bears];
+    assert_eq!((pumped.power_bonus, pumped.toughness_bonus), (1, 1));
+    // Gone by the player's next turn.
+    pass_until(&mut duel, 3, Step::Upkeep);
+    assert_eq!(duel.objects[&bears].power_bonus, 0);
+}
+
+#[test]
+fn a_wound_taken_is_of_a_kind_not_carried_while_there_is_one() {
+    let kinds = data::embedded().unwrap().run.wounds.len();
+    let lose = |state: &mut RunState| {
+        let node = travels(state)[0];
+        act(state, RunAction::Travel { node });
+        act(state, RunAction::Concede);
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    for seed in 0..40 {
+        // Two losses: two different wounds.
+        let mut state = run("warden", seed);
+        lose(&mut state);
+        act(&mut state, RunAction::SkipReward);
+        if !matches!(kind_of(&state, travels(&state)[0]), NodeKind::Duel) {
+            continue;
+        }
+        lose(&mut state);
+        assert_eq!(state.wounds.len(), 2);
+        assert_ne!(state.wounds[0], state.wounds[1], "seed {seed}");
+        seen.extend(state.wounds);
+    }
+    // Every kind is given sooner or later.
+    assert_eq!(seen.len(), kinds);
+
+    // Carrying all but one, the next is the one that is missing; carrying
+    // them all, it is one of them again.
+    let all: Vec<ModifierId> = data::embedded()
+        .unwrap()
+        .run
+        .wounds
+        .iter()
+        .map(|wound| wound.id.clone())
+        .collect();
+    let mut state = run("warden", 3);
+    state.wounds = all[1..].to_vec();
+    lose(&mut state);
+    assert_eq!(state.wounds.last(), Some(&all[0]));
+    lose_again_is_a_repeat(state, &all);
+}
+
+fn lose_again_is_a_repeat(mut state: RunState, all: &[ModifierId]) {
+    // The run is over by the count; put it back on a duel to lose once more.
+    let mut fresh = run("warden", 3);
+    fresh.wounds = std::mem::take(&mut state.wounds);
+    let node = travels(&fresh)[0];
+    act(&mut fresh, RunAction::Travel { node });
+    act(&mut fresh, RunAction::Concede);
+    assert_eq!(fresh.wounds.len(), all.len() + 1);
+    assert!(all.contains(fresh.wounds.last().unwrap()));
 }
 
 #[test]
@@ -857,7 +989,7 @@ fn an_elite_loss_leaves_a_wound_and_no_relic() {
     let mut state = run_at("warden", NodeKind::Elite);
     let before = state.gold;
     finish(&mut state, loss());
-    assert_eq!(state.wounds, [wound()]);
+    assert_eq!(state.wounds.len(), 1);
     assert_eq!(state.gold, before + data.balance.run.gold.elite_loss);
     assert!(state.relics.is_empty());
     assert!(matches!(state.phase, Phase::Reward { .. }));
@@ -1563,16 +1695,18 @@ fn the_devils_bargain_gives_a_relic_of_two_for_a_wound() {
 
     let gold = state.gold;
     let events = act(&mut state, take(0, Some(1)));
+    assert_eq!(state.wounds.len(), 1);
     assert_eq!(
         events,
         [
-            RunEvent::WoundTaken { wound: wound() },
+            RunEvent::WoundTaken {
+                wound: state.wounds[0].clone()
+            },
             RunEvent::RelicGained {
                 relic: relics[1].clone()
             }
         ]
     );
-    assert_eq!(state.wounds, [wound()]);
     assert_eq!(state.relics, std::slice::from_ref(&relics[1]));
     assert_eq!(state.gold, gold);
     assert_eq!(state.phase, Phase::Map);
@@ -1590,10 +1724,13 @@ fn the_moneylender_pays_for_a_wound_or_heals_one_for_gold() {
         [take(0, None), RunAction::Leave]
     );
     let events = act(&mut healthy, take(0, None));
+    assert_eq!(healthy.wounds.len(), 1);
     assert_eq!(
         events,
         [
-            RunEvent::WoundTaken { wound: wound() },
+            RunEvent::WoundTaken {
+                wound: healthy.wounds[0].clone()
+            },
             RunEvent::GoldChanged {
                 change: 100,
                 gold: 600,
@@ -2289,7 +2426,7 @@ fn the_view_and_the_content_serialise() {
 
     let content = run_content().unwrap();
     assert_eq!(content.planeswalkers.len(), 2);
-    assert_eq!(content.wounds.len(), 1);
+    assert_eq!(content.wounds.len(), 5);
     assert!(
         content
             .reward_cards

@@ -100,16 +100,15 @@ pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelC
         commander: loadout.commander.clone().map(CardInstance::new),
     });
     for (owner, loadout) in [&p1, &p2].into_iter().enumerate() {
-        let opponent = 1 - owner;
+        let seat = |who: Who| match who {
+            Who::Owner => owner,
+            Who::Opponent => 1 - owner,
+        };
         for modifier in &loadout.modifiers {
             for effect in &modifier.effects {
                 match effect {
                     ModifierEffect::StartingLife { who, change } => {
-                        let seat = match who {
-                            Who::Owner => owner,
-                            Who::Opponent => opponent,
-                        };
-                        let life = &mut players[seat].starting_life;
+                        let life = &mut players[seat(*who)].starting_life;
                         // Nobody starts a duel already dead.
                         *life = life.saturating_add(*change).max(1);
                     }
@@ -124,8 +123,8 @@ pub fn duel_config(p1: Loadout<'_>, p2: Loadout<'_>, balance: &Balance) -> DuelC
                                 .push(CardInstance::new(land.clone()));
                         }
                     }
-                    ModifierEffect::StartingToken { token, count } => {
-                        players[owner]
+                    ModifierEffect::StartingToken { token, count, who } => {
+                        players[seat(*who)]
                             .starting_permanents
                             .extend((0..*count).map(|_| CardInstance::new(token.clone())));
                     }

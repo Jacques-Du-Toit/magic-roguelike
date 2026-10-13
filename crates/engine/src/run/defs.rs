@@ -79,11 +79,14 @@ pub enum ModifierEffect {
     /// The owner gets an emblem with these abilities, named after the
     /// modifier.
     Abilities { abilities: Vec<AbilityDef> },
-    /// The owner starts with `count` of this token on the battlefield.
+    /// The owner, or their opponent, starts with `count` of this token on
+    /// the battlefield.
     StartingToken {
         token: CardDefId,
         #[serde(default = "one")]
         count: u32,
+        #[serde(default)]
+        who: Who,
     },
     /// Extra gold for each duel won. It acts on the run, not the duel.
     GoldPerWin { amount: u32 },
@@ -96,9 +99,10 @@ fn one() -> u32 {
     1
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum Who {
+    #[default]
     Owner,
     Opponent,
 }

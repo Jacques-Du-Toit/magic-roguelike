@@ -151,7 +151,13 @@ describe('Run', () => {
       'warden',
       'firebrand',
     ])
-    expect(content.wounds.map((wound) => wound.id)).toEqual(['festering_wound'])
+    expect(content.wounds.map((wound) => wound.id)).toEqual([
+      'festering_wound',
+      'open_gash',
+      'concussion',
+      'shaken',
+      'hunted',
+    ])
     expect(content.feats).toHaveLength(9)
     expect(content.feat_rewards[0]).toMatchObject({ points: 0, choices: 2 })
     // There are no starting emblems for now.

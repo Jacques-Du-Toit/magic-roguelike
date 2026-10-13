@@ -3,4 +3,4 @@ import type { AbilityDef } from "./AbilityDef";
 import type { CardDefId } from "./CardDefId";
 import type { Who } from "./Who";
 
-export type ModifierEffect = { "type": "starting_life", who: Who, change: number, } | { "type": "opening_hand", change: number, } | { "type": "starting_basic_land", } | { "type": "abilities", abilities: Array<AbilityDef>, } | { "type": "starting_token", token: CardDefId, count: number, } | { "type": "gold_per_win", amount: number, } | { "type": "shop_discount", percent: number, };
+export type ModifierEffect = { "type": "starting_life", who: Who, change: number, } | { "type": "opening_hand", change: number, } | { "type": "starting_basic_land", } | { "type": "abilities", abilities: Array<AbilityDef>, } | { "type": "starting_token", token: CardDefId, count: number, who: Who, } | { "type": "gold_per_win", amount: number, } | { "type": "shop_discount", percent: number, };

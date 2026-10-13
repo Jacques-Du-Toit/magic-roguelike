@@ -4,5 +4,47 @@
     "name": "Festering Wound",
     "text": "You start each duel with a Festering Wound on the battlefield: it deals 1 damage to you at the beginning of your end step, and {2} sacrifices it for that duel.",
     "effects": [{ "type": "starting_token", "token": "festering_wound" }]
+  },
+  {
+    "id": "open_gash",
+    "name": "Open Gash",
+    "text": "At the beginning of combat on the enemy's turn, a random creature the enemy controls gets +1/+1 until end of turn.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": { "type": "beginning_of_combat", "opponents_turn": true },
+            "effects": [
+              {
+                "type": "modify_pt_until_eot",
+                "target": { "random_opponent_creature": {} },
+                "power": 1,
+                "toughness": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "concussion",
+    "name": "Concussion",
+    "text": "You start each duel with one card fewer.",
+    "effects": [{ "type": "opening_hand", "change": -1 }]
+  },
+  {
+    "id": "shaken",
+    "name": "Shaken",
+    "text": "The enemy starts each duel with 2 more life.",
+    "effects": [{ "type": "starting_life", "who": "opponent", "change": 2 }]
+  },
+  {
+    "id": "hunted",
+    "name": "Hunted",
+    "text": "The enemy starts each duel with a 1/1 Soldier token on the battlefield.",
+    "effects": [{ "type": "starting_token", "token": "soldier_token", "who": "opponent" }]
   }
 ]

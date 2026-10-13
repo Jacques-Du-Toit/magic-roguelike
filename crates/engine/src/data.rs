@@ -1162,7 +1162,7 @@ mod tests {
         assert_eq!(run.relics.len(), 15);
         assert_eq!(run.relics.iter().filter(|relic| relic.reserved).count(), 2);
         assert_eq!(run.events.len(), 5);
-        assert_eq!(run.wounds.len(), 1);
+        assert_eq!(run.wounds.len(), 5);
         let count = |tier| run.enemies_of(tier).count();
         assert_eq!((count(EnemyTier::Easy), count(EnemyTier::Normal)), (5, 5));
         assert_eq!((count(EnemyTier::Hard), count(EnemyTier::Elite)), (4, 4));
