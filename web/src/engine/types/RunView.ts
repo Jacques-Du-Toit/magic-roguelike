@@ -19,7 +19,7 @@ seed: string, planeswalker: PlaneswalkerId,
  */
 emblem: ModifierId | null, 
 /**
- * The wounds carried, oldest first. `RunAction::HealWound` indexes it.
+ * The wounds carried, oldest first.
  */
 wounds: Array<ModifierId>, 
 /**

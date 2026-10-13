@@ -480,25 +480,20 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
       break
     }
     case 'rest': {
-      const heals = actions.flatMap((action) => (action.type === 'heal_wound' ? [action] : []))
+      const canHeal = actions.some((action) => action.type === 'heal_wounds')
+      const carried = view.wounds.map((id) => woundDef(names, id)?.name ?? id).join(', ')
       title = 'Rest site: choose one'
       body = (
         <div className="choice-list">
-          {heals.length === 0 && (
-            <button type="button" disabled data-testid="rest-heal">
-              Heal a wound
-              <span className="muted"> You have none.</span>
-            </button>
-          )}
-          {heals.map((heal) => {
-            const wound = woundDef(names, view.wounds[heal.wound])
-            return (
-              <button key={heal.wound} type="button" onClick={() => send(heal)} data-testid="rest-heal">
-                Heal a wound: {wound?.name ?? view.wounds[heal.wound]}
-                <span className="muted"> You have {view.wounds.length}.</span>
-              </button>
-            )
-          })}
+          <button
+            type="button"
+            disabled={!canHeal}
+            onClick={() => send({ type: 'heal_wounds' })}
+            data-testid="rest-heal"
+          >
+            Heal all your wounds
+            <span className="muted">{canHeal ? ` Every wound you carry is removed: ${carried}.` : ' You have none.'}</span>
+          </button>
           <button
             type="button"
             disabled={upgradable.size === 0}

@@ -93,7 +93,7 @@ export const NODE_LABEL: Record<NodeKind, { name: string; symbol: string; about:
     symbol: '☠',
     about: 'A stronger opponent. Win for a relic, gold and a card.',
   },
-  rest: { name: 'Rest', symbol: '⛺', about: 'Heal a wound or upgrade a card.' },
+  rest: { name: 'Rest', symbol: '⛺', about: 'Heal all your wounds or upgrade a card.' },
   shop: { name: 'Shop', symbol: '◈', about: 'Buy cards, a land or a relic, or pay to remove a card.' },
   draft: { name: 'Draft', symbol: '❖', about: 'Open a pack of five cards and keep up to two.' },
   treasure: { name: 'Treasure', symbol: '✦', about: 'Take one of two relics, or gold instead.' },

@@ -21,8 +21,8 @@
         "effects": [{ "type": "take_wound" }, { "type": "gain_gold", "amount": 100 }]
       },
       {
-        "text": "Pay 70 gold and heal a wound.",
-        "effects": [{ "type": "pay_gold", "amount": 70 }, { "type": "heal_wound" }]
+        "text": "Pay 70 gold and heal your wounds.",
+        "effects": [{ "type": "pay_gold", "amount": 70 }, { "type": "heal_wounds" }]
       }
     ]
   },

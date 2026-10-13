@@ -236,8 +236,8 @@ pub enum EventEffect {
     /// The player takes a wound. Never the one that would end the run: an
     /// event doesn't do that.
     TakeWound {},
-    /// The player's latest wound is healed.
-    HealWound {},
+    /// Every wound the player carries is healed.
+    HealWounds {},
     GainGold {
         amount: u32,
     },

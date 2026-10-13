@@ -76,7 +76,7 @@ fn event_picks(
             EventEffect::TakeWound {} => {
                 state.wounds.len() + 1 < usize::from(data.balance.run.max_wounds)
             }
-            EventEffect::HealWound {} => !state.wounds.is_empty(),
+            EventEffect::HealWounds {} => !state.wounds.is_empty(),
             EventEffect::PayGold { amount } => state.gold >= *amount,
             EventEffect::GainRelic {} => {
                 picks = (0..relics.len()).map(Some).collect();
@@ -207,9 +207,10 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
             actions
         }
         Phase::Rest => {
-            let mut actions: Vec<RunAction> = (0..state.wounds.len())
-                .map(|wound| RunAction::HealWound { wound })
-                .collect();
+            let mut actions = Vec::new();
+            if !state.wounds.is_empty() {
+                actions.push(RunAction::HealWounds);
+            }
             actions.extend(
                 (0..state.deck.len())
                     .filter(|&card| can_upgrade(state, data, card))
@@ -579,18 +580,11 @@ fn pick_event<'a>(state: &mut RunState, data: &'a GameData) -> Option<&'a EventD
     pool.get(pick).copied()
 }
 
-/// Heals `wounds[index]`.
-fn heal_wound(
-    state: &mut RunState,
-    events: &mut Vec<RunEvent>,
-    index: usize,
-) -> Result<(), InternalError> {
-    if index >= state.wounds.len() {
-        return Err(InternalError::new(format!("no wound {index} to heal")));
+/// Heals every wound carried, oldest first.
+fn heal_wounds(state: &mut RunState, events: &mut Vec<RunEvent>) {
+    for wound in state.wounds.drain(..) {
+        events.push(RunEvent::WoundHealed { wound });
     }
-    let wound = state.wounds.remove(index);
-    events.push(RunEvent::WoundHealed { wound });
-    Ok(())
 }
 
 /// The player takes a wound, one of `data/run/wounds.json` at random.
@@ -871,8 +865,11 @@ fn perform(
             state.phase = Phase::Map;
         }
         (RunAction::SkipReward, Phase::Reward { .. }) => state.phase = Phase::Map,
-        (RunAction::HealWound { wound }, Phase::Rest) => {
-            heal_wound(state, events, *wound)?;
+        (RunAction::HealWounds, Phase::Rest) => {
+            if state.wounds.is_empty() {
+                return Err(mismatch().into());
+            }
+            heal_wounds(state, events);
             state.phase = Phase::Map;
         }
         (RunAction::UpgradeCard { card }, Phase::Rest) => {
@@ -981,10 +978,7 @@ fn perform(
             for effect in &option.effects {
                 match effect {
                     EventEffect::TakeWound {} => take_wound(state, events, data)?,
-                    EventEffect::HealWound {} => {
-                        let latest = state.wounds.len().checked_sub(1).ok_or_else(mismatch)?;
-                        heal_wound(state, events, latest)?;
-                    }
+                    EventEffect::HealWounds {} => heal_wounds(state, events),
                     EventEffect::GainGold { amount } => {
                         change_gold(state, events, i64::from(*amount), GoldReason::Event);
                     }

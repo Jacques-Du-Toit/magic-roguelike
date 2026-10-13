@@ -105,7 +105,7 @@ pub enum Phase {
     Reward {
         choices: Vec<CardDefId>,
     },
-    /// At a rest site: one thing may be done, heal a wound or upgrade a
+    /// At a rest site: one thing may be done, heal every wound or upgrade a
     /// card.
     Rest,
     Shop {
@@ -227,10 +227,8 @@ pub enum RunAction {
         choice: usize,
     },
     SkipReward,
-    /// At a rest site: heal `wounds[wound]`.
-    HealWound {
-        wound: usize,
-    },
+    /// At a rest site: heal every wound carried.
+    HealWounds,
     /// At a rest site: upgrade `deck[card]`, which is from then on played
     /// as its card's upgraded side.
     UpgradeCard {

@@ -167,14 +167,14 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
     }
     case 'rest': {
       // The first rest upgrades a card, if any can be (only the Warden's
-      // have upgraded sides so far). After that a wound is healed if there
-      // is one: the side panel loses it.
-      const heal = page.getByTestId('rest-heal').first()
+      // have upgraded sides so far). After that the wounds are healed if
+      // there are any: the side panel loses them all.
+      const heal = page.getByTestId('rest-heal')
+      await expect(heal).toContainText('Heal all your wounds')
       const canUpgrade = await page.getByTestId('rest-upgrade').isEnabled()
       if ((await heal.isEnabled()) && (seen.upgraded || !canUpgrade)) {
-        const carried = await page.getByTestId('wound').count()
         await heal.click()
-        await expect(page.getByTestId('wound')).toHaveCount(carried - 1)
+        await expect(page.getByTestId('wound')).toHaveCount(0)
         await expect(page.getByTestId('news')).toContainText('is healed.')
       } else if (!canUpgrade) {
         await page.getByTestId('leave').click()

@@ -26,7 +26,7 @@ pub struct RunView {
     pub planeswalker: PlaneswalkerId,
     /// The starting emblem the run was begun with, if any.
     pub emblem: Option<ModifierId>,
-    /// The wounds carried, oldest first. `RunAction::HealWound` indexes it.
+    /// The wounds carried, oldest first.
     pub wounds: Vec<ModifierId>,
     /// The wound that would end the run.
     pub max_wounds: u8,

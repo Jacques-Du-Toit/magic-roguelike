@@ -903,12 +903,16 @@ fn a_relic_shapes_the_next_duel_and_the_gold_relic_pays_per_win() {
 // ---- Rest sites ----
 
 #[test]
-fn a_rest_site_heals_a_wound_upgrades_a_card_or_is_left() {
+fn a_rest_site_heals_every_wound_upgrades_a_card_or_is_left() {
     let mut arrived = run_at("warden", NodeKind::Rest);
     assert_eq!(arrived.phase, Phase::Rest);
     // With no wound there is nothing to heal.
-    let heal = RunAction::HealWound { wound: 0 };
+    let heal = RunAction::HealWounds;
     assert!(!run_legal_actions(&arrived).contains(&heal));
+    assert_eq!(
+        apply_run_action(&mut arrived.clone(), heal.clone()),
+        Err(RunError::IllegalAction(heal.clone()))
+    );
     assert!(run_legal_actions(&arrived).contains(&RunAction::Leave));
     assert!(run_legal_actions(&arrived).contains(&RunAction::UpgradeCard { card: 9 }));
     assert!(!run_legal_actions(&arrived).contains(&RunAction::UpgradeCard { card: 10 }));
@@ -922,12 +926,22 @@ fn a_rest_site_heals_a_wound_upgrades_a_card_or_is_left() {
     arrived.wounds = vec![wound(), wound()];
 
     let mut healed = arrived.clone();
-    assert!(run_legal_actions(&healed).contains(&RunAction::HealWound { wound: 1 }));
-    assert!(!run_legal_actions(&healed).contains(&RunAction::HealWound { wound: 2 }));
+    // One way to heal, however many wounds there are.
+    let heals = run_legal_actions(&healed)
+        .into_iter()
+        .filter(|action| *action == heal)
+        .count();
+    assert_eq!(heals, 1);
     let events = act(&mut healed, heal);
-    assert_eq!(events, [RunEvent::WoundHealed { wound: wound() }]);
-    // One wound a rest.
-    assert_eq!(healed.wounds, [wound()]);
+    // Both wounds at once.
+    assert_eq!(
+        events,
+        [
+            RunEvent::WoundHealed { wound: wound() },
+            RunEvent::WoundHealed { wound: wound() }
+        ]
+    );
+    assert!(healed.wounds.is_empty());
     assert_eq!(healed.phase, Phase::Map);
 
     // The first of the two Glory Seekers is upgraded; the second is not.
@@ -1596,6 +1610,7 @@ fn the_moneylender_pays_for_a_wound_or_heals_one_for_gold() {
         run_legal_actions(&hurt),
         [take(0, None), take(1, None), RunAction::Leave]
     );
+    let mut twice_hurt = hurt.clone();
     let events = act(&mut hurt, take(1, None));
     assert_eq!(
         events,
@@ -1609,6 +1624,12 @@ fn the_moneylender_pays_for_a_wound_or_heals_one_for_gold() {
         ]
     );
     assert!(hurt.wounds.is_empty());
+
+    // She heals every wound for the one price.
+    twice_hurt.wounds = vec![wound(); 2];
+    act(&mut twice_hurt, take(1, None));
+    assert!(twice_hurt.wounds.is_empty());
+    assert_eq!(twice_hurt.gold, 0);
 
     // One wound from the end and short of gold, she has nothing to offer.
     let mut broke = arrived.clone();

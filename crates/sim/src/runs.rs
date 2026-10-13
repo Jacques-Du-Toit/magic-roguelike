@@ -62,12 +62,15 @@ pub struct RunRecord {
 }
 
 /// What the policy does at a rest site: it upgrades a card, the first of
-/// the rarest that can be, except at the rest just before the boss, where
-/// a wound is healed first. With nothing to upgrade it heals.
+/// the rarest that can be. It heals instead when one more wound would end
+/// the run, and at the rest just before the boss with any wound at all.
+/// With nothing to upgrade it heals.
 fn rest_choice<'a>(state: &RunState, actions: &'a [RunAction]) -> Option<&'a RunAction> {
     let heal = actions
         .iter()
-        .find(|action| matches!(action, RunAction::HealWound { .. }));
+        .find(|action| matches!(action, RunAction::HealWounds));
+    let last_legs = data::embedded()
+        .is_ok_and(|data| state.wounds.len() + 1 >= usize::from(data.balance.run.max_wounds));
     let boss_next = state
         .position()
         .and_then(|position| state.map.node(position))
@@ -79,7 +82,7 @@ fn rest_choice<'a>(state: &RunState, actions: &'a [RunAction]) -> Option<&'a Run
                     .is_some_and(|node| node.kind == NodeKind::Boss)
             })
         });
-    if boss_next && heal.is_some() {
+    if (boss_next || last_legs) && heal.is_some() {
         return heal;
     }
     let cards = data::embedded().ok().map(|data| &data.cards);
@@ -98,7 +101,7 @@ fn rest_choice<'a>(state: &RunState, actions: &'a [RunAction]) -> Option<&'a Run
 
 /// The run choice a sensible but simple player makes: rest and shop when
 /// they are on offer, take the first feats and the first card of a reward,
-/// upgrade a card at a rest site and heal at the last one (`rest_choice`),
+/// upgrade a card at a rest site, or heal there when it matters (`rest_choice`),
 /// buy what can be afforded, take a treasure's first
 /// relic, and take from an event what leaves no wound. `choices` breaks
 /// ties between map nodes.
@@ -533,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn a_rest_upgrades_the_rarest_card_and_the_last_one_heals_first() {
+    fn a_rest_upgrades_the_rarest_card_and_heals_first_when_it_matters() {
         let config = RunConfig {
             planeswalker: PlaneswalkerId("warden".to_string()),
             emblem: None,
@@ -543,7 +546,7 @@ mod tests {
         let hydra = CardDefId("kalonian_hydra".to_string());
         state.deck.insert(4, CardInstance::new(hydra.clone()));
         state.deck.push(CardInstance::new(hydra));
-        state.wounds = vec![wound];
+        state.wounds = vec![wound.clone()];
         state.phase = Phase::Rest;
         let at = |state: &mut RunState, row: u8| {
             let node = state.map.nodes.iter().find(|node| node.row == row).unwrap();
@@ -554,8 +557,12 @@ mod tests {
             rest_choice(state, &actions).cloned()
         };
 
-        // Mid-act, wounded or not: the first of the rares.
+        // Mid-act and one loss from the end: every wound is healed.
         at(&mut state, 5);
+        state.wounds.push(wound.clone());
+        assert_eq!(choice(&state), Some(RunAction::HealWounds));
+        state.wounds.pop();
+        // Mid-act with a wound to spare, or with none: the first of the rares.
         assert_eq!(choice(&state), Some(RunAction::UpgradeCard { card: 4 }));
         state.deck[4].upgraded = true;
         assert_eq!(choice(&state), Some(RunAction::UpgradeCard { card: 11 }));
@@ -566,7 +573,7 @@ mod tests {
         // With the boss next, the wound comes first; unwounded, a card.
         let last = state.map.rows - 2;
         at(&mut state, last);
-        assert_eq!(choice(&state), Some(RunAction::HealWound { wound: 0 }));
+        assert_eq!(choice(&state), Some(RunAction::HealWounds));
         state.wounds.clear();
         assert_eq!(choice(&state), Some(RunAction::UpgradeCard { card: 0 }));
 
@@ -576,8 +583,8 @@ mod tests {
         }
         assert_eq!(choice(&state), None);
         at(&mut state, 5);
-        state.wounds = vec![data::embedded().unwrap().run.wounds[0].id.clone()];
-        assert_eq!(choice(&state), Some(RunAction::HealWound { wound: 0 }));
+        state.wounds = vec![wound];
+        assert_eq!(choice(&state), Some(RunAction::HealWounds));
     }
 
     #[test]
