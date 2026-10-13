@@ -16,6 +16,7 @@
   "toughness": 1,
   "rarity": "rare",
   "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

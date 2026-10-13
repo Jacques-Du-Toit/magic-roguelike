@@ -3,37 +3,92 @@
     "id": "warden",
     "name": "The Warden",
     "description": "Green-white creatures. A steady army that outlasts its enemies.",
-    "colors": ["G", "W"],
+    "colors": [
+      "G",
+      "W"
+    ],
     "commander": "jasmine_boreal",
     "spells": [
-        { "card": "savannah_lions", "count": 1 },
-        { "card": "glory_seeker", "count": 1 },
-        { "card": "youthful_knight", "count": 1 },
-        { "card": "pacifism", "count": 1 },
-        { "card": "grizzly_bears", "count": 1 },
-        { "card": "elvish_visionary", "count": 1 },
-        { "card": "centaur_courser", "count": 1 },
-        { "card": "giant_spider", "count": 1 },
-        { "card": "rumbling_baloth", "count": 1 },
-        { "card": "giant_growth", "count": 1 }
+      {
+        "card": "glory_seeker",
+        "count": 2
+      },
+      {
+        "card": "grizzly_bears",
+        "count": 2
+      },
+      {
+        "card": "youthful_knight",
+        "count": 1
+      },
+      {
+        "card": "elvish_visionary",
+        "count": 1
+      },
+      {
+        "card": "centaur_courser",
+        "count": 1
+      },
+      {
+        "card": "giant_spider",
+        "count": 1
+      },
+      {
+        "card": "siege_mastodon",
+        "count": 1
+      },
+      {
+        "card": "giant_growth",
+        "count": 1
+      }
     ]
   },
   {
     "id": "firebrand",
     "name": "The Firebrand",
     "description": "Black-red aggression. Fast creatures, burn and removal.",
-    "colors": ["B", "R"],
+    "colors": [
+      "B",
+      "R"
+    ],
     "commander": "boris_devilboon",
     "spells": [
-        { "card": "raging_goblin", "count": 2 },
-        { "card": "goblin_piker", "count": 2 },
-        { "card": "boggart_brute", "count": 2 },
-        { "card": "hill_giant", "count": 1 },
-        { "card": "shock", "count": 2 },
-        { "card": "lightning_strike", "count": 1 },
-        { "card": "typhoid_rats", "count": 2 },
-        { "card": "walking_corpse", "count": 2 },
-        { "card": "murder", "count": 1 }
+      {
+        "card": "raging_goblin",
+        "count": 2
+      },
+      {
+        "card": "goblin_piker",
+        "count": 2
+      },
+      {
+        "card": "boggart_brute",
+        "count": 2
+      },
+      {
+        "card": "hill_giant",
+        "count": 1
+      },
+      {
+        "card": "shock",
+        "count": 2
+      },
+      {
+        "card": "lightning_strike",
+        "count": 1
+      },
+      {
+        "card": "typhoid_rats",
+        "count": 2
+      },
+      {
+        "card": "walking_corpse",
+        "count": 2
+      },
+      {
+        "card": "murder",
+        "count": 1
+      }
     ]
   }
 ]

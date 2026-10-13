@@ -21,5 +21,6 @@
     "lifelink"
   ],
   "oracle_text": "Flying, vigilance, lifelink",
+  "reserved": true,
   "abilities": []
 }

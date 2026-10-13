@@ -18,12 +18,17 @@
     "flying",
     "lifelink"
   ],
-  "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhenever you gain life, put a +1/+1 counter on each creature you control.",
+  "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nAt the beginning of your end step, if you gained 3 or more life this turn, put a +1/+1 counter on each creature you control.",
+  "altered": true,
   "abilities": [
     {
       "kind": "triggered",
       "trigger": {
-        "type": "gain_life"
+        "type": "beginning_of_end_step"
+      },
+      "condition": {
+        "type": "life_gained_this_turn",
+        "at_least": 3
       },
       "effects": [
         {

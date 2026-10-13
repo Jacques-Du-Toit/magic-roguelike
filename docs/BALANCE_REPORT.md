@@ -32,3 +32,14 @@ Card lift (starting deck + 9 random pool cards, same field): old AI 24,000 duels
 New-AI lift on main's field, the ends of the list: Aerial Responder +5.4, Archangel of Thune +4.2, Angel of Mercy +4.1, Inspiring Overseer +4.0, Pacifism +3.8, Unflinching Courage +3.7, Thragtusk +3.7 ... Gigantosaurus -4.9, Rampant Growth -5.1, Cathars' Crusade -6.1, Intangible Virtue -6.2.
 
 Speed: the new AI plays about 16 lift duels a second on 12 threads (16,000 in 17 minutes); the old AI about 250.
+
+### Field v1 and v2, and what they showed (01:00 to 01:40)
+
+- Field v1 (5 easy, 5 normal, 4 hard, 4 elite, boss) had two decks far too strong (Ashen Coven: ideal decks won 6 to 48%; Bog Stalkers beat the starting deck 93%). v2 weakened them and three elites.
+- On v2, single duels, new AI, 100 a cell (+/- 2.3 on "all"): start 27, wide 69, counters 53, lifegain 78, big 54, auras 75.
+- **A random deck with one relic beats two of the five "ideal" decks.** Starting deck + 9 cards picked by reward weights + 1 random relic: 56.9% (+/- 1.5) against the 14 non-easy decks of v2. Without a relic, on the 8-deck probe field: 36.3% (+/- 2.4), where the ideal decks win 55 to 71%.
+- Relics in single duels (each in about 350 of 4200 decks, +/- 5): against the two that do nothing in a duel (45%), Whetstone 71.5, Surveyor's Map 69.7, Soothing Spring 68.7, War Banner 67.7; the Horns, the Candle and the Whistle about 54; Rations 52; Flask 49.
+- An "all-stars" deck (the best 18 cards of every package) wins 69% (+/- 4) on the probe field: no 18-card deck gets near 90% against this field in AI hands, so the field has to come down for the ceiling, and the floor has to come from a weaker start, tamer relics and wounds.
+- Where random and ideal differ most (v2): against the commander-led elites and the big-creature decks (Primal Stampede +19, Plague Court +28, Angelic Host +24, Wild Hunt +28). Against aggro, burn and removal decks a random pile does as well as a package deck. So the late field (v3) is built from decks that scale, and the aggro and tempo decks are the normal tier.
+- Leave-one-out, counters deck (40 a cell, +/- 5.4 a row): only Luminarch Aspirant (-8.5), Conclave Mentor x2 (-8) and Abzan Battle Priest (-5) carry it; Hardened Scales, the Unicorn, Solidarity, the Tusker and High Sentinels are worth no more than Grizzly Bears; Cathars' Crusade is worth less (+5 without it). Wide deck: the token makers and Intangible Virtue carry it; Crusade again costs it 4.
+- A weaker starting deck (Lions, Pacifism and the Baloth out; a second Seeker and Bears and a Siege Mastodon in): the random deck falls from 36.3 to 31.0 on the probe field.

@@ -19,6 +19,7 @@
     "flying"
   ],
   "oracle_text": "Flying\nWhen this creature enters, you gain 1 life and draw a card.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

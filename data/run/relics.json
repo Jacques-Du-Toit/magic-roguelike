@@ -3,30 +3,29 @@
     "id": "travellers_rations",
     "name": "Traveller's Rations",
     "text": "You start each duel with 3 more life.",
-    "effects": [{ "type": "starting_life", "who": "owner", "change": 3 }]
-  },
-  {
-    "id": "war_banner",
-    "name": "War Banner",
-    "text": "Creatures you control get +1/+0.",
     "effects": [
       {
-        "type": "abilities",
-        "abilities": [
-          { "kind": "static", "type": "anthem", "affects": "creatures_you_control", "power": 1, "toughness": 0 }
-        ]
+        "type": "starting_life",
+        "who": "owner",
+        "change": 3
       }
     ]
   },
   {
     "id": "sentinels_horn",
     "name": "Sentinel's Horn",
-    "text": "Creatures you control have vigilance.",
+    "text": "Creatures you control with a +1/+1 counter on them have vigilance.",
     "effects": [
       {
         "type": "abilities",
         "abilities": [
-          { "kind": "static", "type": "grant_keyword", "affects": "creatures_you_control", "keyword": "vigilance" }
+          {
+            "kind": "static",
+            "type": "grant_keyword",
+            "affects": "creatures_you_control",
+            "keyword": "vigilance",
+            "with_counter": true
+          }
         ]
       }
     ]
@@ -34,15 +33,24 @@
   {
     "id": "soothing_spring",
     "name": "Soothing Spring",
-    "text": "At the beginning of your upkeep, you gain 1 life.",
+    "text": "The first time you gain life each turn, you gain 1 more life.",
     "effects": [
       {
         "type": "abilities",
         "abilities": [
           {
             "kind": "triggered",
-            "trigger": { "type": "beginning_of_upkeep" },
-            "effects": [{ "type": "gain_life", "player": "controller", "amount": 1 }]
+            "trigger": {
+              "type": "gain_life"
+            },
+            "once_each_turn": true,
+            "effects": [
+              {
+                "type": "gain_life",
+                "player": "controller",
+                "amount": 1
+              }
+            ]
           }
         ]
       }
@@ -52,27 +60,49 @@
     "id": "lucky_coin",
     "name": "Lucky Coin",
     "text": "You get 10 more gold for each duel you win.",
-    "effects": [{ "type": "gold_per_win", "amount": 10 }]
+    "effects": [
+      {
+        "type": "gold_per_win",
+        "amount": 10
+      }
+    ]
   },
   {
     "id": "rally_horn",
     "name": "Rally Horn",
     "text": "You start each duel with a 1/1 Soldier token on the battlefield.",
-    "effects": [{ "type": "starting_token", "token": "soldier_token", "count": 1 }]
+    "effects": [
+      {
+        "type": "starting_token",
+        "token": "soldier_token",
+        "count": 1
+      }
+    ]
   },
   {
     "id": "whetstone",
     "name": "Whetstone",
-    "text": "The first creature to enter under your control each turn gets a +1/+1 counter.",
+    "text": "The first creature token to enter under your control each turn gets a +1/+1 counter.",
     "effects": [
       {
         "type": "abilities",
         "abilities": [
           {
             "kind": "triggered",
-            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+            "trigger": {
+              "type": "enters_battlefield",
+              "subject": "token_you_control"
+            },
             "once_each_turn": true,
-            "effects": [{ "type": "add_counters", "target": { "triggering": {} }, "amount": 1 }]
+            "effects": [
+              {
+                "type": "add_counters",
+                "target": {
+                  "triggering": {}
+                },
+                "amount": 1
+              }
+            ]
           }
         ]
       }
@@ -88,9 +118,16 @@
         "abilities": [
           {
             "kind": "triggered",
-            "trigger": { "type": "gain_life" },
+            "trigger": {
+              "type": "gain_life"
+            },
             "once_each_turn": true,
-            "effects": [{ "type": "scry", "amount": 1 }]
+            "effects": [
+              {
+                "type": "scry",
+                "amount": 1
+              }
+            ]
           }
         ]
       }
@@ -106,8 +143,18 @@
         "abilities": [
           {
             "kind": "triggered",
-            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control", "min_power": 4 },
-            "effects": [{ "type": "gain_life", "player": "controller", "amount": 2 }]
+            "trigger": {
+              "type": "enters_battlefield",
+              "subject": "creature_you_control",
+              "min_power": 4
+            },
+            "effects": [
+              {
+                "type": "gain_life",
+                "player": "controller",
+                "amount": 2
+              }
+            ]
           }
         ]
       }
@@ -123,24 +170,32 @@
         "abilities": [
           {
             "kind": "triggered",
-            "trigger": { "type": "cast_spell", "kind": "enchantment" },
+            "trigger": {
+              "type": "cast_spell",
+              "kind": "enchantment"
+            },
             "once_each_turn": true,
-            "effects": [{ "type": "create_token", "token": "soldier_token", "count": 1 }]
+            "effects": [
+              {
+                "type": "create_token",
+                "token": "soldier_token",
+                "count": 1
+              }
+            ]
           }
         ]
       }
     ]
   },
   {
-    "id": "surveyors_map",
-    "name": "Surveyor's Map",
-    "text": "You start each duel with a basic land on the battlefield.",
-    "effects": [{ "type": "starting_basic_land" }]
-  },
-  {
     "id": "merchants_ledger",
     "name": "Merchant's Ledger",
     "text": "Shop prices are 20% lower.",
-    "effects": [{ "type": "shop_discount", "percent": 20 }]
+    "effects": [
+      {
+        "type": "shop_discount",
+        "percent": 20
+      }
+    ]
   }
 ]

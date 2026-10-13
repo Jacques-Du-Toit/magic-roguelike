@@ -11,7 +11,7 @@
   "subtypes": [
     "Aura"
   ],
-  "rarity": "common",
+  "rarity": "uncommon",
   "oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
   "enchant": {
     "creature": {}

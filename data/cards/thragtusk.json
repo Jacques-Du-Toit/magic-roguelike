@@ -14,13 +14,19 @@
   "power": 5,
   "toughness": 3,
   "rarity": "rare",
-  "oracle_text": "When this creature enters, you gain 5 life.\nWhen this creature leaves the battlefield, create a 3/3 green Beast creature token.",
+  "oracle_text": "When this creature enters, if you control another creature with power 4 or greater, you gain 5 life.\nWhen this creature leaves the battlefield, create a 3/3 green Beast creature token.",
+  "altered": true,
   "abilities": [
     {
       "kind": "triggered",
       "trigger": {
         "type": "enters_battlefield",
         "subject": "self"
+      },
+      "condition": {
+        "type": "control_creature_with_power",
+        "at_least": 4,
+        "another": true
       },
       "effects": [
         {
