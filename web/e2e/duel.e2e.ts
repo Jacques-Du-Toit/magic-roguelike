@@ -195,7 +195,7 @@ test('a game with the sacrifice deck shows an ability being used and a sacrifice
 // targets are cards in a graveyard, shown to be picked from.
 // GRAVEYARD_SEED=n tries another game.
 test('a game with the graveyard deck shows graveyard cards to choose from', async ({ page }) => {
-  const seed = process.env.GRAVEYARD_SEED ?? '3'
+  const seed = process.env.GRAVEYARD_SEED ?? '1'
   const errors = watchForErrors(page)
   await start(page, `seed=${seed}&you=deck_h&ai=deck_c&speed=instant`)
   const seen = new Set<string>()

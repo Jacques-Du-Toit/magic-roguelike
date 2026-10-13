@@ -437,7 +437,7 @@ const ACTS: [string, number, string?][] = process.env.ACTS
     })
   : [
       ['warden', 17, "The Devil's Bargain"],
-      ['firebrand', 26, 'The Wandering Smith'],
+      ['firebrand', 62, 'The Wandering Smith'],
     ]
 
 for (const [planeswalker, seed, event] of ACTS) {
