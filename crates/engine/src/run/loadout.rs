@@ -232,8 +232,8 @@ mod tests {
             &data.balance,
         );
         let [player, boss] = &config.players;
-        // Tyrant's Vigour: 25 more life.
-        assert_eq!(boss.starting_life, 45);
+        // Tyrant's Vigour: 30 more life.
+        assert_eq!(boss.starting_life, 50);
         assert_eq!(boss.emblems.len(), 1);
         assert_eq!(boss.emblems[0].name, "The Pyre");
         assert_eq!(
@@ -242,7 +242,7 @@ mod tests {
         );
         assert_eq!(player.starting_life, 20);
         let state = new_duel(config, 3).unwrap();
-        assert_eq!(state.player(PlayerId::P2).life, 45);
+        assert_eq!(state.player(PlayerId::P2).life, 50);
         // The player brings no emblem of their own.
         assert_eq!(state.emblems.len(), 1);
     }
@@ -263,8 +263,8 @@ mod tests {
         // +3 from the relic.
         assert_eq!(player.starting_life, 23);
         assert_eq!(player.opening_hand_size, 7);
-        // The boss's own +25.
-        assert_eq!(boss.starting_life, 45);
+        // The boss's own +30.
+        assert_eq!(boss.starting_life, 50);
         // The Rally Horn's Soldier, the Surveyor's Map's land (the
         // Firebrand's spells have more red symbols than black), and a
         // Festering Wound for each wound.

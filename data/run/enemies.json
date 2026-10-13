@@ -361,12 +361,12 @@
       {
         "id": "tyrants_vigour",
         "name": "Tyrant's Vigour",
-        "text": "The Pyre Tyrant starts with 25 more life.",
+        "text": "The Pyre Tyrant starts with 30 more life.",
         "effects": [
           {
             "type": "starting_life",
             "who": "owner",
-            "change": 25
+            "change": 30
           }
         ]
       },
