@@ -81,8 +81,10 @@ export function MenuScreen({
   const [run, setRun] = useState(initialRun)
   const chosen =
     planeswalkers.find((planeswalker) => planeswalker.id === run.planeswalker) ?? planeswalkers[0]
-  // The emblem picked, or the one the character usually takes.
-  const emblem = emblems.find((def) => def.id === (run.emblem || chosen.emblem)) ?? emblems[0]
+  // The emblem picked, or the one the character usually takes. There may be
+  // none at all: then a run starts without one and the choice is not shown.
+  const emblem: ModifierDef | undefined =
+    emblems.find((def) => def.id === (run.emblem || chosen.emblem)) ?? emblems[0]
   const shown = decks.find((deck) => deck.id === choice.humanDeck)
 
   return (
@@ -94,7 +96,7 @@ export function MenuScreen({
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          onStartRun({ ...run, planeswalker: chosen.id, emblem: emblem.id })
+          onStartRun({ ...run, planeswalker: chosen.id, emblem: emblem?.id ?? '' })
         }}
       >
         <p>
@@ -135,28 +137,30 @@ export function MenuScreen({
             </label>
           ))}
         </fieldset>
-        <fieldset className="planeswalkers">
-          <legend>2. Your emblem</legend>
-          {emblems.map((def) => (
-            <label
-              key={def.id}
-              className={`planeswalker${def.id === emblem.id ? ' planeswalker-chosen' : ''}`}
-            >
-              <input
-                type="radio"
-                name="emblem"
-                value={def.id}
-                checked={def.id === emblem.id}
-                onChange={() => setRun({ ...run, emblem: def.id })}
-                data-testid={`emblem-${def.id}`}
-              />
-              <span>
-                <strong>{def.name}</strong>
-              </span>
-              <span>{def.text}</span>
-            </label>
-          ))}
-        </fieldset>
+        {emblems.length > 0 && (
+          <fieldset className="planeswalkers">
+            <legend>2. Your emblem</legend>
+            {emblems.map((def) => (
+              <label
+                key={def.id}
+                className={`planeswalker${def.id === emblem?.id ? ' planeswalker-chosen' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="emblem"
+                  value={def.id}
+                  checked={def.id === emblem?.id}
+                  onChange={() => setRun({ ...run, emblem: def.id })}
+                  data-testid={`emblem-${def.id}`}
+                />
+                <span>
+                  <strong>{def.name}</strong>
+                </span>
+                <span>{def.text}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         <label>
           Seed (leave empty for a new random run)
           <input

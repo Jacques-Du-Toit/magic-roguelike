@@ -454,16 +454,23 @@ fn empyrean_eagle_pumps_its_controllers_other_fliers_only() {
 
 // ---- Once each turn, and the creature that set an ability off ----
 
+/// Battle Fury, which was the Firebrand's starting emblem until starting
+/// emblems were taken out: the test of "once each turn" and of "that
+/// creature" is still built on it.
 fn firebrand_passive() -> EmblemDef {
-    crate::data::embedded()
-        .unwrap()
-        .run
-        .emblems
-        .iter()
-        .find(|emblem| emblem.id.as_str() == "emblem_fury")
-        .unwrap()
-        .emblem()
-        .unwrap()
+    serde_json::from_value(json!({
+        "name": "Battle Fury",
+        "text": "The first creature to enter under your control each turn gains haste until end of turn.",
+        "abilities": [{
+            "kind": "triggered",
+            "trigger": { "type": "enters_battlefield", "subject": "creature_you_control" },
+            "once_each_turn": true,
+            "effects": [
+                { "type": "grant_keyword_until_eot", "target": { "triggering": {} }, "keyword": "haste" }
+            ]
+        }]
+    }))
+    .unwrap()
 }
 
 #[test]

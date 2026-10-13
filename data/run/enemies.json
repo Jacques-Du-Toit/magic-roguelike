@@ -268,14 +268,12 @@
     "commander": "kongming_sleeping_dragon",
     "cards": [
       {"card":"savannah_lions","count":2},
-      {"card":"glory_seeker","count":2},
+      {"card":"glory_seeker","count":3},
       {"card":"youthful_knight","count":2},
       {"card":"attended_knight","count":1},
       {"card":"healers_hawk","count":1},
-      {"card":"fencing_ace","count":1},
       {"card":"raise_the_alarm","count":2},
-      {"card":"captains_call","count":1},
-      {"card":"siege_mastodon","count":1},
+      {"card":"siege_mastodon","count":2},
       {"card":"dawning_angel","count":1},
       {"card":"pacifism","count":1},
       {"card":"plains","count":10}
@@ -287,15 +285,13 @@
     "tier": "elite",
     "commander": "elas_il_kor_sadistic_pilgrim",
     "cards": [
-      {"card":"vampire_of_the_dire_moon","count":1},
-      {"card":"typhoid_rats","count":1},
+      {"card":"walking_corpse","count":3},
       {"card":"doomed_dissenter","count":2},
-      {"card":"cruel_celebrant","count":2},
-      {"card":"walking_corpse","count":1},
+      {"card":"cruel_celebrant","count":1},
+      {"card":"glory_seeker","count":2},
       {"card":"skymarch_bloodletter","count":2},
       {"card":"barony_vampire","count":2},
       {"card":"vampire_spawn","count":2},
-      {"card":"glory_seeker","count":1},
       {"card":"revitalize","count":1},
       {"card":"swamp","count":6},
       {"card":"plains","count":4}
@@ -313,10 +309,8 @@
       {"card":"cloudkin_seer","count":2},
       {"card":"inspiring_overseer","count":1},
       {"card":"angel_of_mercy","count":1},
-      {"card":"coral_merfolk","count":2},
-      {"card":"kraken_hatchling","count":1},
-      {"card":"snapping_drake","count":1},
-      {"card":"assault_griffin","count":1},
+      {"card":"coral_merfolk","count":3},
+      {"card":"kraken_hatchling","count":2},
       {"card":"sheltering_light","count":1},
       {"card":"unsummon","count":1},
       {"card":"plains","count":6},
@@ -361,6 +355,18 @@
       {"card":"forest","count":6}
     ],
     "modifiers": [
+      {
+        "id": "tyrants_vigour",
+        "name": "Tyrant's Vigour",
+        "text": "The Pyre Tyrant starts with 20 more life.",
+        "effects": [
+          {
+            "type": "starting_life",
+            "who": "owner",
+            "change": 20
+          }
+        ]
+      },
       {
         "id": "tyrants_pyre",
         "name": "The Pyre",

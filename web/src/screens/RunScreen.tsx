@@ -692,12 +692,14 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
               </ul>
             </section>
           )}
-          <section className="panel">
-            <h2>Emblem</h2>
-            <ul className="modifiers">
-              {emblem && <Modifier def={emblem} kind="starting-emblem" />}
-            </ul>
-          </section>
+          {emblem && (
+            <section className="panel">
+              <h2>Emblem</h2>
+              <ul className="modifiers">
+                <Modifier def={emblem} kind="starting-emblem" />
+              </ul>
+            </section>
+          )}
           <section className="panel">
             <h2>Relics</h2>
             {view.relics.length === 0 ? (
