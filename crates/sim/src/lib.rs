@@ -1147,6 +1147,16 @@ mod tests {
     }
 
     #[test]
+    fn a_game_with_a_crowded_battlefield_is_stopped() {
+        let mut limits = data::embedded().unwrap().balance.sim.clone();
+        // More than one permanent is "crowded": the second land drop ends it.
+        limits.board_cap = 1;
+        let record = play_game(config(), 3, &limits).unwrap();
+        assert_eq!(record.outcome, Outcome::TurnCap);
+        assert!(record.turns < limits.turn_cap);
+    }
+
+    #[test]
     fn land_measurements_are_taken_at_the_configured_turns() {
         let mut limits = data::embedded().unwrap().balance.sim.clone();
         // Nobody has more than 1 land at the end of their first turn, and

@@ -33,6 +33,7 @@
   },
   "sim": {
     "turn_cap": 100,
+    "board_cap": 90,
     "land_screw": {
       "turn": 4,
       "max_lands": 2

@@ -23,6 +23,10 @@ pub struct SimBalance {
     /// A game still going after this many turns (both players' turns
     /// counted) is stopped and reported.
     pub turn_cap: u32,
+    /// A game with more permanents than this on the battlefield is stopped
+    /// and reported the same way: a board that crowded is a stalemate, and
+    /// the searching AI takes seconds over each decision on it.
+    pub board_cap: u32,
     pub land_screw: LandScrewBalance,
     pub land_flood: LandFloodBalance,
 }
@@ -149,6 +153,8 @@ pub enum BalanceError {
          `win_value` must be above zero"
     )]
     AiSearch,
+    #[error("`sim.board_cap` must be above zero")]
+    BoardCap,
     #[error("`sim.turn_cap` must be above zero")]
     TurnCap,
     #[error("`run.max_wounds` must be above zero")]
@@ -195,6 +201,9 @@ pub fn validate(balance: &Balance) -> Result<(), BalanceError> {
         || search.win_value <= 0
     {
         return Err(BalanceError::AiSearch);
+    }
+    if balance.sim.board_cap == 0 {
+        return Err(BalanceError::BoardCap);
     }
     if balance.sim.turn_cap == 0 {
         return Err(BalanceError::TurnCap);
@@ -482,6 +491,7 @@ mod tests {
             Err(BalanceError::AiMulliganLands)
         );
         assert_eq!(check(|b| b.sim.turn_cap = 0), Err(BalanceError::TurnCap));
+        assert_eq!(check(|b| b.sim.board_cap = 0), Err(BalanceError::BoardCap));
         assert_eq!(
             check(|b| b.ai.search.worlds = 0),
             Err(BalanceError::AiSearch)

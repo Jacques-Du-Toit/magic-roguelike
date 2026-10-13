@@ -87,7 +87,18 @@ If you want more of the gap to come before the boss, the lever is the wound itse
 
 **Cards**, single duels:
 
-@@CARDLIFT@@
+`sim --lift --games 12000` on the final pool: the starting deck with 9 pool cards, each card as likely as the next, no relics, against the 14 enemies that are not easy. The random deck wins 53.5% of these duels. Each card is in about 1,000 decks, so each lift is +/- 3.2.
+
+| Tier | Cards | Highest | Lowest | Every card at +3 or more |
+|---|---|---|---|---|
+| Common | 34 | Cartouche of Solidarity +4.4 | Rampant Growth -6.4 | Cartouche of Solidarity +4.4, Attended Knight +4.1, Sentinel Spider +3.5, Healer's Hawk +3.4, Honey Mammoth +3.2, Centaur Healer +3.1 |
+| Uncommon | 41 | Impassioned Orator and Trostani's Summoner +3.8 | Angelic Accord -7.9 | Impassioned Orator +3.8, Trostani's Summoner +3.8, Angel of Renewal +3.7, Pacifism +3.5 |
+| Rare | 29 | Archangel of Thune +7.6 | Hardened Scales -6.8 | Archangel of Thune +7.6, Resplendent Angel +5.6, Benalish Marshal +5.1, Kalonian Hydra +3.6, Setessan Champion +3.1 |
+
+- **No common or uncommon measures above 5.** With a margin of 3.2 I can't rule out that the top two commons are at it.
+- The one that was over is held back: Unflinching Courage, +10.2 (+/- 3.6) in an earlier run on this field.
+- The two commons you named are inside the limit as measured (Honey Mammoth +3.2, Centaur Healer +3.1), so I left them. They are still the "verb on a good body" kind, and swapping them is cheap if you want the commons plainer.
+- **Three rares are above 5** (section 6).
 
 ### 5. Flexible cards a slight edge, inflexible cards a big one in their deck
 
@@ -101,7 +112,7 @@ Applied as the brief states them. Judgement calls, for you to overrule:
 
 - Commons that do two verbs once each stay common: the Auras with a rider (Cartouche of Solidarity, Knightly Valor, Fists of Ironwood, Divine Favor), Sworn Companions and Honey Mammoth. Moving all the Aura bridges to uncommon would leave the package three commons.
 - Unruly Mob stays common: it grows more than once, but only itself and slowly.
-- Glorious Anthem is a rare with no condition. Benalish Marshal (the same effect on a body for {W}{W}{W}) was added as the conditional version. One of the two should probably go.
+- Glorious Anthem is a rare with no condition. Benalish Marshal (the same effect on a body for {W}{W}{W}) was added as the conditional version and turned out the stronger of the two in a random deck. One of them should go.
 - Armada Wurm, Steel Leaf Champion, Terra Stomper and Gigantosaurus are "conditional" only in colour: they ask for a green deck.
 
 ### 7. Relics
@@ -115,7 +126,7 @@ Not measured. What was done with each in mind:
 - **8 (change direction; a wasted offer):** 22 cards that belong to no package are no longer offered, so every offer is a package card. About a third of the offered cards belong to two packages. The starting deck's cards are not offered again.
 - **9 (a combination takes assembling):** Luminarch Aspirant now needs another counter source to start; Archangel of Thune needs 3 life in the turn; Thragtusk needs another big creature; Daybreak Coronet needs another Aura. The one to watch: Archangel's own lifelink is 3 life, so once it connects it feeds itself.
 - **10 (nothing changes how a duel is played):** two things come close and are yours to judge: the boss at 50 life with a drain is a long race, and Fire Giants holds one Pyroclasm.
-- **11 (plain commons):** 34 commons; their lifts are in the table above.
+- **11 (plain commons):** 34 commons, none measured above +4.4 in a random deck.
 - **12 (unique rares):** 14 rares added, each with a condition or a scale of its own (section 4). I looked more widely than I built: section 11 lists what I passed over and why.
 
 ## 4. The proposed pool, card by card
@@ -322,7 +333,12 @@ Leaving cards out showed which carry a deck (40 duels a cell, 8 enemies, +/- 5 a
 
 **Still in the pool and worth watching** (rares; the lift of a rare is measured on few decks, so read the margins):
 
-@@WATCH@@
+| Card | Lift in a random deck (+/- 3.2) | Note |
+|---|---|---|
+| Archangel of Thune | +7.6 | Still the strongest card for any deck, with the condition on. Its own lifelink meets it. Lock it behind an event, or ask for 4 or 5 life |
+| Resplendent Angel | +5.6 | The 3/3 flier for three is the value, not the Angels it rarely makes |
+| Benalish Marshal | +5.1 | I added it as the conditional anthem. It measures as more versatile than Glorious Anthem (+1.9): of the two, this is the one to cut |
+| Kalonian Hydra | +3.6 | +5.2 on main's field by your measure |
 
 ## 7. The enemy field
 
@@ -470,7 +486,7 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 5. **The three altered rares** (Archangel, Thragtusk, Aspirant). Archangel and Thragtusk are your wordings. The Aspirant's is mine.
 6. **22 cards held back.** The starting deck's eight cards and eleven package-less ones are never offered. Is "starter cards are not rewards" right for this game?
 7. **Event candidates**: Aerial Responder, Inspiring Overseer, Unflinching Courage, Serra Angel, War Banner, Surveyor's Map.
-8. **Glorious Anthem or Benalish Marshal.** Same effect; the Marshal is the conditional one.
+8. **Glorious Anthem or Benalish Marshal.** Same effect. I added the Marshal as the conditional one ({W}{W}{W}), and it measured as the stronger in a random deck (+5.1 against +1.9). Keep one.
 9. **Commanders.** Radiant, Archangel leads Angelic Host; Borborygmos leads the boss; The Lady of the Mountain moved to Wild Hunt. Sir Shandlar and Tobias Andrion are out of work.
 10. **Relic tiers.** A suggestion in section 8. Building them means deciding where each tier comes from (treasure, elite, shop, event).
 11. **Feats.** Untouched, and the picker's blind score fell from 2.3 to 1.60 a duel because its deck is weaker. Tempered and Adorned are met in 6 to 7% of wins. They want a pass once you have played this.

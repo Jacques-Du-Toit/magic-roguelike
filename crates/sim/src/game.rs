@@ -320,7 +320,10 @@ fn play(
                 GameResult::Draw => Outcome::Draw,
             };
         }
-        if state.turn > limits.turn_cap {
+        // A stalemate: too many turns, or a battlefield too crowded for
+        // the AI to think about in reasonable time.
+        let crowded = u32::try_from(state.battlefield.len()).unwrap_or(u32::MAX) > limits.board_cap;
+        if state.turn > limits.turn_cap || crowded {
             break Outcome::TurnCap;
         }
         let player = state.waiting_on().ok_or_else(|| {
