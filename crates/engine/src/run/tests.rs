@@ -1786,10 +1786,10 @@ fn beast_tamers_whistle_gains_life_for_a_creature_of_power_four() {
 
     // Rumbling Baloth is a 4/4.
     cast_and_settle(&mut duel, "rumbling_baloth");
-    assert_eq!(duel.player(PLAYER).life, life + 2);
+    assert_eq!(duel.player(PLAYER).life, life + 1);
     // Grizzly Bears is not big enough.
     cast_and_settle(&mut duel, "grizzly_bears");
-    assert_eq!(duel.player(PLAYER).life, life + 2);
+    assert_eq!(duel.player(PLAYER).life, life + 1);
     assert!(duel.stack.is_empty());
     assert_eq!(duel.player(ENEMY).life, 20);
 }

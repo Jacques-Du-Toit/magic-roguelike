@@ -151,7 +151,7 @@
   {
     "id": "beast_tamers_whistle",
     "name": "Beast Tamer's Whistle",
-    "text": "Whenever a creature with power 4 or greater enters under your control, you gain 2 life.",
+    "text": "Whenever a creature with power 4 or greater enters under your control, you gain 1 life.",
     "effects": [
       {
         "type": "abilities",
@@ -167,7 +167,7 @@
               {
                 "type": "gain_life",
                 "player": "controller",
-                "amount": 2
+                "amount": 1
               }
             ]
           }
