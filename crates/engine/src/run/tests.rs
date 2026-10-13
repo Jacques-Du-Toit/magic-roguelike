@@ -2370,16 +2370,31 @@ fn anointing_oil_grows_the_creatures_that_have_a_counter_when_life_is_first_gain
 }
 
 #[test]
-fn drovers_bell_makes_a_soldier_for_a_creature_of_power_four() {
+fn drovers_bell_makes_a_soldier_for_the_first_creature_of_power_four_each_turn() {
     let mut duel = duel_with_relics(&["drovers_bell"]);
-    put_lands(&mut duel, PLAYER, "forest", 6);
+    put_lands(&mut duel, PLAYER, "forest", 10);
     cast_and_settle(&mut duel, "grizzly_bears");
     assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 0);
     cast_and_settle(&mut duel, "rumbling_baloth");
     assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
-    // The 1/1 Soldier it makes is no creature of power 4.
     assert!(duel.stack.is_empty());
     assert_eq!(count_of(&duel, ENEMY, "soldier_token"), 0);
+    // Once a turn: a second big creature makes none.
+    cast_and_settle(&mut duel, "rumbling_baloth");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
+}
+
+/// The Bell's Soldier can itself be a creature of power 4 (under Collective
+/// Blessing it enters as a 4/4). Were the Bell not once a turn, each
+/// Soldier would ring it again without end.
+#[test]
+fn drovers_bell_does_not_ring_itself_for_ever() {
+    let mut duel = duel_with_relics(&["drovers_bell"]);
+    put_lands(&mut duel, PLAYER, "forest", 6);
+    crate::duel::test_support::put_on_battlefield(&mut duel, PLAYER, "collective_blessing");
+    cast_and_settle(&mut duel, "rumbling_baloth");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
+    assert!(duel.stack.is_empty());
 }
 
 #[test]

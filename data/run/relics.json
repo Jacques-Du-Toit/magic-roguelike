@@ -227,7 +227,7 @@
   {
     "id": "drovers_bell",
     "name": "Drover's Bell",
-    "text": "Whenever a creature with power 4 or greater enters under your control, create a 1/1 Soldier token.",
+    "text": "The first time a creature with power 4 or greater enters under your control each turn, create a 1/1 Soldier token.",
     "effects": [
       {
         "type": "abilities",
@@ -239,6 +239,7 @@
               "subject": "creature_you_control",
               "min_power": 4
             },
+            "once_each_turn": true,
             "effects": [
               {
                 "type": "create_token",

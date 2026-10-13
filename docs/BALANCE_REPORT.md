@@ -144,21 +144,21 @@ Rarity on Scryfall is per printing; ours is the tier. "Added" cards came through
 | Might of the Masses | common | wide |  |
 | Raise the Alarm | common | wide |  |
 | Sworn Companions | common | wide + lifegain |  |
-| Angel of Renewal | uncommon | wide + lifegain | **Added.** New. A life for each creature as it enters. |
+| Angel of Renewal | uncommon | wide + lifegain | **Added.** A life for each creature as it enters. |
 | Bestial Menace | uncommon | wide |  |
 | Good-Fortune Unicorn | uncommon | wide + counters |  |
 | Impassioned Orator | uncommon | wide + lifegain | **common to uncommon.** A repeatable enabler and a bridge: an uncommon by the tier rule. |
 | Intangible Virtue | uncommon | wide |  |
-| Jade Mage | uncommon | wide | **Added.** New. A Saproling for {2}{G}, as often as there is mana: the package had no repeatable token maker. |
+| Jade Mage | uncommon | wide | **Added.** A Saproling for {2}{G}, as often as there is mana: the package had no repeatable token maker. |
 | Overrun | uncommon | wide |  |
 | Phantom General | uncommon | wide | **Added.** A second, smaller Intangible Virtue on a body (it was a spare of #59). |
 | Trostani's Summoner | uncommon | wide + big |  |
 | Woodland Champion | uncommon | wide + counters |  |
-| Benalish Marshal | rare | wide | **Added.** New. An anthem that asks for a white deck ({W}{W}{W}). |
+| Benalish Marshal | rare | wide | **Added.** An anthem that asks for a white deck ({W}{W}{W}). |
 | Cathars' Crusade | rare | wide + counters |  |
-| Champion of Lambholt | rare | wide + counters | **Added.** New. Grows with every creature that enters and makes the team hard to block: it scales by count and does nothing alone. |
+| Champion of Lambholt | rare | wide + counters | **Added.** Grows with every creature that enters and makes the team hard to block: it scales by count and does nothing alone. |
 | Collective Blessing | rare | wide |  |
-| Collective Unconscious | rare | wide | **Added.** New. A card for each creature: nothing else in the pool refills a hand. |
+| Collective Unconscious | rare | wide | **Added.** A card for each creature: nothing else in the pool refills a hand. |
 | Glorious Anthem | rare | wide |  |
 
 **Counters** (20 cards)
@@ -171,18 +171,18 @@ Rarity on Scryfall is per printing; ours is the tier. "Added" cards came through
 | Pridemalkin | common | counters |  |
 | Snakeskin Veil | common | counters |  |
 | Unruly Mob | common | counters |  |
-| Abzan Battle Priest | uncommon | counters + lifegain | **Added.** New. Lifelink for every creature with a counter: the bridge to lifegain. |
-| Abzan Falconer | uncommon | counters | **Added.** New. Flying for every creature with a counter: the package had no way through a stalled board. |
+| Abzan Battle Priest | uncommon | counters + lifegain | **Added.** Lifelink for every creature with a counter: the bridge to lifegain. |
+| Abzan Falconer | uncommon | counters | **Added.** Flying for every creature with a counter: the package had no way through a stalled board. |
 | Armorcraft Judge | uncommon | counters |  |
 | Basri's Solidarity | uncommon | counters |  |
 | Conclave Mentor | uncommon | counters + lifegain |  |
-| Inspiring Call | uncommon | counters | **Added.** New (a spare of #60). A card for each creature with a counter, and they are indestructible for the turn. |
+| Inspiring Call | uncommon | counters | **Added** (a spare of #60). A card for each creature with a counter, and they are indestructible for the turn. |
 | Invigorating Surge | uncommon | counters |  |
 | Iridescent Hornbeetle | uncommon | counters + wide |  |
 | Ridgescale Tusker | uncommon | counters + big |  |
-| Avatar of the Resolute | rare | counters | **Added.** New. Enters with a counter for each other creature that has one. |
-| Hardened Scales | rare | counters | **Added.** New, and a question for the owner: a second "that many plus one" (Conclave Mentor's rule, #61, on an enchantment). |
-| High Sentinels of Arashin | rare | counters | **Added.** New. A flier that counts the other creatures with counters. |
+| Avatar of the Resolute | rare | counters | **Added.** Enters with a counter for each other creature that has one. |
+| Hardened Scales | rare | counters | **Added**, and a question for you: a second "that many plus one" (Conclave Mentor's rule, #61, on an enchantment). |
+| High Sentinels of Arashin | rare | counters | **Added.** A flier that counts the other creatures with counters. |
 | Kalonian Hydra | rare | counters |  |
 | Luminarch Aspirant | rare | counters | **Text changed.** It was +4.6 in any deck. Now it only grows a creature that already has a counter, so it needs a second counter card to start. |
 
@@ -196,7 +196,7 @@ Rarity on Scryfall is per printing; ours is the tier. "Added" cards came through
 | Healer's Hawk | common | lifegain |  |
 | Revitalize | common | lifegain |  |
 | Ajani's Pridemate | uncommon | lifegain + counters |  |
-| Angelic Accord | uncommon | lifegain | **Added.** New (a spare of #61). An Angel in any turn with 4 life gained. |
+| Angelic Accord | uncommon | lifegain | **Added** (a spare of #61). An Angel in any turn with 4 life gained. |
 | Celestial Unicorn | uncommon | lifegain | **common to uncommon.** A payoff that keeps growing is an uncommon by the tier rule (it is Ajani's Pridemate again). |
 | Griffin Aerie | uncommon | lifegain |  |
 | Nyx-Fleece Ram | uncommon | lifegain + auras |  |
@@ -220,17 +220,17 @@ Rarity on Scryfall is per printing; ours is the tier. "Added" cards came through
 | Rumbling Baloth | common | big |  |
 | Sentinel Spider | common | big |  |
 | Stampeding Rhino | common | big |  |
-| Colossal Majesty | uncommon | big | **Added.** New (a spare of #62). A card every upkeep beside a creature of power 4. |
-| Elemental Bond | uncommon | big | **Added.** New (a spare of #62). A card for each creature of power 3 or more. |
+| Colossal Majesty | uncommon | big | **Added** (a spare of #62). A card every upkeep beside a creature of power 4. |
+| Elemental Bond | uncommon | big | **Added** (a spare of #62). A card for each creature of power 3 or more. |
 | Garruk's Uprising | uncommon | big |  |
-| Leatherback Baloth | uncommon | big | **Added.** New. A 4/5 for {G}{G}{G}: only a green deck casts it on time. |
+| Leatherback Baloth | uncommon | big | **Added.** A 4/5 for {G}{G}{G}: only a green deck casts it on time. |
 | Nessian Hornbeetle | uncommon | big + counters |  |
 | Pelakka Wurm | uncommon | big + lifegain |  |
 | Sight of the Scalelords | uncommon | big |  |
 | Armada Wurm | rare | big |  |
 | Gigantosaurus | rare | big |  |
-| Overwhelming Stampede | rare | big + wide | **Added.** New. An Overrun as big as the biggest creature. |
-| Spearbreaker Behemoth | rare | big | **Added.** New. Indestructible, and gives it to creatures of power 5 or more. |
+| Overwhelming Stampede | rare | big + wide | **Added.** An Overrun as big as the biggest creature. |
+| Spearbreaker Behemoth | rare | big | **Added.** Indestructible, and gives it to creatures of power 5 or more. |
 | Steel Leaf Champion | rare | big |  |
 | Terra Stomper | rare | big |  |
 | Thragtusk | rare | big | **Text changed.** It was +3.9 in any deck. Now it gains 5 only beside another creature of power 4 or more (the owner's idea). |
@@ -246,16 +246,16 @@ Rarity on Scryfall is per printing; ours is the tier. "Added" cards came through
 | Knightly Valor | common | auras + wide |  |
 | Setessan Training | common | auras |  |
 | Ancestral Mask | uncommon | auras |  |
-| Battle Mastery | uncommon | auras + big | **Added.** New. Double strike for a creature already made big. |
+| Battle Mastery | uncommon | auras + big | **Added.** Double strike for a creature already made big. |
 | Ethereal Armor | uncommon | auras |  |
 | Oakheart Dryads | uncommon | auras | **common to uncommon.** It pumps for every enchantment that enters: a repeatable payoff, so an uncommon. |
 | Rancor | uncommon | auras |  |
 | Satyr Enchanter | uncommon | auras |  |
-| Yavimaya Enchantress | uncommon | auras | **Added.** New (a spare of #63). Grows with every enchantment. |
-| Celestial Ancient | rare | auras + counters | **Added.** New. A counter on every creature for each enchantment cast. |
-| Daybreak Coronet | rare | auras + lifegain | **Added.** New. +3/+3, first strike, vigilance and lifelink, but only for a creature that already has an Aura. |
-| Eidolon of Blossoms | rare | auras | **Added.** New (a spare of #63). A card for each enchantment. |
-| Kor Spiritdancer | rare | auras | **Added.** New, with one word changed ("draw a card" for "you may draw a card"). +2/+2 for each Aura on it, and a card for each Aura cast. |
+| Yavimaya Enchantress | uncommon | auras | **Added** (a spare of #63). Grows with every enchantment. |
+| Celestial Ancient | rare | auras + counters | **Added.** A counter on every creature for each enchantment cast. |
+| Daybreak Coronet | rare | auras + lifegain | **Added.** +3/+3, first strike, vigilance and lifelink, but only for a creature that already has an Aura. |
+| Eidolon of Blossoms | rare | auras | **Added** (a spare of #63). A card for each enchantment. |
+| Kor Spiritdancer | rare | auras | **Added**, with one word changed ("draw a card" for "you may draw a card"). +2/+2 for each Aura on it, and a card for each Aura cast. |
 | Mantle of the Wolf | rare | auras |  |
 | Setessan Champion | rare | auras + counters |  |
 | Sigil of the Empty Throne | rare | auras |  |
