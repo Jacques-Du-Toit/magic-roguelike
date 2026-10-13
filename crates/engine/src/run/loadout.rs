@@ -265,23 +265,14 @@ mod tests {
         assert_eq!(player.opening_hand_size, 7);
         // The boss's own +30.
         assert_eq!(boss.starting_life, 50);
-        // The Rally Horn's Soldier, the Surveyor's Map's land (the
-        // Firebrand's spells have more red symbols than black), and a
-        // Festering Wound for each wound.
+        // The Surveyor's Map's land (the Firebrand's spells have more red
+        // symbols than black), and a Festering Wound for each wound.
         let starting: Vec<&str> = player
             .starting_permanents
             .iter()
             .map(|card| card.card_id.as_str())
             .collect();
-        assert_eq!(
-            starting,
-            [
-                "soldier_token",
-                "mountain",
-                "festering_wound",
-                "festering_wound"
-            ]
-        );
+        assert_eq!(starting, ["mountain", "festering_wound", "festering_wound"]);
         // The relics with abilities, the two held back among them.
         let names: Vec<&str> = player.emblems.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(
@@ -289,6 +280,7 @@ mod tests {
             [
                 "Sentinel's Horn",
                 "Soothing Spring",
+                "Rally Horn",
                 "Whetstone",
                 "Pilgrim's Flask",
                 "Beast Tamer's Whistle",
@@ -301,7 +293,7 @@ mod tests {
         );
         let state = new_duel(config, 3).unwrap();
         assert_eq!(state.player(PlayerId::P1).hand.len(), 7);
-        assert_eq!(state.permanents_of(PlayerId::P1).count(), 4);
+        assert_eq!(state.permanents_of(PlayerId::P1).count(), 3);
     }
 
     #[test]

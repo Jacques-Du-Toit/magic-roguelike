@@ -70,12 +70,27 @@
   {
     "id": "rally_horn",
     "name": "Rally Horn",
-    "text": "You start each duel with a 1/1 Soldier token on the battlefield.",
+    "text": "The first time a creature token enters under your control each turn, create a 1/1 Soldier token.",
     "effects": [
       {
-        "type": "starting_token",
-        "token": "soldier_token",
-        "count": 1
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": {
+              "type": "enters_battlefield",
+              "subject": "token_you_control"
+            },
+            "once_each_turn": true,
+            "effects": [
+              {
+                "type": "create_token",
+                "token": "soldier_token",
+                "count": 1
+              }
+            ]
+          }
+        ]
       }
     ]
   },

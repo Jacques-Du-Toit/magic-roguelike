@@ -1742,40 +1742,6 @@ fn newest_permanent(duel: &DuelState) -> crate::duel::ObjectId {
 }
 
 #[test]
-fn rally_horn_starts_each_duel_with_a_soldier() {
-    // As the duel is set up, before anyone has kept a hand.
-    let mut state = run("warden", 3);
-    state.relics = vec![relic_id("rally_horn")];
-    let node = travels(&state)[0];
-    act(&mut state, RunAction::Travel { node });
-    let duel = state.duel.as_ref().unwrap();
-    let soldiers: Vec<_> = duel.permanents_of(PLAYER).collect();
-    assert_eq!(soldiers.len(), 1);
-    assert_eq!(soldiers[0].def.as_str(), "soldier_token");
-    assert!(duel.is_creature(soldiers[0].id).unwrap());
-    assert_eq!(duel.power(soldiers[0].id).unwrap(), 1);
-    assert_eq!(duel.toughness(soldiers[0].id).unwrap(), 1);
-    // It was there from the start, like a land a boon gives.
-    assert!(!soldiers[0].summoning_sick);
-    assert_eq!(duel.permanents_of(ENEMY).count(), 0);
-    // The deck is as it would be without it.
-    let player = duel.player(PLAYER);
-    assert_eq!(player.hand.len() + player.library.len(), 17);
-    duel.assert_consistent();
-
-    // And in the next duel too.
-    finish(&mut state, win());
-    act(&mut state, RunAction::SkipReward);
-    let node = travels(&state)[0];
-    act(&mut state, RunAction::Travel { node });
-    let duel = state.duel.as_ref().unwrap();
-    assert_eq!(count_of(duel, PLAYER, "soldier_token"), 1);
-
-    // Without the relic there is none.
-    assert_eq!(count_of(&duel_with_relics(&[]), PLAYER, "soldier_token"), 0);
-}
-
-#[test]
 fn pilgrims_flask_scries_the_first_time_life_is_gained_each_turn() {
     let mut duel = duel_with_relics(&["pilgrims_flask"]);
     put_lands(&mut duel, PLAYER, "plains", 4);
@@ -2238,43 +2204,6 @@ fn the_view_and_the_content_serialise() {
 }
 
 #[test]
-fn whetstone_puts_a_counter_on_the_first_creature_token_each_turn() {
-    // With the Rally Horn too: its Soldier was there from the start, so
-    // it is not a token that entered.
-    let mut duel = duel_with_relics(&["whetstone", "rally_horn"]);
-    let soldier = duel.permanents_of(PLAYER).next().unwrap().id;
-    put_lands(&mut duel, PLAYER, "plains", 6);
-
-    // A creature that is no token gets nothing.
-    cast_and_settle(&mut duel, "glory_seeker");
-    assert_eq!(duel.power(newest_permanent(&duel)).unwrap(), 2);
-    assert_eq!(duel.power(soldier).unwrap(), 1);
-
-    // Raise the Alarm makes two Soldiers: the first gets the counter.
-    cast_and_settle(&mut duel, "raise_the_alarm");
-    let powers = |duel: &DuelState| -> Vec<i32> {
-        let mut powers: Vec<i32> = duel
-            .permanents_of(PLAYER)
-            .filter(|permanent| permanent.def.as_str() == "soldier_token")
-            .map(|permanent| duel.power(permanent.id).unwrap())
-            .collect();
-        powers.sort_unstable();
-        powers
-    };
-    assert_eq!(powers(&duel), [1, 1, 2]);
-    // More tokens in the same turn get none.
-    cast_and_settle(&mut duel, "raise_the_alarm");
-    assert_eq!(powers(&duel), [1, 1, 1, 1, 2]);
-
-    // The counter stays, and the next turn's first token gets one.
-    let turn = duel.turn + 2;
-    pass_until(&mut duel, turn, Step::PrecombatMain);
-    empty_hand(&mut duel, PLAYER);
-    cast_and_settle(&mut duel, "raise_the_alarm");
-    assert_eq!(powers(&duel), [1, 1, 1, 1, 1, 2, 2]);
-}
-
-#[test]
 fn soothing_spring_adds_a_life_to_the_first_gain_of_each_turn() {
     let mut duel = duel_with_relics(&["soothing_spring"]);
     put_lands(&mut duel, PLAYER, "plains", 4);
@@ -2423,4 +2352,55 @@ fn weavers_thread_gains_two_life_for_the_first_aura_spell_each_turn() {
         pass_both(&mut duel);
         assert_eq!(duel.player(PLAYER).life, expected);
     }
+}
+
+#[test]
+fn rally_horn_adds_a_soldier_to_the_first_token_of_each_turn() {
+    let mut duel = duel_with_relics(&["rally_horn"]);
+    // Nothing is there at the start, and a creature that is no token
+    // brings nothing.
+    assert_eq!(duel.permanents_of(PLAYER).count(), 0);
+    put_lands(&mut duel, PLAYER, "plains", 6);
+    cast_and_settle(&mut duel, "glory_seeker");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 0);
+    // Raise the Alarm's two Soldiers, and one more for the first of them.
+    // That third Soldier is a token too, but the Horn sounds once a turn.
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 3);
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 5);
+    assert!(duel.stack.is_empty());
+    assert_eq!(count_of(&duel, ENEMY, "soldier_token"), 0);
+}
+
+#[test]
+fn whetstone_puts_a_counter_on_the_first_creature_token_each_turn() {
+    let mut duel = duel_with_relics(&["whetstone"]);
+    put_lands(&mut duel, PLAYER, "plains", 6);
+    // A creature that is no token gets nothing.
+    cast_and_settle(&mut duel, "glory_seeker");
+    assert_eq!(duel.power(newest_permanent(&duel)).unwrap(), 2);
+
+    // Raise the Alarm makes two Soldiers: the first gets the counter.
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    let powers = |duel: &DuelState| -> Vec<i32> {
+        let mut powers: Vec<i32> = duel
+            .permanents_of(PLAYER)
+            .filter(|permanent| permanent.def.as_str() == "soldier_token")
+            .map(|permanent| duel.power(permanent.id).unwrap())
+            .collect();
+        powers.sort_unstable();
+        powers
+    };
+    assert_eq!(powers(&duel), [1, 2]);
+    // More tokens in the same turn get none.
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    assert_eq!(powers(&duel), [1, 1, 1, 2]);
+
+    // The counter stays, and the next turn's first token gets one.
+    let turn = duel.turn + 2;
+    pass_until(&mut duel, turn, Step::PrecombatMain);
+    empty_hand(&mut duel, PLAYER);
+    cast_and_settle(&mut duel, "raise_the_alarm");
+    assert_eq!(powers(&duel), [1, 1, 1, 1, 2, 2]);
 }
