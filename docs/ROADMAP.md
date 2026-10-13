@@ -22,8 +22,9 @@ What is built, what comes next, and what is further off. The record of each mile
 | Card upgrades | Every Warden card has an upgraded side; a rest site upgrades one (#72) | Done, to be tuned |
 | The player starts; stronger smoothing | The player takes the first turn of a run's duels; hands are dealt until the lands fit and every colour has a source, up to 5 (#74) | Done, to be played |
 | Healing all; five wounds | A rest site and the Moneylender heal every wound; a lost duel gives one of five kinds, never one already carried (#75) | Done, to be played; numbers untuned |
+| Seeing what is ahead | The boss is on the map from the start, with a panel beside it; each elite node names its commander, and no two are the same elite (#76) | Done, to be played |
 
-Where the numbers stand, with the AI on both sides (`sim --runs --games 600 --decks warden`): the random picker wins 34.3% of acts (+/- 3.8), reaches the boss in 88% and beats it 39% of the time; it wins 78% of its ordinary duels and 18% of its elites. It now heals at a rest when one loss from the end, and it never meets the boss wounded. The floor was 29.3% before healing removed every wound (`HISTORY.md`, slice 14): the field has not been retuned for that. Each package's ideal deck won 83 to 91% of acts before upgrades (not measured since).
+Where the numbers stand, with the AI on both sides (`sim --runs --games 600 --decks warden`): the random picker wins 39.2% of acts (+/- 3.9), reaches the boss in 88% and beats it 44% of the time; it wins 78% of its ordinary duels and 23% of its elites. That command's 600 seeds are a lucky sample since the enemies moved onto the map (#76), which changed what every seed rolls: the same code wins 36.3% on seeds 601 to 1200, and the code before it won 34.3% and 37.7% on the two ranges, so the floor is about 37% and did not move (`HISTORY.md`, slice 15). The sim's player heals at a rest when one loss from the end, and it never meets the boss wounded. The floor was 29.3% before healing removed every wound (`HISTORY.md`, slice 14): the field has not been retuned for that. Each package's ideal deck won 83 to 91% of acts before upgrades (not measured since).
 
 ## Next: the backlog
 
@@ -31,17 +32,7 @@ From the owner's playtest of 2026-10-13. Each item is meant to be done on its ow
 
 For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test for every rule, the docs in the same change, and `sim --runs --games 600 --decks warden` before and after (the baseline is the table above; say what moved, with the margin, and don't retune the field without asking).
 
-### 1. Seeing what is ahead: the boss on the map, and each elite's commander
-
-**Asked:** the boss should be visible from the start so the player can plan for it, and an elite node should show the elite's commander so the player can choose the elites that suit their deck.
-
-**Now:** an enemy is picked when the player travels to its node (`flow.rs`, with the run's RNG and the `fought` list), so the map can't show it. There is one boss. The feats screen, after travelling, shows the enemy, its commander and its emblems.
-
-**Notes:** this means picking the boss when the run starts and each elite when the map is made, and keeping them in `RunState`; a seed will then give different enemies than it does now, so the end-to-end seeds may need to move. Ordinary duels can stay hidden. It pays off most once there is more than one boss (item 3).
-
-**To settle:** only the commander's name and card, or the enemy's emblems too? Elites only, or hard-tier duels as well?
-
-### 2. Elites are very hard
+### 1. Elites are very hard
 
 **Asked:** "elites are really hard: what do the stats show?"
 
@@ -57,9 +48,9 @@ For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test
 
 So they are hard for everyone and close to unwinnable for an unfinished deck. The cause is mostly where they sit: an elite can be met on row 5, after two easy duels, a draft and a treasure or an event, with the starting deck and about four more cards; the same four elites are also the pool for row 9. An elite is always optional, and losing one leaves a wound and no relic.
 
-**Options:** (a) item 1, so that the player picks the fight; (b) two elite tiers, an early pool for row 5 built like the normal tier with a commander, and the present four for row 9; (c) keep one pool and move the first elite row later; (d) pay more for an elite, so the risk is worth it. I would do (a) and (b).
+**Options:** (a) the player picks the fight: built, the map names each elite by its commander (#76), which helps a player and not the sim's, who doesn't choose by it; (b) two elite tiers, an early pool for row 5 built like the normal tier with a commander, and the present four for row 9; (c) keep one pool and move the first elite row later; (d) pay more for an elite, so the risk is worth it. I would do (b). With two tiers, `place_enemies` deals each elite row from its own pool; whether the hard duels of rows 9 and 10 are shown as well was left for this item (#76).
 
-### 3. The Pyre, and more bosses
+### 2. The Pyre, and more bosses
 
 **Asked:** the Pyre is fine as it stands (and so is the boss at 50 life: `DECISIONS.md` #73). Perhaps make its emblem more conditional, or have it attack with a 1/1 each turn in place of the drain.
 
@@ -70,9 +61,11 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 - A conditional drain to try: only while the boss controls a creature with power 4 or greater, or only while you have more life than it.
 - Both can be measured without a rebuild: copy `data/`, edit the emblem, and run `sim --act --games 300 --data DIR` for the five ideal decks and `sim --runs` for the floor.
 
+- A second boss needs no new code to be met or shown: `place_enemies` picks one of the `boss` tier when the run starts, and the map and its side panel show whichever it is (#76).
+
 **To settle:** after the measurements, which version the Pyre keeps, and what the second and third bosses ask (proposals wanted: one that punishes going wide, one that punishes one big threat, for instance).
 
-### 4. More life as the act goes on
+### 3. More life as the act goes on
 
 **Asked:** later enemies should have more life, and the player's life might rise at points in the run too.
 
@@ -85,7 +78,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle:** by row or by tier, and how much (suggest a `life` number per map row or per tier in `balance.json`); where the player's life comes from.
 
-### 5. Potions (propose first)
+### 4. Potions (propose first)
 
 **Asked:** single-use potions as in Slay the Spire, common to rare: "destroy target creature with flying", "destroy all creatures", "gain 5 life". They are attrition too, in that one spent is gone.
 
@@ -99,7 +92,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle (the proposal):** how many can be carried, where they come from, the timing rule, the first ten or so with rarities, and what the sim does with them.
 
-### 6. Lands apart from card rewards (propose first)
+### 5. Lands apart from card rewards (propose first)
 
 **Asked:** separate lands from the normal rewards, and let the player adjust their lands, for example to pivot into one colour.
 
@@ -109,7 +102,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle (the proposal):** where non-basic lands come from once rewards don't hold them, whether the number of lands can change or only their colours, and whether the choice is made on the deck screen at any time or at certain nodes.
 
-### 7. Quality of life
+### 6. Quality of life
 
 Small and separate; any of them fits beside another item.
 
@@ -118,7 +111,7 @@ Small and separate; any of them fits beside another item.
 - **A red outline on cards in hand when discarding,** to show that the click is a loss.
 - **Reordering cards in hand.** The order is the UI's own: the engine's hand order means nothing to the rules.
 
-### 8. Left from earlier work
+### 7. Left from earlier work
 
 - **Tune the upgraded sides.** All 112 are first guesses (`GAME_DESIGN.md` §6.1). To look at first: Lightwalker+ (a 3/2 flier for two), Pacifism+ ({W}), Glorious Anthem+ ({W}{W}), Gigantosaurus+ (trample).
 - **An event that removes a card,** now that a rest doesn't (#72).

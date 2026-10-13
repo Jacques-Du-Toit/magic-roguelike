@@ -93,9 +93,9 @@ These are original characters (or generic archetypes) — not MTG's named planes
 
 | Node | What happens |
 |---|---|
-| **Duel** | Normal opponent, with two feats picked beforehand (§3.2). Win: gold and a pick from 2 to 4 cards, by how the feats went. |
-| **Elite** | Stronger deck. Win: relic + card pick. Loss: a wound, no relic. |
-| **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. |
+| **Duel** | Normal opponent, not known until you arrive, with two feats picked beforehand (§3.2). Win: gold and a pick from 2 to 4 cards, by how the feats went. |
+| **Elite** | Stronger deck. Win: relic + card pick. Loss: a wound, no relic. The map shows which elite it is by its commander's name, with the card on hover, so the player picks the elites that suit their deck; no two elite nodes of a map are the same elite (`DECISIONS.md` #76). |
+| **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. Known from the start of the run: its name is on its node, and its commander, life and emblems are in a panel beside the map (`DECISIONS.md` #76). |
 | **Draft** | Open a pack of five cards in your colours and keep up to two. Built (`DECISIONS.md` #57). |
 | **Shop** | Buy cards, lands (incl. duals), relics. Pay to remove a card. |
 | **Rest** | Choose: heal every wound you carry, or upgrade a card (§6.1). Removing a card is the shop's service. |
