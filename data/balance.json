@@ -3,7 +3,7 @@
     "starting_life": 20,
     "opening_hand_size": 7,
     "max_hand_size": 7,
-    "smoothing_candidates": 3,
+    "smoothing_candidates": 5,
     "fatigue": {
       "first_life_loss": 1,
       "increase": 1

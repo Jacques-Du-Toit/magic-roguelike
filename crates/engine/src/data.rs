@@ -1652,7 +1652,7 @@ mod tests {
         assert_eq!(duel.starting_life, 20);
         assert_eq!(duel.opening_hand_size, 7);
         assert_eq!(duel.max_hand_size, 7);
-        assert_eq!(duel.smoothing_candidates, 3);
+        assert_eq!(duel.smoothing_candidates, 5);
         assert_eq!(
             (duel.fatigue.first_life_loss, duel.fatigue.increase),
             (1, 1)

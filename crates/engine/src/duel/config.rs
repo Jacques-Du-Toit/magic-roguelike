@@ -42,7 +42,8 @@ pub struct PlayerConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RulesConfig {
     pub max_hand_size: u8,
-    /// How many candidate opening hands are dealt; 1 turns smoothing off.
+    /// The most candidate hands dealt for one opening or mulligan hand;
+    /// dealing stops sooner at a hand that is right. 1 turns smoothing off.
     pub smoothing_candidates: u8,
     pub fatigue: FatigueBalance,
     /// Generic mana added to a commander's cost for each earlier cast from

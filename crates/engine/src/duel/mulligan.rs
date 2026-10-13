@@ -117,6 +117,7 @@ pub(crate) fn mulligans_are_over(state: &DuelState) -> bool {
 mod tests {
     use super::*;
     use crate::duel::error::ActionError;
+    use crate::duel::setup::miss_of_hand;
     use crate::duel::test_support::{config, hand_cards};
     use crate::duel::{apply_action, legal_actions, new_duel};
 
@@ -283,22 +284,32 @@ mod tests {
 
     #[test]
     fn mulligan_hands_are_smoothed_too() {
-        let total_distance = |candidates: u8| -> usize {
-            (0..200)
+        // How many of 200 first and second mulligan hands of the blue-black
+        // deck are right: the lands fit and both colours have a source.
+        let right_hands = |candidates: u8| -> usize {
+            (0..100)
                 .map(|seed| {
-                    let mut config = config("deck_a", "deck_b");
+                    let mut config = config("deck_b", "deck_a");
                     config.rules.smoothing_candidates = candidates;
+                    config.starting_player = Some(PlayerId::P1);
                     let mut state = new_duel(config, seed).unwrap();
-                    let first = state.starting_player;
-                    apply_action(&mut state, first, Action::Mulligan).unwrap();
-                    let lands = crate::duel::test_support::hand_lands(&state, first);
-                    (lands * 25).abs_diff(70)
+                    let mut right = 0;
+                    for _ in 0..2 {
+                        apply_action(&mut state, PlayerId::P1, Action::Mulligan).unwrap();
+                        assert_eq!(state.player(PlayerId::P1).hand.len(), 7);
+                        right += usize::from(miss_of_hand(&state, PlayerId::P1).is_right());
+                        if state.waiting_on() == Some(PlayerId::P2) {
+                            apply_action(&mut state, PlayerId::P2, Action::Keep).unwrap();
+                        }
+                    }
+                    right
                 })
                 .sum()
         };
-        let off = total_distance(1);
-        let on = total_distance(3);
-        assert!(on * 10 < off * 7, "3 candidates: {on}, 1 candidate: {off}");
+        let off = right_hands(1);
+        let on = right_hands(5);
+        assert!(off < 120, "1 hand: {off}/200 right");
+        assert!(on > 170, "5 hands: {on}/200 right");
     }
 
     #[test]

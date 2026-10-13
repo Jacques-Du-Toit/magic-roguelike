@@ -1,12 +1,14 @@
 //! Starting a duel: building the state and dealing opening hands.
 
+use std::collections::BTreeSet;
+
 use super::action::GameEvent;
 use super::config::{CardInstance, DuelConfig};
 use super::error::{ConfigError, InternalError};
 use super::ids::{ObjectId, PlayerId};
 use super::rng::DuelRng;
 use super::state::{Decision, DuelState, PlayerState, Zone};
-use crate::cards::validate_emblem;
+use crate::cards::{CardDef, Color, validate_emblem};
 use crate::data;
 
 /// Starts a duel. Both players have their opening hands and the game is
@@ -110,31 +112,21 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
     Ok(state)
 }
 
-/// Deals a smoothed opening hand to a player whose cards are all in their
-/// library.
+/// Deals a smoothed hand to a player whose cards are all in their library:
+/// an opening hand, or the fresh hand of a mulligan.
 ///
-/// The library is shuffled `smoothing_candidates` times. Each shuffle's top
-/// cards are a candidate hand, and the one whose land count is closest to
-/// the deck's land ratio is kept (the first, on a tie). The rest of the
-/// library is then shuffled again.
+/// The library is shuffled, and each shuffle's top cards are a candidate
+/// hand. Dealing stops at the first hand that is right (`HandMiss`), or
+/// after `smoothing_candidates` hands, when the one that misses least is
+/// kept. The rest of the library is then shuffled again.
 pub(crate) fn deal_opening_hand(
     state: &mut DuelState,
     player: PlayerId,
 ) -> Result<Vec<GameEvent>, InternalError> {
-    let mut library = std::mem::take(&mut state.player_mut(player).library);
+    let library = std::mem::take(&mut state.player_mut(player).library);
     let hand_size = usize::from(state.player(player).opening_hand_size).min(library.len());
-    let deck_lands = count_lands(state, &library)?;
-
-    let mut orders = Vec::new();
-    let mut hand_lands = Vec::new();
-    for _ in 0..state.rules.smoothing_candidates.max(1) {
-        state.rng.shuffle(&mut library);
-        let hand = &library[library.len() - hand_size..];
-        hand_lands.push(count_lands(state, hand)?);
-        orders.push(library.clone());
-    }
-    let best = closest_to_land_ratio(&hand_lands, hand_size, deck_lands, library.len());
-    state.player_mut(player).library = orders.swap_remove(best);
+    let smoothed = smoothed_library(state, library, hand_size)?;
+    state.player_mut(player).library = smoothed.library;
 
     let mut events = Vec::new();
     for _ in 0..hand_size {
@@ -147,21 +139,107 @@ pub(crate) fn deal_opening_hand(
     Ok(events)
 }
 
-/// Which candidate hand has a land count closest to the deck's land ratio
-/// times the hand size. Earlier candidates win ties.
-fn closest_to_land_ratio(
-    hand_lands: &[usize],
+/// How far a candidate hand is from right. A hand is right when its land
+/// count fits the deck's land ratio and every colour among its spells has a
+/// land in the hand that makes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HandMiss {
+    /// Lands too few or too many. The deck's land ratio times the hand
+    /// size, rounded down or up, both fit.
+    lands: usize,
+    /// Colours in the mana costs of the hand's spells that no land in the
+    /// hand makes. A land that makes two colours is a source of each.
+    colors: usize,
+    /// How far the land count is from the exact ratio, in lands times the
+    /// deck's size to stay in whole numbers. It only breaks ties.
+    ratio_distance: usize,
+}
+
+impl HandMiss {
+    pub(crate) fn is_right(self) -> bool {
+        self.points() == 0
+    }
+
+    /// One for each land too few or too many, and one for each colour
+    /// without a source.
+    fn points(self) -> usize {
+        self.lands + self.colors
+    }
+
+    fn of(hand: &[&CardDef], deck_lands: usize, deck_size: usize) -> HandMiss {
+        let lands = hand.iter().filter(|card| card.is_land()).count();
+        let wanted = hand.len() * deck_lands;
+        let (fewest, most) = match deck_size {
+            0 => (0, 0),
+            _ => (wanted / deck_size, wanted.div_ceil(deck_size)),
+        };
+        let sources: BTreeSet<Color> = hand
+            .iter()
+            .filter(|card| card.is_land())
+            .flat_map(|land| land.mana_colors())
+            .collect();
+        let needed: BTreeSet<Color> = hand
+            .iter()
+            .filter(|card| !card.is_land())
+            .flat_map(|spell| spell.mana_cost.colored())
+            .collect();
+        HandMiss {
+            lands: fewest.saturating_sub(lands) + lands.saturating_sub(most),
+            colors: needed.difference(&sources).count(),
+            ratio_distance: (lands * deck_size).abs_diff(wanted),
+        }
+    }
+}
+
+/// A library put in the order that deals the kept hand from its top, and
+/// what each hand dealt on the way missed (which the tests read).
+#[cfg_attr(not(test), allow(dead_code))]
+struct Smoothed {
+    library: Vec<ObjectId>,
+    /// One for each candidate hand, in the order they were dealt.
+    misses: Vec<HandMiss>,
+    /// Which of them was kept.
+    kept: usize,
+}
+
+fn smoothed_library(
+    state: &mut DuelState,
+    mut library: Vec<ObjectId>,
     hand_size: usize,
-    deck_lands: usize,
-    deck_size: usize,
-) -> usize {
-    // |lands - hand_size * deck_lands / deck_size|, scaled by deck_size to
-    // stay in whole numbers.
-    let distance = |lands: usize| (lands * deck_size).abs_diff(hand_size * deck_lands);
-    hand_lands
+) -> Result<Smoothed, InternalError> {
+    let deck_size = library.len();
+    let deck_lands = count_lands(state, &library)?;
+
+    let mut orders = Vec::new();
+    let mut misses = Vec::new();
+    for _ in 0..state.rules.smoothing_candidates.max(1) {
+        state.rng.shuffle(&mut library);
+        let mut hand = Vec::with_capacity(hand_size);
+        for id in &library[deck_size - hand_size..] {
+            hand.push(state.def(*id)?);
+        }
+        let miss = HandMiss::of(&hand, deck_lands, deck_size);
+        misses.push(miss);
+        orders.push(library.clone());
+        if miss.is_right() {
+            break;
+        }
+    }
+    let kept = least_miss(&misses);
+    Ok(Smoothed {
+        library: orders.swap_remove(kept),
+        misses,
+        kept,
+    })
+}
+
+/// Which candidate hand misses least: the fewest points, then the land
+/// count closest to the exact ratio, then the first dealt.
+fn least_miss(misses: &[HandMiss]) -> usize {
+    misses
         .iter()
         .enumerate()
-        .min_by_key(|&(_, &lands)| distance(lands))
+        .min_by_key(|&(_, miss)| (miss.points(), miss.ratio_distance))
         .map_or(0, |(index, _)| index)
 }
 
@@ -173,6 +251,18 @@ fn count_lands(state: &DuelState, objects: &[ObjectId]) -> Result<usize, Interna
         }
     }
     Ok(lands)
+}
+
+/// What the hand a player holds misses, measured against their whole deck
+/// (hand and library).
+#[cfg(test)]
+pub(crate) fn miss_of_hand(state: &DuelState, player: PlayerId) -> HandMiss {
+    let player_state = state.player(player);
+    let def = |id: &ObjectId| state.def(*id).unwrap();
+    let hand: Vec<&CardDef> = player_state.hand.iter().map(def).collect();
+    let deck = player_state.hand.iter().chain(&player_state.library);
+    let deck_lands = deck.clone().filter(|id| def(id).is_land()).count();
+    HandMiss::of(&hand, deck_lands, deck.count())
 }
 
 /// Moves the top card of the player's library to their hand. Does nothing
@@ -193,8 +283,6 @@ pub(crate) fn take_top_card(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use super::*;
     use crate::cards::CardDefId;
     use crate::duel::config::CardInstance;
@@ -343,44 +431,277 @@ mod tests {
         assert_eq!(state.player(PlayerId::P2).life, 15);
     }
 
-    #[test]
-    fn closest_candidate_wins_and_ties_go_to_the_first() {
-        // 10 lands in 25 cards: a 7-card hand wants 2.8 lands.
-        let pick = |hand_lands: &[usize]| closest_to_land_ratio(hand_lands, 7, 10, 25);
-        assert_eq!(pick(&[0, 3, 5]), 1);
-        assert_eq!(pick(&[6, 5, 4]), 2);
-        assert_eq!(pick(&[2, 3]), 1);
-        assert_eq!(pick(&[3, 3, 3]), 0);
-        // 1 and 5 lands are 1.8 and 2.2 away.
-        assert_eq!(pick(&[5, 1]), 1);
-        // With an even split, 3 and 4 lands are equally close to 3.5.
-        assert_eq!(closest_to_land_ratio(&[4, 3], 7, 10, 20), 0);
-        assert_eq!(closest_to_land_ratio(&[3, 4], 7, 10, 20), 0);
-        assert_eq!(pick(&[4]), 0);
+    fn cards(ids: &[&str]) -> Vec<&'static CardDef> {
+        let cards = &data::embedded().unwrap().cards;
+        ids.iter()
+            .map(|id| cards.get(&CardDefId(id.to_string())).unwrap())
+            .collect()
     }
 
-    /// How far opening hands are from 2.8 lands, summed over many seeds.
-    fn total_distance_from_ratio(candidates: u8) -> usize {
-        (0..200)
-            .map(|seed| {
-                let mut config = config("deck_a", "deck_c");
-                config.rules.smoothing_candidates = candidates;
-                let state = new_duel(config, seed).unwrap();
-                PlayerId::ALL
-                    .into_iter()
-                    .map(|player| (hand_lands(&state, player) * 25).abs_diff(70))
-                    .sum::<usize>()
-            })
-            .sum()
+    /// What a hand misses in a deck of 10 lands in 25 cards, where a
+    /// seven-card hand wants 2.8 lands: 2 and 3 both fit.
+    fn miss(hand: &[&str]) -> HandMiss {
+        HandMiss::of(&cards(hand), 10, 25)
     }
 
     #[test]
-    fn smoothing_brings_hands_closer_to_the_land_ratio() {
-        let off = total_distance_from_ratio(1);
-        let on = total_distance_from_ratio(3);
-        let heavy = total_distance_from_ratio(8);
-        assert!(on * 10 < off * 7, "3 candidates: {on}, 1 candidate: {off}");
-        assert!(heavy < on, "8 candidates: {heavy}, 3 candidates: {on}");
+    fn a_hand_is_right_when_its_lands_fit_and_its_colours_have_sources() {
+        let right = miss(&[
+            "island",
+            "swamp",
+            "typhoid_rats",
+            "wind_drake",
+            "murder",
+            "cancel",
+            "divination",
+        ]);
+        assert_eq!((right.lands, right.colors), (0, 0));
+        assert!(right.is_right());
+
+        // Three lands fit as well as two.
+        assert!(
+            miss(&[
+                "island", "island", "swamp", "murder", "cancel", "cancel", "cancel"
+            ])
+            .is_right()
+        );
+        // A hand with spells of one colour needs only that colour.
+        assert!(
+            miss(&[
+                "swamp",
+                "swamp",
+                "murder",
+                "murder",
+                "murder",
+                "typhoid_rats",
+                "typhoid_rats"
+            ])
+            .is_right()
+        );
+    }
+
+    #[test]
+    fn each_land_too_few_or_too_many_is_a_point() {
+        let lands = |count: usize| {
+            let mut hand = vec!["swamp"; count];
+            hand.resize(7, "murder");
+            miss(&hand)
+        };
+        let points: Vec<usize> = (1..=7).map(|count| lands(count).lands).collect();
+        assert_eq!(points, [1, 0, 0, 1, 2, 3, 4]);
+        // No lands: two too few, and black has no source.
+        assert_eq!((lands(0).lands, lands(0).colors), (2, 1));
+        assert!(!lands(1).is_right());
+        assert!(!lands(4).is_right());
+
+        // A ratio that comes out whole has one count that fits: 10 lands in
+        // 20 cards and a six-card hand want exactly 3.
+        let exact = |count: usize| {
+            let mut hand = vec!["swamp"; count];
+            hand.resize(6, "murder");
+            HandMiss::of(&cards(&hand), 10, 20).lands
+        };
+        assert_eq!([exact(2), exact(3), exact(4)], [1, 0, 1]);
+    }
+
+    #[test]
+    fn each_colour_among_the_spells_without_a_land_that_makes_it_is_a_point() {
+        // The lands fit, but nothing makes blue for the Wind Drake.
+        let no_blue = miss(&[
+            "swamp",
+            "swamp",
+            "swamp",
+            "wind_drake",
+            "murder",
+            "murder",
+            "murder",
+        ]);
+        assert_eq!((no_blue.lands, no_blue.colors), (0, 1));
+        assert!(!no_blue.is_right());
+
+        // A two-coloured spell needs both of its colours.
+        let gold = |lands: [&'static str; 2]| {
+            let mut hand = lands.to_vec();
+            hand.resize(7, "call_of_the_conclave");
+            miss(&hand).colors
+        };
+        assert_eq!(gold(["forest", "plains"]), 0);
+        assert_eq!(gold(["forest", "forest"]), 1);
+        assert_eq!(gold(["island", "swamp"]), 2);
+
+        // A land's colour is not a need: lands of a colour no spell uses
+        // cost nothing.
+        assert_eq!(miss(&["island", "swamp", "murder"]).colors, 0);
+    }
+
+    #[test]
+    fn a_dual_land_is_a_source_of_each_of_its_colours() {
+        let with_lands = |lands: [&'static str; 2]| {
+            let mut hand = lands.to_vec();
+            hand.extend(["serra_angel", "serra_angel", "grizzly_bears"]);
+            hand.extend(["grizzly_bears", "call_of_the_conclave"]);
+            miss(&hand)
+        };
+        // One Guildgate covers the white and the green spells alike.
+        assert!(with_lands(["selesnya_guildgate", "mountain"]).is_right());
+        assert!(with_lands(["selesnya_guildgate", "selesnya_guildgate"]).is_right());
+        // It is one source of each, as a Plains and a Forest together are.
+        assert!(with_lands(["plains", "forest"]).is_right());
+        assert_eq!(with_lands(["plains", "mountain"]).colors, 1);
+        // A Guildgate of other colours covers only what it makes.
+        assert_eq!(with_lands(["boros_guildgate", "mountain"]).colors, 1);
+    }
+
+    #[test]
+    fn the_hand_that_misses_least_is_kept_and_ties_go_to_the_first() {
+        let miss = |lands, colors, ratio_distance| HandMiss {
+            lands,
+            colors,
+            ratio_distance,
+        };
+        // The fewest points, whether they are lands or colours.
+        assert_eq!(
+            least_miss(&[miss(2, 0, 55), miss(0, 1, 5), miss(1, 1, 30)]),
+            1
+        );
+        assert_eq!(
+            least_miss(&[miss(1, 1, 30), miss(2, 1, 55), miss(1, 0, 30)]),
+            2
+        );
+        // A land and a colour weigh the same; the closer land count then
+        // decides.
+        assert_eq!(least_miss(&[miss(1, 0, 30), miss(0, 1, 20)]), 1);
+        assert_eq!(least_miss(&[miss(0, 1, 5), miss(1, 0, 30)]), 0);
+        // Level on both: the first dealt.
+        assert_eq!(least_miss(&[miss(1, 1, 30), miss(1, 1, 30)]), 0);
+        // A right hand beats everything.
+        assert_eq!(least_miss(&[miss(0, 1, 5), miss(0, 0, 20)]), 1);
+        assert_eq!(least_miss(&[miss(1, 0, 30)]), 0);
+    }
+
+    /// A duel whose first player's hand is back in their library, and that
+    /// library.
+    fn undealt(config: DuelConfig, seed: u64) -> (DuelState, Vec<ObjectId>) {
+        let mut state = new_duel(config, seed).unwrap();
+        for card in state.player(PlayerId::P1).hand.clone() {
+            state.move_object(card, Zone::Library).unwrap();
+        }
+        let library = state.player(PlayerId::P1).library.clone();
+        (state, library)
+    }
+
+    /// What the top `hand_size` cards of a library miss.
+    fn miss_of_top(state: &DuelState, library: &[ObjectId], hand_size: usize) -> HandMiss {
+        let def = |id: &ObjectId| state.def(*id).unwrap();
+        let hand: Vec<&CardDef> = library[library.len() - hand_size..]
+            .iter()
+            .map(def)
+            .collect();
+        let deck_lands = library.iter().filter(|id| def(id).is_land()).count();
+        HandMiss::of(&hand, deck_lands, library.len())
+    }
+
+    /// White spells and only Mountains: no hand of this deck is ever right.
+    fn hopeless() -> DuelConfig {
+        let mut config = config("deck_a", "deck_b");
+        let card = |id: &str| CardInstance::new(CardDefId(id.to_string()));
+        let mut library = vec![card("mountain"); 10];
+        library.resize(25, card("serra_angel"));
+        config.players[0].library = library;
+        config
+    }
+
+    #[test]
+    fn dealing_stops_at_the_cap_and_keeps_the_hand_that_misses_least() {
+        let cap = usize::from(data::embedded().unwrap().balance.duel.smoothing_candidates);
+        assert_eq!(cap, 5);
+        let mut kept_later = 0;
+        for seed in 0..40 {
+            let (mut state, library) = undealt(hopeless(), seed);
+            let smoothed = smoothed_library(&mut state, library, 7).unwrap();
+            assert_eq!(smoothed.misses.len(), cap, "seed {seed}");
+            assert!(smoothed.misses.iter().all(|miss| !miss.is_right()));
+            assert_eq!(smoothed.kept, least_miss(&smoothed.misses));
+            // The library comes back in the kept hand's order.
+            assert_eq!(
+                miss_of_top(&state, &smoothed.library, 7),
+                smoothed.misses[smoothed.kept],
+                "seed {seed}"
+            );
+            let fewest = smoothed.misses.iter().map(|miss| miss.points()).min();
+            assert_eq!(Some(smoothed.misses[smoothed.kept].points()), fewest);
+            kept_later += usize::from(smoothed.kept > 0);
+        }
+        // It is the best of the five, not the first or the last.
+        assert!(
+            (5..35).contains(&kept_later),
+            "kept a later hand {kept_later}/40"
+        );
+
+        // The cap is the config's number.
+        let mut three = hopeless();
+        three.rules.smoothing_candidates = 3;
+        let (mut state, library) = undealt(three, 1);
+        assert_eq!(
+            smoothed_library(&mut state, library, 7)
+                .unwrap()
+                .misses
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn dealing_stops_at_the_first_right_hand() {
+        let mut dealt = BTreeSet::new();
+        for seed in 0..200 {
+            let (mut state, library) = undealt(config("deck_b", "deck_a"), seed);
+            let smoothed = smoothed_library(&mut state, library, 7).unwrap();
+            let (last, earlier) = smoothed.misses.split_last().unwrap();
+            assert!(earlier.iter().all(|miss| !miss.is_right()), "seed {seed}");
+            assert!(smoothed.misses.len() <= 5);
+            if smoothed.misses.len() < 5 {
+                assert!(last.is_right(), "seed {seed}");
+            }
+            if last.is_right() {
+                assert_eq!(smoothed.kept, smoothed.misses.len() - 1, "seed {seed}");
+            }
+            assert_eq!(
+                miss_of_top(&state, &smoothed.library, 7),
+                smoothed.misses[smoothed.kept]
+            );
+            dealt.insert(smoothed.misses.len());
+        }
+        assert_eq!(dealt, BTreeSet::from([1, 2, 3, 4, 5]));
+    }
+
+    /// How many of 400 opening hands of the blue-black deck are right, and
+    /// how far they are from 2.8 lands in all.
+    fn right_hands(candidates: u8) -> (usize, usize) {
+        let mut right = 0;
+        let mut distance = 0;
+        for seed in 0..200 {
+            let mut config = config("deck_b", "deck_b");
+            config.rules.smoothing_candidates = candidates;
+            let state = new_duel(config, seed).unwrap();
+            for player in PlayerId::ALL {
+                right += usize::from(miss_of_hand(&state, player).is_right());
+                distance += (hand_lands(&state, player) * 25).abs_diff(70);
+            }
+        }
+        (right, distance)
+    }
+
+    #[test]
+    fn smoothing_gives_both_players_right_hands_far_more_often() {
+        let (off, off_distance) = right_hands(1);
+        let (on, on_distance) = right_hands(5);
+        assert!(off < 240, "1 hand: {off}/400 right");
+        assert!(on > 340, "5 hands: {on}/400 right");
+        assert!(
+            on_distance * 10 < off_distance * 7,
+            "5 hands: {on_distance}, 1 hand: {off_distance}"
+        );
     }
 
     #[test]
