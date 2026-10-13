@@ -15,6 +15,7 @@
   "toughness": 2,
   "rarity": "uncommon",
   "oracle_text": "When this creature enters, it deals 4 damage to target creature.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

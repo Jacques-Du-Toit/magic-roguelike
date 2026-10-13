@@ -19,5 +19,6 @@
     "haste"
   ],
   "oracle_text": "Flying, haste",
+  "reserved": true,
   "abilities": []
 }

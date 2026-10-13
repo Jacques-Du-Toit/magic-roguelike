@@ -16,6 +16,7 @@
   "toughness": 2,
   "rarity": "common",
   "oracle_text": "When this creature enters, you draw a card and you lose 1 life.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

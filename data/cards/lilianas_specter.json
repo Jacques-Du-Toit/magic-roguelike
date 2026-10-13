@@ -18,6 +18,7 @@
     "flying"
   ],
   "oracle_text": "Flying\nWhen this creature enters, each opponent discards a card.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

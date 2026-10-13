@@ -10,6 +10,7 @@
   ],
   "rarity": "uncommon",
   "oracle_text": "Pyroclasm deals 2 damage to each creature.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "spell",

@@ -20,5 +20,6 @@
     "lifelink"
   ],
   "oracle_text": "Deathtouch, lifelink",
+  "reserved": true,
   "abilities": []
 }

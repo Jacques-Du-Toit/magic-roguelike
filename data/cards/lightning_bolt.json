@@ -10,6 +10,7 @@
   ],
   "rarity": "common",
   "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "spell",

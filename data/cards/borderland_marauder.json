@@ -16,6 +16,7 @@
   "toughness": 2,
   "rarity": "common",
   "oracle_text": "Whenever this creature attacks, it gets +2/+0 until end of turn.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

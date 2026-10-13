@@ -19,6 +19,7 @@
     "flying"
   ],
   "oracle_text": "Flying\nWhen this creature enters, target opponent loses 3 life and you gain 3 life.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",
