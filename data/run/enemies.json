@@ -489,7 +489,7 @@
     {
         "id":  "bog_stalkers",
         "name":  "Bog Stalkers",
-        "tier":  "normal",
+        "tier":  "hard",
         "cards":  [
                       {
                           "card":  "typhoid_rats",
@@ -685,27 +685,31 @@
                           "count":  2
                       },
                       {
-                          "card":  "gifted_aetherborn",
-                          "count":  2
+                          "card":  "walking_corpse",
+                          "count":  1
                       },
                       {
                           "card":  "phyrexian_rager",
-                          "count":  1
+                          "count":  2
                       },
                       {
                           "card":  "lilianas_specter",
                           "count":  1
                       },
                       {
-                          "card":  "vampire_nighthawk",
+                          "card":  "barony_vampire",
                           "count":  2
                       },
                       {
-                          "card":  "ravenous_chupacabra",
+                          "card":  "vampire_nighthawk",
                           "count":  1
                       },
                       {
                           "card":  "gravedigger",
+                          "count":  1
+                      },
+                      {
+                          "card":  "ravenous_chupacabra",
                           "count":  1
                       },
                       {
@@ -718,7 +722,7 @@
                       },
                       {
                           "card":  "murder",
-                          "count":  2
+                          "count":  1
                       },
                       {
                           "card":  "eviscerate",
@@ -797,7 +801,7 @@
                       },
                       {
                           "card":  "glory_seeker",
-                          "count":  1
+                          "count":  2
                       },
                       {
                           "card":  "youthful_knight",
@@ -828,10 +832,6 @@
                           "count":  1
                       },
                       {
-                          "card":  "glorious_anthem",
-                          "count":  1
-                      },
-                      {
                           "card":  "pacifism",
                           "count":  1
                       },
@@ -856,8 +856,16 @@
                           "count":  1
                       },
                       {
+                          "card":  "doomed_dissenter",
+                          "count":  2
+                      },
+                      {
                           "card":  "cruel_celebrant",
                           "count":  2
+                      },
+                      {
+                          "card":  "walking_corpse",
+                          "count":  1
                       },
                       {
                           "card":  "skymarch_bloodletter",
@@ -872,19 +880,7 @@
                           "count":  2
                       },
                       {
-                          "card":  "epicure_of_blood",
-                          "count":  1
-                      },
-                      {
-                          "card":  "vampire_nighthawk",
-                          "count":  1
-                      },
-                      {
-                          "card":  "ajanis_pridemate",
-                          "count":  1
-                      },
-                      {
-                          "card":  "murder",
+                          "card":  "glory_seeker",
                           "count":  1
                       },
                       {
@@ -916,6 +912,10 @@
                           "count":  1
                       },
                       {
+                          "card":  "wind_drake",
+                          "count":  1
+                      },
+                      {
                           "card":  "empyrean_eagle",
                           "count":  2
                       },
@@ -937,7 +937,7 @@
                       },
                       {
                           "card":  "serra_angel",
-                          "count":  2
+                          "count":  1
                       },
                       {
                           "card":  "air_elemental",

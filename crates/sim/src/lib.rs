@@ -87,6 +87,9 @@ is not easy.
 (default 9) random cards of the pool, and gives each card's lift: the win
 rate of the decks that held it less that of those that didn't. With
 --relics N each deck has N random relics too, measured the same way.
+--weighted picks the cards as a duel's reward does, by rarity weight, which
+is what a run's deck looks like; a common is then in far more decks than a
+rare.
 --ideal plays each ideal deck of data/sim/ideal_decks.json (and `start`,
 the starting deck) N times against each enemy of the field, without relics.
 --leave-out plays one ideal deck whole, then with each of its cards in turn
@@ -162,6 +165,8 @@ pub struct Options {
     pub extra: u32,
     /// How many random relics a `lift` deck has.
     pub relics: u32,
+    /// `lift` picks its cards by a duel reward's rarity weights, not evenly.
+    pub weighted: bool,
     /// The card `leave_out` puts in a left-out card's place.
     pub filler: String,
     /// Whole runs: take no cards, own no relics but those given.
@@ -197,6 +202,7 @@ impl Default for Options {
             field: Vec::new(),
             extra: 9,
             relics: 0,
+            weighted: false,
             filler: "grizzly_bears".to_string(),
             no_cards: false,
             no_relics: false,
@@ -268,6 +274,7 @@ pub fn parse_args(args: &[String]) -> Result<Option<Options>, String> {
                     .parse()
                     .map_err(|_| format!("--relics: `{text}` is not a whole number"))?;
             }
+            "--weighted" => options.weighted = true,
             "--filler" => options.filler = value("--filler")?.to_string(),
             "--no-cards" => options.no_cards = true,
             "--no-relics" => options.no_relics = true,

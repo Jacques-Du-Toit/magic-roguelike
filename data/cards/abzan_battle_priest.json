@@ -1,0 +1,45 @@
+{
+  "id": "abzan_battle_priest",
+  "name": "Abzan Battle Priest",
+  "mana_cost": "{3}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Cleric"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nEach creature you control with a +1/+1 counter on it has lifelink.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{W}",
+        "tap": true
+      },
+      "sorcery_speed": true,
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "this": {}
+          },
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "creatures_you_control",
+      "keyword": "lifelink",
+      "with_counter": true
+    }
+  ]
+}

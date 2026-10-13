@@ -1,0 +1,40 @@
+{
+  "id": "spearbreaker_behemoth",
+  "name": "Spearbreaker Behemoth",
+  "mana_cost": "{5}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rarity": "rare",
+  "keywords": [
+    "indestructible"
+  ],
+  "oracle_text": "Indestructible\n{1}: Target creature with power 5 or greater gains indestructible until end of turn.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{1}"
+      },
+      "effects": [
+        {
+          "type": "grant_keyword_until_eot",
+          "target": {
+            "creature": {
+              "min_power": 5
+            }
+          },
+          "keyword": "indestructible"
+        }
+      ]
+    }
+  ]
+}

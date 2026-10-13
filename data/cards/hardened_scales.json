@@ -1,0 +1,20 @@
+{
+  "id": "hardened_scales",
+  "name": "Hardened Scales",
+  "mana_cost": "{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "rare",
+  "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "extra_counters",
+      "amount": 1
+    }
+  ]
+}

@@ -10,7 +10,8 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use serde::Deserialize;
 
-use engine::cards::{CardDef, CardDefId};
+use engine::balance::RarityWeights;
+use engine::cards::{CardDef, CardDefId, Rarity};
 use engine::data::{self, GameData};
 use engine::decks::DeckEntry;
 use engine::duel::{CardInstance, DuelConfig, DuelRng, PlayerId};
@@ -260,6 +261,61 @@ fn distinct(rng: &mut DuelRng, count: u32, bound: usize) -> Vec<usize> {
     picked
 }
 
+/// `count` different cards of the pool, as places in it in rising order,
+/// each picked as a duel's reward picks one: a rarity by its weight among
+/// the rarities still on offer, then a card of it.
+fn by_rarity(
+    rng: &mut DuelRng,
+    count: u32,
+    pool: &[&CardDef],
+    weights: &RarityWeights,
+) -> Vec<usize> {
+    let weight = |rarity: Rarity| match rarity {
+        Rarity::Common => weights.common,
+        Rarity::Uncommon => weights.uncommon,
+        Rarity::Rare => weights.rare,
+        Rarity::Mythic => weights.mythic,
+    };
+    let mut left: Vec<usize> = (0..pool.len()).collect();
+    let mut picked = Vec::new();
+    for _ in 0..count {
+        let rarities = [
+            Rarity::Common,
+            Rarity::Uncommon,
+            Rarity::Rare,
+            Rarity::Mythic,
+        ];
+        let on_offer: Vec<Rarity> = rarities
+            .into_iter()
+            .filter(|rarity| weight(*rarity) > 0 && left.iter().any(|&i| pool[i].rarity == *rarity))
+            .collect();
+        let total: u32 = on_offer.iter().map(|rarity| weight(*rarity)).sum();
+        if total == 0 {
+            break;
+        }
+        let mut roll = rng.below(total);
+        let mut chosen = on_offer[0];
+        for rarity in on_offer {
+            if roll < weight(rarity) {
+                chosen = rarity;
+                break;
+            }
+            roll -= weight(rarity);
+        }
+        let of_rarity: Vec<usize> = left
+            .iter()
+            .copied()
+            .filter(|&i| pool[i].rarity == chosen)
+            .collect();
+        let pick =
+            of_rarity[rng.below(u32::try_from(of_rarity.len()).unwrap_or(u32::MAX)) as usize];
+        left.retain(|&i| i != pick);
+        picked.push(pick);
+    }
+    picked.sort_unstable();
+    picked
+}
+
 fn errors_text(errors: &[String]) -> String {
     let mut out = String::new();
     if errors.is_empty() {
@@ -303,7 +359,16 @@ pub fn lift(options: &Options, timing: &mut Timing) -> Result<(String, bool), St
     let start = lab.starting_spells();
     let played = in_parallel(options.games, |game| {
         let mut rng = DuelRng::from_seed(options.seed.wrapping_add(u64::from(game)));
-        let cards = distinct(&mut rng, options.extra, pool.len());
+        let cards = if options.weighted {
+            by_rarity(
+                &mut rng,
+                options.extra,
+                &pool,
+                &lab.data.balance.run.rewards.duel,
+            )
+        } else {
+            distinct(&mut rng, options.extra, pool.len())
+        };
         let owned = distinct(&mut rng, options.relics, relics.len());
         let enemy = game as usize % lab.field.len();
         let mut spells = start.clone();
@@ -354,11 +419,16 @@ pub fn lift(options: &Options, timing: &mut Timing) -> Result<(String, bool), St
     // Writing to a String cannot fail.
     let _ = writeln!(
         out,
-        "Card lift: {} duels of the starting deck with {} random cards of the pool ({} cards) \
+        "Card lift: {} duels of the starting deck with {} random cards of the pool ({} cards{}) \
          and {} random relics, `{}` AI, seeds from {}.\nAgainst: {}.\n",
         options.games,
         options.extra,
         pool.len(),
+        if options.weighted {
+            ", picked by a duel reward's rarity weights"
+        } else {
+            ", each as likely as the next"
+        },
         options.relics,
         ai_name(options.ai),
         options.seed,

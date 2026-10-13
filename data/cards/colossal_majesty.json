@@ -1,0 +1,32 @@
+{
+  "id": "colossal_majesty",
+  "name": "Colossal Majesty",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "beginning_of_upkeep"
+      },
+      "condition": {
+        "type": "control_creature_with_power",
+        "at_least": 4
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

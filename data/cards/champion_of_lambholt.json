@@ -1,0 +1,41 @@
+{
+  "id": "champion_of_lambholt",
+  "name": "Champion of Lambholt",
+  "mana_cost": "{1}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Warrior"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rarity": "rare",
+  "oracle_text": "Creatures with power less than this creature's power can't block creatures you control.\nWhenever another creature you control enters, put a +1/+1 counter on this creature.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "weaker_creatures_cant_block"
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "another_creature_you_control"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "this": {}
+          },
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

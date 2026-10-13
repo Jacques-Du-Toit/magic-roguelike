@@ -1,0 +1,30 @@
+{
+  "id": "elemental_bond",
+  "name": "Elemental Bond",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Whenever a creature you control with power 3 or greater enters, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "creature_you_control",
+        "min_power": 3
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -656,7 +656,8 @@ impl DuelState {
                     | StaticAbility::GrantKeyword { affects, .. } => *affects,
                     StaticAbility::Restriction { .. }
                     | StaticAbility::ExtraCounters { .. }
-                    | StaticAbility::CantBeBlockedByPower { .. } => {
+                    | StaticAbility::CantBeBlockedByPower { .. }
+                    | StaticAbility::WeakerCreaturesCantBlock {} => {
                         continue;
                     }
                 };
@@ -793,11 +794,18 @@ impl DuelState {
         let mut total: u32 = 0;
         match count {
             Count::CounterPutThisTurn => total = self.player(player).counters_put_this_turn,
-            Count::CreatureYouControl | Count::CreatureYouControlWithCounter => {
+            Count::CreatureYouControl
+            | Count::CreatureYouControlWithCounter
+            | Count::OtherCreatureYouControlWithCounter => {
                 for creature in self.creatures_of(player)? {
-                    if count == Count::CreatureYouControl
-                        || self.object(creature)?.plus_counters > 0
-                    {
+                    let counted = match count {
+                        Count::CreatureYouControl => true,
+                        Count::OtherCreatureYouControlWithCounter => {
+                            source != Some(creature) && self.object(creature)?.plus_counters > 0
+                        }
+                        _ => self.object(creature)?.plus_counters > 0,
+                    };
+                    if counted {
                         total += 1;
                     }
                 }
@@ -863,6 +871,20 @@ impl DuelState {
             if let AbilityDef::Static(StaticAbility::CantBeBlockedByPower { at_most }) = ability
                 && self.power(blocker)? <= *at_most
             {
+                return Ok(false);
+            }
+        }
+        // "Creatures with power less than this creature's power can't block
+        // creatures you control", on any creature of the attacker's side.
+        let attacking = self.object(attacker)?.owner;
+        for permanent in self.permanents_of(attacking) {
+            let weaker_cant = self.def(permanent.id)?.abilities.iter().any(|ability| {
+                matches!(
+                    ability,
+                    AbilityDef::Static(StaticAbility::WeakerCreaturesCantBlock {})
+                )
+            });
+            if weaker_cant && self.power(blocker)? < self.power(permanent.id)? {
                 return Ok(false);
             }
         }

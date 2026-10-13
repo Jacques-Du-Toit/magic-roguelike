@@ -1,0 +1,47 @@
+{
+  "id": "high_sentinels_of_arashin",
+  "name": "High Sentinels of Arashin",
+  "mana_cost": "{3}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Bird",
+    "Soldier"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "rarity": "rare",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nThis creature gets +1/+1 for each other creature you control with a +1/+1 counter on it.\n{3}{W}: Put a +1/+1 counter on target creature.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "this",
+      "power": 1,
+      "toughness": 1,
+      "for_each": "other_creature_you_control_with_counter"
+    },
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{3}{W}"
+      },
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "creature": {}
+          },
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

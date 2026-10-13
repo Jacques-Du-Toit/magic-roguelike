@@ -1,0 +1,36 @@
+{
+  "id": "celestial_ancient",
+  "name": "Celestial Ancient",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Elemental"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "rare",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhenever you cast an enchantment spell, put a +1/+1 counter on each creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "cast_spell",
+        "kind": "enchantment"
+      },
+      "effects": [
+        {
+          "type": "add_counters_to_your_creatures",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

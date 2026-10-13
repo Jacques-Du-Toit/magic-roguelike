@@ -1,0 +1,28 @@
+{
+  "id": "phantom_general",
+  "name": "Phantom General",
+  "mana_cost": "{3}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Spirit",
+    "Soldier"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "oracle_text": "Creature tokens you control get +1/+1.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "creature_tokens_you_control",
+      "power": 1,
+      "toughness": 1
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "id": "abzan_falconer",
+  "name": "Abzan Falconer",
+  "mana_cost": "{2}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Soldier"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "oracle_text": "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nEach creature you control with a +1/+1 counter on it has flying.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{W}",
+        "tap": true
+      },
+      "sorcery_speed": true,
+      "effects": [
+        {
+          "type": "add_counters",
+          "target": {
+            "this": {}
+          },
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "kind": "static",
+      "type": "grant_keyword",
+      "affects": "creatures_you_control",
+      "keyword": "flying",
+      "with_counter": true
+    }
+  ]
+}

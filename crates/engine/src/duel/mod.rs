@@ -36,6 +36,8 @@ mod keyword_tests;
 mod lifegain_tests;
 mod mana;
 mod mulligan;
+#[cfg(test)]
+mod pool_tests;
 mod rng;
 mod setup;
 #[cfg(test)]

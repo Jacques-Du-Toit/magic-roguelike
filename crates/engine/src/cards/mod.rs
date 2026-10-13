@@ -382,6 +382,9 @@ pub enum StaticAbility {
     ExtraCounters { amount: u32 },
     /// "This creature can't be blocked by creatures with power N or less."
     CantBeBlockedByPower { at_most: i32 },
+    /// "Creatures with power less than this creature's power can't block
+    /// creatures you control."
+    WeakerCreaturesCantBlock {},
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -632,6 +635,8 @@ pub enum Count {
     CreatureYouControl,
     /// Those of them with a +1/+1 counter.
     CreatureYouControlWithCounter,
+    /// Those with a +1/+1 counter other than the one the ability is on.
+    OtherCreatureYouControlWithCounter,
     /// The +1/+1 counters the controller has put on their own creatures
     /// this turn.
     CounterPutThisTurn,
@@ -1042,7 +1047,9 @@ fn validate_ability(card: &CardDef, ability: &AbilityDef) -> Result<(), CardErro
             }
             Ok(())
         }
-        AbilityDef::Static(StaticAbility::CantBeBlockedByPower { .. }) => {
+        AbilityDef::Static(
+            StaticAbility::CantBeBlockedByPower { .. } | StaticAbility::WeakerCreaturesCantBlock {},
+        ) => {
             if card.is_creature() {
                 Ok(())
             } else {

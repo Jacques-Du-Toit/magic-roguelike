@@ -1,0 +1,19 @@
+{
+  "id": "leatherback_baloth",
+  "name": "Leatherback Baloth",
+  "mana_cost": "{G}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Beast"
+  ],
+  "power": 4,
+  "toughness": 5,
+  "rarity": "uncommon",
+  "oracle_text": "",
+  "abilities": []
+}

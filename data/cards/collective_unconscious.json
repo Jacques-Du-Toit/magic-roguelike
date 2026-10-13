@@ -1,0 +1,26 @@
+{
+  "id": "collective_unconscious",
+  "name": "Collective Unconscious",
+  "mana_cost": "{4}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Draw a card for each creature you control.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1,
+          "for_each": "creature_you_control"
+        }
+      ]
+    }
+  ]
+}

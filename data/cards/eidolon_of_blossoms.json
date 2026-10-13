@@ -1,0 +1,35 @@
+{
+  "id": "eidolon_of_blossoms",
+  "name": "Eidolon of Blossoms",
+  "mana_cost": "{2}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Enchantment",
+    "Creature"
+  ],
+  "subtypes": [
+    "Spirit"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "rare",
+  "oracle_text": "Constellation — Whenever this creature or another enchantment you control enters, draw a card.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "enchantment_you_control"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

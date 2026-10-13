@@ -92,6 +92,11 @@ pub fn validate_emblem(emblem: &EmblemDef) -> Result<(), EmblemError> {
             AbilityDef::Static(StaticAbility::CantBeBlockedByPower { .. }) => {
                 return Err(EmblemError::UnsupportedAbility("cant_be_blocked_by_power"));
             }
+            AbilityDef::Static(StaticAbility::WeakerCreaturesCantBlock {}) => {
+                return Err(EmblemError::UnsupportedAbility(
+                    "weaker_creatures_cant_block",
+                ));
+            }
             AbilityDef::Static(StaticAbility::ExtraCounters { .. }) => {
                 return Err(EmblemError::UnsupportedAbility("extra_counters"));
             }
