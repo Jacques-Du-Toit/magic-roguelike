@@ -6,7 +6,7 @@ Guidance for AI assistants working in this repository. Read this first, every se
 
 A **Magic: The Gathering roguelike**: real MTG duels (stack, instants, combat, keywords) wrapped in a Slay the Spire–style run. You follow a branching map, win duels, pick cards and relics, and build a deck toward an archetype across three acts.
 
-Current status: **early prototype**. See `docs/ROADMAP.md` for the active milestone. Only build what the active milestone needs.
+Current status: **early prototype**: one act, one character (the Warden). See `docs/ROADMAP.md` for the active milestone and the backlog. Only build what the task in hand needs.
 
 Priorities: reach a playable version quickly, without closing off a maintainable, scalable, feature-rich game later. When the two pull apart, make the cheap structural choice now and defer the feature.
 
@@ -15,7 +15,9 @@ Priorities: reach a playable version quickly, without closing off a maintainable
 | Doc | Read it when |
 |---|---|
 | `docs/GAME_DESIGN.md` | You need the long-term vision. Most of it is NOT in scope for the prototype. |
-| `docs/ROADMAP.md` | Deciding what to build next. Milestones have acceptance criteria. |
+| `docs/ROADMAP.md` | Deciding what to build next. It holds the backlog: one brief per task, each meant for a session of its own. |
+| `docs/HISTORY.md` | You need what an earlier milestone or slice built, or a sim number measured then. A finished slice's note goes here. |
+| `docs/BALANCE_REPORT.md` | Touching the Warden's pool, the enemies or the relics: what was measured, tried and left open. |
 | `docs/ARCHITECTURE.md` | Touching code structure, the engine API, or the card data format. |
 | `docs/RULES_SCOPE.md` | Implementing any MTG rule. Lists what's in, simplified, and out. |
 | `docs/TECH_STACK.md` | Setting up tools, building, running, deploying. |

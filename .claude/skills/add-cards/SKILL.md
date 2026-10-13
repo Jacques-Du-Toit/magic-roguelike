@@ -70,6 +70,6 @@ Before committing, update:
 
 - `docs/ARCHITECTURE.md` section 4, for anything new the data format can say;
 - `docs/DECISIONS.md`, one row for the package: the cards, any rule exception, the spares;
-- `docs/ROADMAP.md`, a short note for the slice with the counts and the sim numbers.
+- `docs/HISTORY.md`, a short note for the slice with the counts and the sim numbers, and the line of `docs/ROADMAP.md` it changes.
 
 Commit with a message written to a file (`git commit -F`), and push.

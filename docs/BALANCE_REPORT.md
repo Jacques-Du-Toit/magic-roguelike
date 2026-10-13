@@ -1,6 +1,6 @@
 # Balance report: the Warden's first act
 
-One overnight session (2026-10-13) on the branch `balance-lab`. Everything here is a proposal: `DECISIONS.md` and `ROADMAP.md` are untouched, and nothing is on `main`.
+One overnight session (2026-10-13) on the branch `balance-lab`, written as a proposal. It has since been merged as the working baseline (`DECISIONS.md` #70) and played; section 11 says which of its questions the owner has answered. Card upgrades came after it and are not in its numbers.
 
 ## 1. In short
 
@@ -522,6 +522,8 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 - **Auras with Celestial Ancient and Knightly Valor** in place of the Hawks' slots: 74.7.
 
 ## 11. Questions that are yours
+
+Answered since, after the owner played it (2026-10-13). **1:** the boss at 50 life is fine (`DECISIONS.md` #73); later enemies may get more life too (`ROADMAP.md`, backlog 6). **2:** the Pyre stays for now; a more conditional emblem, or a 1/1 that attacks each turn in place of the drain, is to be tried, and the boss should be shown on the map (backlog 5 and 3). **12:** the Firebrand is parked (#71). The rest are open (backlog 10). New from that playtest: elites are very hard (backlog 4).
 
 1. **The boss at 50 life.** You said to use real decks, not extra life. I kept to that for 18 enemies and broke it for the boss, where life turned out to be the one lever that hurts a random deck four times as much as a focused one. Is a 50-life boss with a 1-a-turn drain the fight you want? The table: 20 life, ideal 88.8 / random 68.3; 30, 87.0 / 55.7; 35, 86.6 / 46.8; 40, 85.4 / 42.5; 45, 84.2 / 37.3 (single duels against it). The floor at 34% needs about 50.
 2. **The Pyre makes lifegain the answer.** Every package's best list leans on its lifegain bridge, and three of the five hold two Healer's Hawks. That reads as "every deck splashes the same white common", which is not five packages. Do you want a boss that asks one question of every deck, or should the drain go and something else separate (and then what)? A second boss with a different question would fix it too.

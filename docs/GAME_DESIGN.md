@@ -60,7 +60,7 @@ Future idea, not planned: a **separate land deck**, where lands live in their ow
 ### 4.2 Deck size
 
 Small decks so each pick shows up in games.
-- Starting deck: ~15 spells + ~10 lands.
+- Starting deck: the Warden's is 10 spells and 7 lands (it began at 15 and 10).
 - No hard maximum, but adding cards dilutes; card removal is a valued service.
 - **Fatigue**: running out of cards doesn't lose the game. If you would draw from an empty library, you lose 1 life instead, then 2 the next time, then 3, and so on.
 
@@ -87,7 +87,7 @@ These are original characters (or generic archetypes) — not MTG's named planes
 
 | Node | What happens |
 |---|---|
-| **Duel** | Normal opponent. Win: pick 1 of 3 cards (rarity-weighted) + gold. |
+| **Duel** | Normal opponent, with two feats picked beforehand (§3.2). Win: gold and a pick from 2 to 4 cards, by how the feats went. |
 | **Elite** | Stronger deck. Win: relic + card pick. Loss: a wound, no relic. |
 | **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. |
 | **Draft** | Open a pack of five cards in your colours and keep up to two. Built (`DECISIONS.md` #57). |
@@ -169,7 +169,7 @@ Keep it light; avoid permanent power creep.
 
 From the owner's M3 playtest (2026-10-11), the direction to explore once saving exists (M5):
 
-- **Commanders.** The character could be a commander: a legendary creature the player can cast from the command zone, with decks tied to it. An enemy's commander would also hint at what its deck does. A prototype was built after M4a (`DECISIONS.md` #45, #46): each character has a commander in its colours and picks a starting emblem to go with it, and elites and the boss have commanders too. Whether it stays is decided before M4c (`DECISIONS.md` #37).
+- **Commanders.** The character could be a commander: a legendary creature the player can cast from the command zone, with decks tied to it. An enemy's commander would also hint at what its deck does. A prototype was built after M4a (`DECISIONS.md` #45, #46): each character has a commander in its colours and picks a starting emblem to go with it, and elites and the boss have commanders too. Commanders stay (`DECISIONS.md` #55); the starting emblems were taken out again in the balance pass (#70).
 - **AI that grows.** Enemies could play more competently as the run goes on. For now they all play at one strength.
 - **Unlocks by achievement.** New commanders unlocked by completing achievements; their alternative decks and skills by completing goals of their own.
 - **A small skill tree per commander**, outside the run, that changes its abilities slightly: a little roguelite, not a power ladder.
@@ -203,4 +203,6 @@ From the owner's M3 playtest (2026-10-11), the direction to explore once saving 
 
 - Self-mill in a 25-card deck runs into fatigue (seen in the M4a sim). What makes a graveyard deck worth it here?
 
-Settled for the one-act prototype (see `DECISIONS.md` #22 to #31): rest sites heal a wound (at first, restored a heart) or remove a card; elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.
+Settled for the one-act prototype (see `DECISIONS.md`): rest sites heal a wound or upgrade a card (#72); elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols.
+
+Under discussion after the owner's playtest of 2026-10-13, each with a brief in `ROADMAP.md`: the player always going first and stronger land smoothing; a rest healing every wound, and wounds of several kinds; the boss and the elites' commanders shown on the map; easier early elites; a different question from the Pyre, and more bosses; more life for later enemies and for the player; potions; lands apart from card rewards, with a way to adjust them.
