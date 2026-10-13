@@ -47,7 +47,7 @@ export function CardFrame({ def, size = 'normal', power, toughness, children }: 
   const shownToughness = toughness ?? def.toughness
   const modified = shownPower !== def.power || shownToughness !== def.toughness
   return (
-    <div className={`card card-${size} ${frameClass(def)}`}>
+    <div className={`card card-${size} ${frameClass(def)}${def.upgrade_of ? ' card-upgraded' : ''}`}>
       <div className="card-title">
         <span className="card-name">{def.name}</span>
         <ManaCost cost={def.mana_cost} />

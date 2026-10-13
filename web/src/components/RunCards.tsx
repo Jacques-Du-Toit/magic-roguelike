@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import type { CardDef } from '../engine/types/CardDef.ts'
 import type { RunView } from '../engine/types/RunView.ts'
+import { playedAs, upgradeChange } from '../run/describe.ts'
 import { CardFrame } from './Card.tsx'
 import { Overlay } from './Overlays.tsx'
 import { usePreview } from './usePreview.ts'
@@ -52,18 +53,26 @@ interface DeckViewProps {
   /** Called with a card's position in the deck. Only those listed can be picked. */
   onPick?: (index: number) => void
   pickable?: ReadonlySet<number>
+  /** Show each card that can be picked as its upgraded side, with what changes. */
+  upgrades?: boolean
   onClose: () => void
 }
 
 /**
  * The player's deck: every spell and non-basic land, and the basic lands
- * the game adds. Also used to choose a card to remove.
+ * the game adds. Also used to choose a card to remove or to upgrade.
  */
-export function DeckView({ view, cards, title, hint, onPick, pickable, onClose }: DeckViewProps) {
+export function DeckView({ view, cards, title, hint, onPick, pickable, upgrades, onClose }: DeckViewProps) {
   const basics = view.basic_lands.reduce((sum, entry) => sum + entry.count, 0)
   // Cheapest first, but each card keeps its position in the deck.
   const order = view.deck
-    .map((instance, index) => ({ index, def: cards.get(instance.card_id) }))
+    .map((instance, index) => {
+      const def = playedAs(cards, instance)
+      const side = upgrades && pickable?.has(index) && def?.upgrade ? cards.get(def.upgrade) : undefined
+      return side && def
+        ? { index, def: side, change: upgradeChange(def, side) }
+        : { index, def, change: undefined }
+    })
     .sort(
       (a, b) =>
         (a.def?.mana_cost.length ?? 0) - (b.def?.mana_cost.length ?? 0) ||
@@ -77,12 +86,18 @@ export function DeckView({ view, cards, title, hint, onPick, pickable, onClose }
         {hint ? ` ${hint}` : ''}
       </p>
       <div className="card-grid" data-testid="deck-cards">
-        {order.map(({ index, def }) => (
+        {order.map(({ index, def, change }) => (
           <RunCard
             key={index}
             def={def}
             onPick={onPick && pickable?.has(index) ? () => onPick(index) : undefined}
-          />
+          >
+            {change && (
+              <span className="upgrade-change muted" data-testid="upgrade-change">
+                {change}
+              </span>
+            )}
+          </RunCard>
         ))}
       </div>
       <p>

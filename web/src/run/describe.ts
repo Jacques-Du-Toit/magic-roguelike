@@ -2,6 +2,7 @@
 // Display only: nothing here decides anything about the run.
 
 import type { CardDef } from '../engine/types/CardDef.ts'
+import type { CardInstance } from '../engine/types/CardInstance.ts'
 import type { FeatDef } from '../engine/types/FeatDef.ts'
 import type { FeatReward } from '../engine/types/FeatReward.ts'
 import type { ModifierDef } from '../engine/types/ModifierDef.ts'
@@ -17,6 +18,26 @@ export interface RunNames {
 
 export function cardName(names: RunNames, id: string): string {
   return names.cards.get(id)?.name ?? id
+}
+
+/** The card a copy in the deck is played as: its upgraded side, if it has been upgraded. */
+export function playedAs(
+  cards: ReadonlyMap<string, CardDef>,
+  instance: CardInstance,
+): CardDef | undefined {
+  const def = cards.get(instance.card_id)
+  return instance.upgraded && def?.upgrade ? cards.get(def.upgrade) : def
+}
+
+/** What an upgraded side changes, in a few words, for under the card. */
+export function upgradeChange(card: CardDef, side: CardDef): string {
+  const changes: string[] = []
+  if (side.mana_cost !== card.mana_cost) changes.push(`costs ${side.mana_cost}, not ${card.mana_cost}`)
+  if (side.power !== card.power || side.toughness !== card.toughness) {
+    changes.push(`${side.power}/${side.toughness}, not ${card.power}/${card.toughness}`)
+  }
+  if (side.oracle_text !== card.oracle_text) changes.push('new text')
+  return changes.join('; ')
 }
 
 export function enemyName(names: RunNames, id: string): string {
@@ -72,7 +93,7 @@ export const NODE_LABEL: Record<NodeKind, { name: string; symbol: string; about:
     symbol: '☠',
     about: 'A stronger opponent. Win for a relic, gold and a card.',
   },
-  rest: { name: 'Rest', symbol: '⛺', about: 'Heal a wound or remove a card.' },
+  rest: { name: 'Rest', symbol: '⛺', about: 'Heal a wound or upgrade a card.' },
   shop: { name: 'Shop', symbol: '◈', about: 'Buy cards, a land or a relic, or pay to remove a card.' },
   draft: { name: 'Draft', symbol: '❖', about: 'Open a pack of five cards and keep up to two.' },
   treasure: { name: 'Treasure', symbol: '✦', about: 'Take one of two relics, or gold instead.' },
@@ -141,6 +162,10 @@ export function describeRunEvent(event: RunEvent, names: RunNames): string | nul
       return `${cardName(names, event.card)} joins your deck.`
     case 'card_removed':
       return `${cardName(names, event.card)} leaves your deck.`
+    case 'card_upgraded': {
+      const side = names.cards.get(event.card)?.upgrade
+      return `${cardName(names, event.card)} is upgraded${side ? ` to ${cardName(names, side)}` : ''}.`
+    }
     case 'next_duel_modified': {
       const modifier = nextDuelDef(names, event.modifier)
       return modifier ? `${modifier.name}: ${modifier.text}` : 'Your next duel is changed.'

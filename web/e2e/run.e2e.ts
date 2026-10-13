@@ -61,6 +61,8 @@ interface Seen {
   duelsWithFeats: number
   /** Whether a wound was ever carried. */
   wounded: boolean
+  /** Whether a card was upgraded at a rest site. */
+  upgraded: boolean
   /** Duels in which the enemy showed a commander. */
   enemyCommanders: number
   /** The names of the events met. */
@@ -164,17 +166,33 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
       return true
     }
     case 'rest': {
-      // A wound is healed if there is one: the side panel loses it.
+      // The first rest upgrades a card, if any can be (only the Warden's
+      // have upgraded sides so far). After that a wound is healed if there
+      // is one: the side panel loses it.
       const heal = page.getByTestId('rest-heal').first()
-      if (await heal.isEnabled()) {
+      const canUpgrade = await page.getByTestId('rest-upgrade').isEnabled()
+      if ((await heal.isEnabled()) && (seen.upgraded || !canUpgrade)) {
         const carried = await page.getByTestId('wound').count()
         await heal.click()
         await expect(page.getByTestId('wound')).toHaveCount(carried - 1)
         await expect(page.getByTestId('news')).toContainText('is healed.')
+      } else if (!canUpgrade) {
+        await page.getByTestId('leave').click()
       } else {
-        await page.getByTestId('rest-remove').click()
-        const deck = page.getByRole('dialog', { name: 'Remove a card' })
-        await deck.getByRole('button').first().click()
+        // A card is upgraded: the picker shows what each would become, and
+        // the deck then shows the one picked as its upgraded side.
+        await page.getByTestId('rest-upgrade').click()
+        const picker = page.getByRole('dialog', { name: 'Upgrade a card' })
+        await expect(picker.getByTestId('upgrade-change').first()).not.toBeEmpty()
+        if (!seen.upgraded) await shot(page, 'run-upgrade')
+        await picker.locator('.run-card-button').first().click()
+        await expect(picker).toBeHidden()
+        await expect(page.getByTestId('news')).toContainText('is upgraded to')
+        seen.upgraded = true
+        await page.getByTestId('open-deck').click()
+        const deck = page.getByRole('dialog', { name: 'Your deck' })
+        expect(await deck.locator('.card-upgraded').count()).toBeGreaterThan(0)
+        await page.getByTestId('close-deck').click()
         await expect(deck).toBeHidden()
       }
       return true
@@ -204,6 +222,7 @@ async function playRun(page: Page, well: boolean): Promise<Seen> {
     duels: 0,
     duelsWithFeats: 0,
     wounded: false,
+    upgraded: false,
     enemyCommanders: 0,
     events: [],
   }
@@ -458,6 +477,8 @@ for (const [planeswalker, seed, event] of ACTS) {
     // Every duel but the boss's had its two feats.
     expect(seen.duelsWithFeats).toBe(seen.duels - 1)
     if (event) expect(seen.events).toContain(event)
+    // The Warden's cards have upgraded sides; the Firebrand's don't yet.
+    expect(seen.upgraded).toBe(planeswalker === 'warden')
     expect([...seen.nodes]).toEqual(expect.arrayContaining(['duel', 'elite', 'boss']))
     // The elite and the boss each brought a commander.
     expect(seen.enemyCommanders).toBeGreaterThanOrEqual(2)

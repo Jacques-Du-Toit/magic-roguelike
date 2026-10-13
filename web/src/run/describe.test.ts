@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { cardDefs, runContent } from '../engine/index.ts'
 import { loadWasmForTests } from '../engine/testSupport.ts'
 import type { RunEvent } from '../engine/types/RunEvent.ts'
-import { type RunNames, describeRunEvents, featRewardText, featText } from './describe.ts'
+import {
+  type RunNames,
+  describeRunEvents,
+  featRewardText,
+  featText,
+  playedAs,
+  upgradeChange,
+} from './describe.ts'
 
 loadWasmForTests()
 
@@ -47,6 +54,23 @@ describe('describeRunEvents', () => {
     ])
   })
 
+  it('shows an upgraded copy as its upgraded side, and says what changes', () => {
+    const { cards } = names()
+    const side = (id: string) => cards.get(cards.get(id)?.upgrade ?? '')
+    expect(playedAs(cards, { card_id: 'glory_seeker', upgraded: false })?.name).toBe('Glory Seeker')
+    expect(playedAs(cards, { card_id: 'glory_seeker', upgraded: true })?.name).toBe('Glory Seeker+')
+    const change = (id: string) => {
+      const [card, upgraded] = [cards.get(id), side(id)]
+      return card && upgraded && upgradeChange(card, upgraded)
+    }
+    expect(change('glory_seeker')).toBe('3/3, not 2/2')
+    expect(change('grizzly_bears')).toBe('costs {G}, not {1}{G}')
+    expect(change('raise_the_alarm')).toBe('new text')
+    expect(change('siege_mastodon')).toBe('4/6, not 3/5; new text')
+    // A card with no upgraded side is itself either way.
+    expect(playedAs(cards, { card_id: 'shock', upgraded: true })?.name).toBe('Shock')
+  })
+
   it('tells the story of a duel lost', () => {
     const events: RunEvent[] = [
       { type: 'duel_ended', enemy: 'forest_pack', kind: 'normal', outcome: 'lost' },
@@ -65,6 +89,7 @@ describe('describeRunEvents', () => {
       { type: 'card_added', card: 'grizzly_bears' },
       { type: 'relic_gained', relic: 'war_banner' },
       { type: 'card_removed', card: 'shock' },
+      { type: 'card_upgraded', card: 'grizzly_bears' },
       { type: 'wound_healed', wound: 'festering_wound' },
       { type: 'feats_offered', enemy: 'goblin_raid', kind: 'normal' },
       { type: 'run_ended', won: true },
@@ -74,6 +99,7 @@ describe('describeRunEvents', () => {
       'Grizzly Bears joins your deck.',
       'You gain a relic: War Banner. Creatures you control get +1/+0.',
       'Shock leaves your deck.',
+      'Grizzly Bears is upgraded to Grizzly Bears+.',
       'Your Festering Wound is healed.',
     ])
   })

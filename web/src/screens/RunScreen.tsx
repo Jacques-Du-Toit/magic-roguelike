@@ -81,6 +81,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   const [duel, setDuel] = useState<RunDuel | null>(null)
   const [deckOpen, setDeckOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [upgrading, setUpgrading] = useState(false)
   // The option of an event that a card of the deck is being chosen for.
   const [picking, setPicking] = useState<number | null>(null)
   // The feats ticked so far before a duel: their places among those offered.
@@ -119,6 +120,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
     }
     setError(null)
     setRemoving(false)
+    setUpgrading(false)
     setPicking(null)
     setTicked([])
     // A duel that has been left, or replaced by a rematch, is over.
@@ -199,8 +201,11 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   const removable = new Set(
     actions.flatMap((action) => (action.type === 'remove_card' ? [action.card] : [])),
   )
+  const upgradable = new Set(
+    actions.flatMap((action) => (action.type === 'upgrade_card' ? [action.card] : [])),
+  )
   const basics = view.basic_lands.reduce((sum, entry) => sum + entry.count, 0)
-  const here = view.map.nodes.find((node) => node.id === view.path.at(-1))
+  const here =view.map.nodes.find((node) => node.id === view.path.at(-1))
 
   let title: string
   let body: ReactNode
@@ -496,13 +501,15 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
           })}
           <button
             type="button"
-            disabled={removable.size === 0}
-            onClick={() => setRemoving(true)}
-            data-testid="rest-remove"
+            disabled={upgradable.size === 0}
+            onClick={() => setUpgrading(true)}
+            data-testid="rest-upgrade"
           >
-            Remove a card from your deck
+            Upgrade a card
             <span className="muted">
-              {removable.size === 0 ? ' Your deck is too small.' : ' A leaner deck draws its best cards more often.'}
+              {upgradable.size === 0
+                ? ' You have none left to upgrade.'
+                : ' It becomes its upgraded side for the rest of the run.'}
             </span>
           </button>
           <button type="button" className="primary" onClick={() => send({ type: 'leave' })} data-testid="leave">
@@ -758,8 +765,20 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
           onClose={() => setPicking(null)}
         />
       )}
-      {deckOpen && !removing && picking === null && (
+      {deckOpen && !removing && !upgrading && picking === null && (
         <DeckView view={view} cards={cards} title="Your deck" onClose={() => setDeckOpen(false)} />
+      )}
+      {upgrading && (
+        <DeckView
+          view={view}
+          cards={cards}
+          title="Upgrade a card"
+          hint="The cards you can upgrade are shown as they would become. Click one to upgrade it."
+          pickable={upgradable}
+          upgrades
+          onPick={(card) => send({ type: 'upgrade_card', card })}
+          onClose={() => setUpgrading(false)}
+        />
       )}
       {removing && (
         <DeckView
