@@ -407,7 +407,7 @@ Thirteen are offered; two are held back. Tiers are my suggestion and exist nowhe
 | Relic | Text | Glue | Suggested tier | Change |
 |---|---|---|---|---|
 | Traveller's Rations | Start each duel with 3 more life | any | common | |
-| Rally Horn | Start each duel with a 1/1 Soldier | wide | common | |
+| Rally Horn | The first creature token to enter each turn brings a 1/1 Soldier with it | wide | common | **Was** a 1/1 Soldier at the start of every duel (+10, +/- 4, in a single duel: the strongest of the small relics) |
 | Pilgrim's Flask | First life gained each turn: scry 1 | lifegain | common | |
 | Soothing Spring | The first time you gain life each turn, gain 1 more | lifegain | common | **Was** 1 life every upkeep (+16 points by your measure, +23 in a single duel) |
 | Beast Tamer's Whistle | A creature of power 4 or more enters: gain 2 | big + lifegain | common | |
@@ -415,7 +415,7 @@ Thirteen are offered; two are held back. Tiers are my suggestion and exist nowhe
 | Weaver's Thread | First Aura spell each turn: gain 2 | auras + lifegain | common | **New** |
 | Sentinel's Horn | Your creatures with a +1/+1 counter have vigilance | counters | common | **Was** vigilance for every creature |
 | Whetstone | The first creature token to enter each turn gets a +1/+1 counter | wide + counters | rare | **Was** the first creature of any kind (+26 in a single duel) |
-| Drover's Bell | A creature of power 4 or more enters: a 1/1 Soldier | big + wide | rare | **New** |
+| Drover's Bell | The first creature of power 4 or more to enter each turn: a 1/1 Soldier | big + wide | rare | **New** |
 | Anointing Oil | First life gained each turn: a counter on each creature of yours that has one | lifegain + counters | rare | **New** |
 | Lucky Coin | 10 more gold a duel won | the run | common | |
 | Merchant's Ledger | Shop prices 20% lower | the run | common | |
@@ -475,6 +475,7 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 - **Engines in AI hands.** Cathars' Crusade costs the wide and counters decks 4 to 5 points against a Grizzly Bears in its place; Hardened Scales, High Sentinels, Ridgescale Tusker and Abzan Falconer are worth no more than the Bears. I left them in the pool, because this is the AI's limit and not the cards'.
 - **Yavimaya Enchantress and Battle Mastery in the auras deck**: 6 points worse than the hexproof Gladecover Scouts they replaced.
 - **New rares in the lists.** Avatar of the Resolute and Inspiring Call (counters), Overwhelming Stampede (big), Jade Mage and Angel of Renewal (wide) changed nothing measurable (150 runs, +/- 7). Daybreak Coronet and Kor Spiritdancer in place of Unflinching Courage did help auras (80 to 85 on 150 runs; 80.3 on 300).
+- **A relic without "once a turn".** Drover's Bell first read "whenever a creature with power 4 or greater enters". Under Collective Blessing its own Soldier is a 4/4, so it rang itself for ever; one sim game sat on that for 20 minutes. It is once a turn now, with a test, and the sim stops any single duel with more than 90 permanents on the battlefield.
 - **Three counters lists** (the current one; a hybrid with Celestial Unicorn and both Falconers; one with both Tuskers): 77.7, 71.0 and 77.0 on 300 runs each.
 
 ## 11. Questions that are yours

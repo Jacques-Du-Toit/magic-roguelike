@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::time::Instant;
 
+use engine::balance::SimBalance;
 use engine::cards::CardDefId;
 use engine::data;
 use engine::duel::{CardInstance, DuelRng, GameResult};
@@ -43,6 +44,9 @@ pub struct RunRecord {
     pub wounds_at_boss: u32,
     /// Duels lost that left a wound, healed since or not.
     pub wounds_taken: u32,
+    /// Duels given up as stalemates: past the sim's turn cap, or with more
+    /// permanents on the battlefield than its board cap. Each is a loss.
+    pub stalled: u32,
     /// `[normal, elite, boss]`: duels played and duels won.
     pub duels: [u32; 3],
     pub wins: [u32; 3],
@@ -147,8 +151,12 @@ pub fn play_run_with(
     policy: &Policy,
     timing: &mut Timing,
 ) -> Result<RunRecord, String> {
+    let limits = &data::embedded()
+        .map_err(|error| error.to_string())?
+        .balance
+        .sim;
     let started = Instant::now();
-    let result = play(planeswalker, seed, ais, policy, timing);
+    let result = play(planeswalker, seed, ais, policy, limits, timing);
     timing.played(started.elapsed());
     result
 }
@@ -175,6 +183,7 @@ fn play(
     seed: u64,
     ais: [AiKind; 2],
     policy: &Policy,
+    limits: &SimBalance,
     timing: &mut Timing,
 ) -> Result<RunRecord, String> {
     let config = RunConfig {
@@ -199,7 +208,15 @@ fn play(
             record.gold_left = state.gold;
             return Ok(record);
         }
-        if let Some(duel) = state.duel.as_ref().filter(|duel| duel.result.is_none()) {
+        // A stalemate (too many turns, or a battlefield too crowded for the
+        // AI to think about) is given up: the player concedes, so that one
+        // stuck duel can't hold a whole table of runs up.
+        let playing = state.duel.as_ref().filter(|duel| duel.result.is_none());
+        let stalled = playing.is_some_and(|duel| {
+            duel.turn > limits.turn_cap
+                || u32::try_from(duel.battlefield.len()).unwrap_or(u32::MAX) > limits.board_cap
+        });
+        if let Some(duel) = playing.filter(|_| !stalled) {
             let player = duel
                 .waiting_on()
                 .ok_or("a duel has no result and waits on nobody")?;
@@ -220,7 +237,12 @@ fn play(
         if actions.is_empty() {
             return Err(format!("nothing to do in {:?}", state.phase));
         }
-        let action = choose(&state, &actions, &mut choices, policy);
+        let action = if stalled {
+            record.stalled += 1;
+            RunAction::Concede
+        } else {
+            choose(&state, &actions, &mut choices, policy)
+        };
         // A duel won, the boss's aside: what it would have scored on every
         // feat, read before the run takes the duel away.
         let won = matches!(
@@ -355,6 +377,13 @@ pub fn format_runs(planeswalker: &str, results: &[(u64, Result<RunRecord, String
             average(played, runs)
         );
     }
+    let stalled = sum(|record| record.stalled);
+    if stalled > 0 {
+        let _ = writeln!(
+            out,
+            "  {stalled} duels were given up as stalemates and counted as lost"
+        );
+    }
     let _ = writeln!(
         out,
         "  Per run: {} cards added, {} relics, {} gold unspent",
@@ -468,12 +497,35 @@ mod tests {
     }
 
     #[test]
+    fn a_stalled_duel_is_conceded_so_that_the_run_goes_on() {
+        // With a board cap of one permanent every duel "stalls" at once.
+        let mut limits = data::embedded().unwrap().balance.sim.clone();
+        limits.board_cap = 1;
+        let record = play(
+            "warden",
+            3,
+            [AiKind::Heuristic; 2],
+            &Policy::default(),
+            &limits,
+            &mut Timing::default(),
+        )
+        .unwrap();
+        // Three duels given up are three wounds, and the run is over.
+        assert_eq!(record.stalled, 3);
+        assert_eq!(record.wounds_taken, 3);
+        assert!(!record.won && !record.reached_boss);
+        // With the real limits the same run stalls nowhere.
+        assert_eq!(play_run("warden", 3).unwrap().stalled, 0);
+    }
+
+    #[test]
     fn the_report_adds_runs_up() {
         let won = RunRecord {
             won: true,
             reached_boss: true,
             wounds_at_boss: 2,
             wounds_taken: 3,
+            stalled: 0,
             duels: [4, 1, 1],
             wins: [3, 1, 1],
             cards_added: 5,
