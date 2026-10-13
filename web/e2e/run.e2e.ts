@@ -159,7 +159,7 @@ async function runStep(page: Page, seen: Seen): Promise<boolean> {
         // One of the two relics, for a wound.
         await expect(page.getByTestId('relic')).toHaveCount(relics + 1)
         await expect(page.getByTestId('wounds')).not.toHaveText(wounds)
-        await expect(page.getByTestId('news')).toContainText('You take a wound: Festering Wound.')
+        await expect(page.getByTestId('news')).toContainText('You take a wound: ')
       }
       await expect(run(page)).toHaveAttribute('data-phase', 'map')
       await expect(page.getByTestId('news')).not.toBeEmpty()
@@ -239,8 +239,8 @@ async function playRun(page: Page, well: boolean): Promise<Seen> {
       const feats = await page.getByTestId('duel-feat').count()
       expect([0, 2]).toContain(feats)
       if (feats === 2) seen.duelsWithFeats += 1
-      // A wound carried is on the battlefield from the start.
-      if (await page.locator('.permanent-slot[data-card="festering_wound"]').first().isVisible()) {
+      // A wound carried is named in the duel from the start, with its text.
+      if (await page.getByTestId('duel-wound').first().isVisible()) {
         if (!seen.wounded) await shot(page, 'run-duel-wounded')
         seen.wounded = true
       }
@@ -336,20 +336,23 @@ test('feats are picked before a duel, and a duel conceded leaves a wound', async
   // A wound, and a smaller reward than a win's.
   await expect(run(page)).toHaveAttribute('data-phase', 'reward')
   await expect(page.getByTestId('wounds')).toContainText('1/3 wounds')
-  await expect(page.getByTestId('wound')).toContainText('Festering Wound')
+  // The wound has a name and a text of its own, in the side panel and the news.
+  const wound = await page.getByTestId('wound').locator('strong').innerText()
+  expect(wound).not.toEqual('')
   await expect(page.getByTestId('news')).toContainText('You lost to')
-  await expect(page.getByTestId('news')).toContainText('You take a wound: Festering Wound.')
+  await expect(page.getByTestId('news')).toContainText(`You take a wound: ${wound}.`)
   await expect(page.getByTestId('reward-card')).toHaveCount(2)
   await shot(page, 'run-wounded')
   await page.getByTestId('skip').click()
   await expect(run(page)).toHaveAttribute('data-phase', 'map')
   await expect(page.locator('.map-node-here')).toHaveCount(1)
 
-  // The wound is on the battlefield in the next duel, and can be paid off.
+  // The wound is named in the next duel, beside the feats.
   await page.locator('.map-node-open').first().click()
   await pickFeats(page)
   await idle(page).waitFor()
-  await expect(page.locator('.permanent-slot[data-card="festering_wound"]')).toHaveCount(1)
+  await expect(page.getByTestId('duel-wound')).toHaveCount(1)
+  await expect(page.getByTestId('duel-wound')).toContainText(wound)
   await expect(page.getByTestId('stakes')).toContainText('1 of 3 wounds')
   await page.getByRole('button', { name: 'Keep', exact: true }).click()
   await idle(page).waitFor()
@@ -415,7 +418,7 @@ test('a run played badly ends with one wound too many', async ({ page }) => {
   await expect(page.getByTestId('run-result')).not.toBeEmpty()
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(seen.duels).toBeGreaterThanOrEqual(3)
-  // Wounds were carried into later duels, where they sat on the battlefield.
+  // Wounds were carried into later duels, which named them.
   expect(seen.wounded).toBe(true)
   expect(seen.duelsWithFeats).toBeGreaterThanOrEqual(3)
   expect(errors).toEqual([])

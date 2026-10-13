@@ -78,6 +78,8 @@ export type DuelExit =
       kind: 'run'
       /** The player's wounds, in words. */
       wounds: string
+      /** Each wound carried into this duel: its name and what it does. */
+      carried: { name: string; text: string }[]
       /** What losing this duel costs, in words. */
       stakes: string
       /** The feats picked for this duel, as they stand now. None for the boss. */
@@ -246,6 +248,7 @@ export function DuelScreen({
   const { view, actions, busy, effects, info } = snapshot
   // Asked of the engine at every change of the duel: the score moves with it.
   const feats = exit.kind === 'run' ? exit.feats() : []
+  const wounds = exit.kind === 'run' ? exit.carried : []
 
   // What is being pointed at only makes sense for the actions it was started
   // under: any change of legal actions drops it.
@@ -714,24 +717,40 @@ export function DuelScreen({
         )}
       </div>
 
-      <aside className={feats.length > 0 ? 'duel-side duel-side-feats' : 'duel-side'}>
-        {feats.length > 0 && (
-          <section className="panel feats-panel" aria-label="Feats" data-testid="duel-feats">
-            <h2>Feats</h2>
-            <ul className="modifiers">
-              {feats.map((feat) => (
-                <li key={feat.id} className="modifier" data-testid="duel-feat" data-score={feat.score}>
-                  <strong>
-                    {feat.name}{' '}
-                    <span className={feat.score > 0 ? 'badge badge-granted' : 'badge'}>
-                      {feat.score} of {feat.tiers}
-                    </span>
-                  </strong>
-                  {feat.text}
-                </li>
-              ))}
-            </ul>
-            <p className="muted">What each would score if you won now.</p>
+      <aside className={feats.length + wounds.length > 0 ? 'duel-side duel-side-feats' : 'duel-side'}>
+        {feats.length + wounds.length > 0 && (
+          <section className="panel feats-panel" aria-label="Feats and wounds" data-testid="duel-feats">
+            {wounds.length > 0 && (
+              <>
+                <h2>Wounds</h2>
+                <ul className="modifiers">
+                  {wounds.map((wound, index) => (
+                    <li key={index} className="modifier" data-testid="duel-wound">
+                      <strong>{wound.name}</strong> {wound.text}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {feats.length > 0 && (
+              <>
+                <h2>Feats</h2>
+                <ul className="modifiers">
+                  {feats.map((feat) => (
+                    <li key={feat.id} className="modifier" data-testid="duel-feat" data-score={feat.score}>
+                      <strong>
+                        {feat.name}{' '}
+                        <span className={feat.score > 0 ? 'badge badge-granted' : 'badge'}>
+                          {feat.score} of {feat.tiers}
+                        </span>
+                      </strong>
+                      {feat.text}
+                    </li>
+                  ))}
+                </ul>
+                <p className="muted">What each would score if you won now.</p>
+              </>
+            )}
           </section>
         )}
         <StackPanel

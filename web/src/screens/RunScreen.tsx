@@ -186,6 +186,10 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         exit={{
           kind: 'run',
           wounds,
+          carried: view.wounds.flatMap((id) => {
+            const wound = woundDef(names, id)
+            return wound ? [{ name: wound.name, text: wound.text }] : []
+          }),
           stakes:
             phase.kind === 'boss' || view.wounds.length + 1 >= view.max_wounds
               ? 'Lose this duel and the run is over.'
@@ -735,7 +739,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
                   return wound && <Modifier key={index} def={wound} kind="wound" />
                 })}
               </ul>
-              <p className="muted">A rest site heals one.</p>
+              <p className="muted">A rest site heals them all.</p>
             </section>
           )}
         </aside>
