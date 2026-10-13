@@ -1,0 +1,31 @@
+{
+  "id": "inspiring_call",
+  "name": "Inspiring Call",
+  "mana_cost": "{2}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy them.)",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1,
+          "for_each": "creature_you_control_with_counter"
+        },
+        {
+          "type": "your_creatures_get_until_eot",
+          "keyword": "indestructible",
+          "with_counter": true
+        }
+      ]
+    }
+  ]
+}

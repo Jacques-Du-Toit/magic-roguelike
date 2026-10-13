@@ -219,6 +219,12 @@ fn creature_passes(
     if filter.with_counter && state.object(creature)?.plus_counters == 0 {
         return Ok(false);
     }
+    // "With another Aura attached to it": an Aura still to be cast needs
+    // one there; one already attached is checked against the others where
+    // Auras fall off (`damage.rs`).
+    if filter.enchanted && state.auras_on(creature)?.is_empty() {
+        return Ok(false);
+    }
     if let Some(controller) = filter.controller {
         let yours = state.object(creature)?.owner == player;
         if yours != (controller == ControlledBy::You) {

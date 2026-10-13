@@ -1,0 +1,24 @@
+{
+  "id": "avatar_of_the_resolute",
+  "name": "Avatar of the Resolute",
+  "mana_cost": "{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Avatar"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "rarity": "rare",
+  "keywords": [
+    "reach",
+    "trample"
+  ],
+  "oracle_text": "Reach, trample\nThis creature enters with a +1/+1 counter on it for each other creature you control with a +1/+1 counter on it.",
+  "enters_with_counters_for_each": "other_creature_you_control_with_counter",
+  "abilities": []
+}

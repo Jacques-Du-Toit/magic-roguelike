@@ -201,7 +201,11 @@ pub(crate) fn check_state_based_actions(
                 let attached_legally = match permanent.attached_to {
                     Some(object) => {
                         let target = Target::Object { object };
-                        fits_target_spec(state, permanent.owner, enchant, target)?
+                        // "With another Aura attached to it": another than
+                        // this one.
+                        let alone = matches!(enchant, crate::cards::TargetSpec::Creature(filter) if filter.enchanted)
+                            && state.auras_on(object)?.iter().all(|aura| *aura == id);
+                        !alone && fits_target_spec(state, permanent.owner, enchant, target)?
                     }
                     None => false,
                 };

@@ -788,7 +788,8 @@ mod tests {
             [
                 Effect::GainLife {
                     player: you,
-                    amount: 3
+                    amount: 3,
+                    for_each: None
                 },
                 Effect::DrawCards {
                     player: you,
@@ -823,7 +824,8 @@ mod tests {
             enters_effects("angel_of_mercy"),
             [Effect::GainLife {
                 player: you,
-                amount: 3
+                amount: 3,
+                for_each: None
             }]
         );
         assert_eq!(
@@ -835,7 +837,8 @@ mod tests {
                 },
                 Effect::GainLife {
                     player: you,
-                    amount: 2
+                    amount: 2,
+                    for_each: None
                 }
             ]
         );
@@ -845,7 +848,8 @@ mod tests {
             [
                 Effect::GainLife {
                     player: you,
-                    amount: 1
+                    amount: 1,
+                    for_each: None
                 },
                 Effect::DrawCards {
                     player: you,

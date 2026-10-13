@@ -572,3 +572,161 @@ fn benalish_marshal_gives_my_other_creatures_one_and_one() {
     assert_eq!(stats(&state, bears), (3, 3));
     assert_eq!(stats(&state, theirs), (3, 3));
 }
+
+// ---- A second batch: conditional rares and three uncommons ----
+
+#[test]
+fn daybreak_coronet_needs_another_aura_to_be_cast_and_to_stay() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 8);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    // A creature with no Aura on it can't be enchanted with it.
+    let coronet = put_in_hand(&mut state, me, "daybreak_coronet");
+    assert!(apply_action(&mut state, me, cast_at(coronet, at(bears))).is_err());
+
+    let favor = put_in_hand(&mut state, me, "divine_favor");
+    act(&mut state, me, cast_at(favor, at(bears)));
+    settle(&mut state);
+    assert_eq!(stats(&state, bears), (3, 5));
+    act(&mut state, me, cast_at(coronet, at(bears)));
+    settle(&mut state);
+    assert_eq!(stats(&state, bears), (6, 8));
+    for keyword in [Keyword::FirstStrike, Keyword::Vigilance, Keyword::Lifelink] {
+        assert!(state.has_keyword(bears, keyword).unwrap());
+    }
+    assert_eq!(state.auras_on(bears).unwrap().len(), 2);
+
+    // When the other Aura goes, the Coronet has no other Aura beside it
+    // and falls off the next time the game checks.
+    let favor = state.auras_on(bears).unwrap()[0];
+    state
+        .move_object(favor, super::state::Zone::Graveyard)
+        .unwrap();
+    play(&mut state, me, "glory_seeker");
+    assert!(state.auras_on(bears).unwrap().is_empty());
+    assert_eq!(stats(&state, bears), (2, 2));
+    assert_eq!(state.player(me).graveyard.len(), 2);
+    state.assert_consistent();
+}
+
+#[test]
+fn avatar_of_the_resolute_enters_with_a_counter_for_each_other_creature_with_one() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 6);
+    // With nothing to count it is a plain 3/2.
+    play(&mut state, me, "avatar_of_the_resolute");
+    let first = named(&state, me, "Avatar of the Resolute")[0];
+    assert_eq!(stats(&state, first), (3, 2));
+    assert!(state.has_keyword(first, Keyword::Reach).unwrap());
+    assert!(state.has_keyword(first, Keyword::Trample).unwrap());
+
+    // Two of my creatures with counters, one without, and the opponent's
+    // with one: the next Avatar enters with two.
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let seeker = put_on_battlefield(&mut state, me, "glory_seeker");
+    put_on_battlefield(&mut state, me, "centaur_courser");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    for creature in [bears, seeker, theirs] {
+        state.object_mut(creature).unwrap().plus_counters = 1;
+    }
+    play(&mut state, me, "avatar_of_the_resolute");
+    let second = named(&state, me, "Avatar of the Resolute")[1];
+    assert_eq!(stats(&state, second), (5, 4));
+    assert_eq!(state.object(second).unwrap().plus_counters, 2);
+}
+
+#[test]
+fn overwhelming_stampede_adds_the_greatest_power_to_each_of_my_creatures() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 5);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let baloth = put_on_battlefield(&mut state, me, "rumbling_baloth");
+    let theirs = put_on_battlefield(&mut state, opponent, "colossal_dreadmaw");
+    play(&mut state, me, "overwhelming_stampede");
+    // X is 4, the Baloth's power as the spell resolves: the opponent's 6/6
+    // doesn't count, and the Baloth's new power doesn't raise it again.
+    assert_eq!(stats(&state, bears), (6, 6));
+    assert_eq!(stats(&state, baloth), (8, 8));
+    assert_eq!(stats(&state, theirs), (6, 6));
+    assert!(state.has_keyword(bears, Keyword::Trample).unwrap());
+    pass_until(&mut state, 2, Step::Upkeep);
+    assert_eq!(stats(&state, bears), (2, 2));
+    assert!(!state.has_keyword(bears, Keyword::Trample).unwrap());
+}
+
+#[test]
+fn kor_spiritdancer_grows_with_its_auras_and_draws_for_each_aura_spell() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "plains", 8);
+    let dancer = put_on_battlefield(&mut state, me, "kor_spiritdancer");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    assert_eq!(stats(&state, dancer), (0, 2));
+    // An Aura on it: +2/+2 from the Spiritdancer, +1/+3 from Divine Favor,
+    // and a card for the spell.
+    let favor = put_in_hand(&mut state, me, "divine_favor");
+    act(&mut state, me, cast_at(favor, at(dancer)));
+    settle(&mut state);
+    assert_eq!(stats(&state, dancer), (3, 7));
+    assert_eq!(state.player(me).hand.len(), 1);
+    // An Aura on another creature draws too, and doesn't make it bigger.
+    let favor = put_in_hand(&mut state, me, "divine_favor");
+    act(&mut state, me, cast_at(favor, at(bears)));
+    settle(&mut state);
+    assert_eq!(stats(&state, dancer), (3, 7));
+    assert_eq!(state.player(me).hand.len(), 2);
+    // An enchantment that is no Aura draws nothing.
+    play(&mut state, me, "intangible_virtue");
+    assert_eq!(state.player(me).hand.len(), 2);
+}
+
+#[test]
+fn inspiring_call_draws_for_and_protects_the_creatures_with_counters() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 3);
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let seeker = put_on_battlefield(&mut state, me, "glory_seeker");
+    let plain = put_on_battlefield(&mut state, me, "centaur_courser");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    for creature in [bears, seeker, theirs] {
+        state.object_mut(creature).unwrap().plus_counters = 1;
+    }
+    play(&mut state, me, "inspiring_call");
+    assert_eq!(state.player(me).hand.len(), 2);
+    assert!(state.has_keyword(bears, Keyword::Indestructible).unwrap());
+    assert!(state.has_keyword(seeker, Keyword::Indestructible).unwrap());
+    assert!(!state.has_keyword(plain, Keyword::Indestructible).unwrap());
+    assert!(!state.has_keyword(theirs, Keyword::Indestructible).unwrap());
+    pass_until(&mut state, 2, Step::Upkeep);
+    assert!(!state.has_keyword(bears, Keyword::Indestructible).unwrap());
+}
+
+#[test]
+fn angel_of_renewal_gains_a_life_for_each_of_my_creatures() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "plains", 6);
+    put_on_battlefield(&mut state, me, "grizzly_bears");
+    put_on_battlefield(&mut state, me, "glory_seeker");
+    put_on_battlefield(&mut state, opponent, "hill_giant");
+    let life = state.player(me).life;
+    play(&mut state, me, "angel_of_renewal");
+    // The two that were there and the Angel itself.
+    assert_eq!(state.player(me).life, life + 3);
+    let angel = named(&state, me, "Angel of Renewal")[0];
+    assert_eq!(stats(&state, angel), (4, 4));
+    assert!(state.has_keyword(angel, Keyword::Flying).unwrap());
+}
+
+#[test]
+fn jade_mage_makes_a_saproling_for_three_mana() {
+    let (mut state, me, _) = empty_board(1);
+    put_lands(&mut state, me, "forest", 5);
+    let mage = put_on_battlefield(&mut state, me, "jade_mage");
+    assert_eq!(stats(&state, mage), (2, 1));
+    act(&mut state, me, ability(mage, 0, Vec::new()));
+    settle(&mut state);
+    let saprolings = named(&state, me, "Saproling");
+    assert_eq!(saprolings.len(), 1);
+    assert_eq!(stats(&state, saprolings[0]), (1, 1));
+    // Five lands pay for one: a second needs three more.
+    assert!(apply_action(&mut state, me, ability(mage, 0, Vec::new())).is_err());
+}

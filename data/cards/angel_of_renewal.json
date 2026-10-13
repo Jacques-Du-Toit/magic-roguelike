@@ -1,0 +1,39 @@
+{
+  "id": "angel_of_renewal",
+  "name": "Angel of Renewal",
+  "mana_cost": "{5}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel",
+    "Ally"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, you gain 1 life for each creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 1,
+          "for_each": "creature_you_control"
+        }
+      ]
+    }
+  ]
+}

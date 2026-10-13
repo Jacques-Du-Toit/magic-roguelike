@@ -1,0 +1,25 @@
+{
+  "id": "overwhelming_stampede",
+  "name": "Overwhelming Stampede",
+  "mana_cost": "{3}{G}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "rare",
+  "oracle_text": "Until end of turn, creatures you control gain trample and get +X/+X, where X is the greatest power among creatures you control.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "your_creatures_get_until_eot",
+          "keyword": "trample",
+          "greatest_power": true
+        }
+      ]
+    }
+  ]
+}

@@ -70,6 +70,10 @@ pub struct CardDef {
     /// `enters_tapped`.
     #[serde(default)]
     pub enters_with_counters: u32,
+    /// "This creature enters with a +1/+1 counter on it for each...": that
+    /// many more, counted as it enters.
+    #[serde(default)]
+    pub enters_with_counters_for_each: Option<Count>,
     /// "This spell can't be countered."
     #[serde(default)]
     pub cant_be_countered: bool,
@@ -323,6 +327,7 @@ pub enum Trigger {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum CastKind {
+    Aura,
     Enchantment,
     InstantOrSorcery,
     Noncreature,
@@ -476,9 +481,12 @@ pub enum Effect {
         #[serde(default)]
         for_each: Option<Count>,
     },
+    /// With `for_each`, `amount` life for each thing counted.
     GainLife {
         player: PlayerRef,
         amount: u32,
+        #[serde(default)]
+        for_each: Option<Count>,
     },
     /// The controller gains life equal to the power or toughness of the
     /// permanent the ability is on, or of the creature that set it off: as
@@ -534,6 +542,14 @@ pub enum Effect {
         /// "With toughness N or greater": only those.
         #[serde(default)]
         min_toughness: Option<i32>,
+        /// "With a +1/+1 counter on it": only those.
+        #[serde(default)]
+        with_counter: bool,
+        /// "+X/+X, where X is the greatest power among creatures you
+        /// control", on top of `power` and `toughness`. X is worked out
+        /// once, before any creature gets it.
+        #[serde(default)]
+        greatest_power: bool,
     },
     /// The controller puts a basic land card from their library onto the
     /// battlefield tapped, then shuffles. The game picks the land: one of
@@ -637,6 +653,8 @@ pub enum Count {
     CreatureYouControlWithCounter,
     /// Those with a +1/+1 counter other than the one the ability is on.
     OtherCreatureYouControlWithCounter,
+    /// The Auras attached to the permanent the ability is on.
+    AuraAttachedToThis,
     /// The +1/+1 counters the controller has put on their own creatures
     /// this turn.
     CounterPutThisTurn,
@@ -752,6 +770,11 @@ pub struct CreatureFilter {
     /// "With a +1/+1 counter on it".
     #[serde(default)]
     pub with_counter: bool,
+    /// "With another Aura attached to it": for what an Aura enchants. To
+    /// be cast it needs a creature that has an Aura; to stay it needs one
+    /// that has an Aura other than itself.
+    #[serde(default)]
+    pub enchanted: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -948,7 +971,9 @@ pub fn validate(card: &CardDef) -> Result<(), CardError> {
     if card.enters_tapped && !card.is_land() {
         return Err(CardError::EntersTapped);
     }
-    if card.enters_with_counters > 0 && !card.is_creature() {
+    let enters_with_counters =
+        card.enters_with_counters > 0 || card.enters_with_counters_for_each.is_some();
+    if enters_with_counters && !card.is_creature() {
         return Err(CardError::EntersWithCounters);
     }
 
@@ -1214,6 +1239,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
             power: 0,
             toughness: 0,
             keyword: None,
+            greatest_power: false,
             ..
         } => Err(CardError::ChangesNothing(effect.name())),
         _ => Ok(()),

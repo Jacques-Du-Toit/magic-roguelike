@@ -152,8 +152,13 @@ pub(crate) fn apply_effect(
                 draw_card(state, events, player)?;
             }
         }
-        Effect::GainLife { player, amount } => {
+        Effect::GainLife {
+            player,
+            amount,
+            for_each,
+        } => {
             let player = resolve_player(effect, player, controller, targets)?;
+            let amount = amount.saturating_mul(times(state, controller, for_each)?);
             let amount = i32::try_from(amount).unwrap_or(i32::MAX);
             change_life(state, events, player, amount, LifeCause::Other)?;
         }
@@ -302,9 +307,27 @@ pub(crate) fn apply_effect(
             toughness,
             keyword,
             min_toughness,
+            with_counter,
+            greatest_power,
         } => {
-            for permanent in state.creatures_of(controller)? {
+            let creatures = state.creatures_of(controller)?;
+            // "X is the greatest power among creatures you control", found
+            // before anything changes.
+            let mut greatest = 0;
+            if greatest_power {
+                for &creature in &creatures {
+                    greatest = greatest.max(state.power(creature)?);
+                }
+            }
+            let (power, toughness) = (
+                power.saturating_add(greatest),
+                toughness.saturating_add(greatest),
+            );
+            for permanent in creatures {
                 if min_toughness.is_some_and(|min| state.toughness(permanent).unwrap_or(0) < min) {
+                    continue;
+                }
+                if with_counter && state.object(permanent)?.plus_counters == 0 {
                     continue;
                 }
                 let creature = state.object_mut(permanent)?;

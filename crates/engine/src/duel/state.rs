@@ -810,6 +810,11 @@ impl DuelState {
                     }
                 }
             }
+            Count::AuraAttachedToThis => {
+                if let Some(source) = source {
+                    total = u32::try_from(self.auras_on(source)?.len()).unwrap_or(u32::MAX);
+                }
+            }
             Count::OtherCreatureWithFlying => {
                 for &id in &self.battlefield {
                     if source != Some(id)
@@ -834,6 +839,17 @@ impl DuelState {
             }
         }
         Ok(total)
+    }
+
+    /// The Auras attached to a permanent, in the order they entered.
+    pub(crate) fn auras_on(&self, permanent: ObjectId) -> Result<Vec<ObjectId>, InternalError> {
+        let mut auras = Vec::new();
+        for &id in &self.battlefield {
+            if self.object(id)?.attached_to == Some(permanent) && self.def(id)?.is_aura() {
+                auras.push(id);
+            }
+        }
+        Ok(auras)
     }
 
     /// `source` is the permanent the ability is on, if it is on one.
@@ -1030,7 +1046,16 @@ impl DuelState {
         }
         // "Enters with N +1/+1 counters on it."
         let mut object = object;
-        let counters = card_def(&object.def).map_or(0, |def| def.enters_with_counters);
+        let (mut counters, for_each) = card_def(&object.def).map_or((0, None), |def| {
+            (def.enters_with_counters, def.enters_with_counters_for_each)
+        });
+        // "...for each other creature you control with a counter": the new
+        // creature is not on the battlefield yet, so it is not counted.
+        if zone == Zone::Battlefield
+            && let Some(count) = for_each
+        {
+            counters = counters.saturating_add(self.count_for(owner, Some(id), count).unwrap_or(0));
+        }
         if zone == Zone::Battlefield && counters > 0 {
             let counters = counters.saturating_add(self.extra_counters(owner));
             object.plus_counters = object.plus_counters.saturating_add(counters);

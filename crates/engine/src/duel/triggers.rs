@@ -269,6 +269,7 @@ fn triggers_on(
         (Trigger::CastSpell { kind }, Happening::CastSpell { player, spell }) => {
             let def = state.def(spell)?;
             let fits = match kind {
+                CastKind::Aura => def.is_aura(),
                 CastKind::Enchantment => def.has_type(CardType::Enchantment),
                 CastKind::InstantOrSorcery => def.is_instant_or_sorcery(),
                 CastKind::Noncreature => !def.is_creature(),

@@ -1,0 +1,44 @@
+{
+  "id": "kor_spiritdancer",
+  "name": "Kor Spiritdancer",
+  "mana_cost": "{1}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Kor",
+    "Wizard"
+  ],
+  "power": 0,
+  "toughness": 2,
+  "rarity": "rare",
+  "oracle_text": "This creature gets +2/+2 for each Aura attached to it.\nWhenever you cast an Aura spell, draw a card.",
+  "altered": true,
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "this",
+      "power": 2,
+      "toughness": 2,
+      "for_each": "aura_attached_to_this"
+    },
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "cast_spell",
+        "kind": "aura"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

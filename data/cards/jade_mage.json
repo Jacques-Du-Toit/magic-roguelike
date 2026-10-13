@@ -1,0 +1,33 @@
+{
+  "id": "jade_mage",
+  "name": "Jade Mage",
+  "mana_cost": "{1}{G}",
+  "colors": [
+    "G"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Shaman"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "rarity": "uncommon",
+  "oracle_text": "{2}{G}: Create a 1/1 green Saproling creature token.",
+  "abilities": [
+    {
+      "kind": "activated",
+      "cost": {
+        "mana": "{2}{G}"
+      },
+      "effects": [
+        {
+          "type": "create_token",
+          "token": "saproling_token"
+        }
+      ]
+    }
+  ]
+}
