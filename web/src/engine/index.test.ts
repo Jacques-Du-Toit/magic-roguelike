@@ -62,15 +62,12 @@ describe('Duel', () => {
     duel.free()
   })
 
-  it('starts with the emblem asked for, or the usual one, and shows the commander in a duel', () => {
-    const usual = new Run('warden', '', '1')
-    expect(usual.view().emblem).toBe('emblem_welcome')
-    usual.free()
+  it('starts with no emblem, refuses an unknown one, and shows the commander in a duel', () => {
     expect(() => new Run('warden', 'nothing', '1')).toThrow('there is no starting emblem `nothing`')
 
-    const run = new Run('warden', 'emblem_fury', '1')
+    const run = new Run('warden', '', '1')
     const view = run.view()
-    expect(view.emblem).toBe('emblem_fury')
+    expect(view.emblem).toBeNull()
     const travel = view.actions[0]
     // Arriving offers the feats; the duel starts once two are picked.
     const offered = run.apply(travel).view
@@ -83,7 +80,7 @@ describe('Duel', () => {
     )
     expect(run.duel.feats()).toEqual(started.feats)
     const [you, enemy] = run.duel.view().players
-    expect(you.emblems.map((emblem) => emblem.name)).toEqual(['Battle Fury'])
+    expect(you.emblems).toEqual([])
     expect(you.commander?.def).toBe('jasmine_boreal')
     expect(you.commander?.cost).toBe('{3}{G}{W}')
     expect(you.commander?.object).not.toBeNull()
@@ -157,7 +154,8 @@ describe('Run', () => {
     expect(content.wounds.map((wound) => wound.id)).toEqual(['festering_wound'])
     expect(content.feats).toHaveLength(9)
     expect(content.feat_rewards[0]).toMatchObject({ points: 0, choices: 2 })
-    expect(content.emblems.map((emblem) => emblem.id)).toEqual(['emblem_welcome', 'emblem_fury'])
+    // There are no starting emblems for now.
+    expect(content.emblems).toEqual([])
     expect(content.planeswalkers.map((planeswalker) => planeswalker.commander)).toEqual([
       'jasmine_boreal',
       'boris_devilboon',
@@ -165,15 +163,12 @@ describe('Run', () => {
     expect(content.enemies.some((enemy) => enemy.tier === 'boss')).toBe(true)
   })
 
-  it('starts with the emblem asked for, or the usual one, and shows the commander in a duel', () => {
-    const usual = new Run('warden', '', '1')
-    expect(usual.view().emblem).toBe('emblem_welcome')
-    usual.free()
+  it('starts with no emblem, refuses an unknown one, and shows the commander in a duel', () => {
     expect(() => new Run('warden', 'nothing', '1')).toThrow('there is no starting emblem `nothing`')
 
-    const run = new Run('warden', 'emblem_fury', '1')
+    const run = new Run('warden', '', '1')
     const view = run.view()
-    expect(view.emblem).toBe('emblem_fury')
+    expect(view.emblem).toBeNull()
     const travel = view.actions[0]
     // Arriving offers the feats; the duel starts once two are picked.
     const offered = run.apply(travel).view
@@ -186,7 +181,7 @@ describe('Run', () => {
     )
     expect(run.duel.feats()).toEqual(started.feats)
     const [you, enemy] = run.duel.view().players
-    expect(you.emblems.map((emblem) => emblem.name)).toEqual(['Battle Fury'])
+    expect(you.emblems).toEqual([])
     expect(you.commander?.def).toBe('jasmine_boreal')
     expect(you.commander?.cost).toBe('{3}{G}{W}')
     expect(you.commander?.object).not.toBeNull()
@@ -205,7 +200,7 @@ describe('Run', () => {
   })
 
   it('plays a whole run: the last action on offer each time, passing through duels', () => {
-    const run = new Run('firebrand', 'emblem_welcome', '5')
+    const run = new Run('firebrand', '', '5')
     let view = run.view()
     expect(view.phase.type).toBe('map')
     let steps = 0

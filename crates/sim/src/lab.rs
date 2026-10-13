@@ -775,9 +775,17 @@ mod tests {
         for relic in &data.run.relics {
             assert!(report.contains(relic.id.as_str()), "{report}");
         }
-        assert!(report.contains("giant_growth"), "{report}");
+        assert!(report.contains("raise_the_alarm"), "{report}");
+        // A card held back is in nobody's random deck.
+        assert!(!report.contains("giant_growth"), "{report}");
         // The same options give the same report.
         assert_eq!(lift(&options, &mut Timing::default()).unwrap().0, report);
+        // Picked as a reward picks them, the decks are other decks.
+        let weighted = parsed("--lift --weighted --games 6 --ai old --field boss --seed 3");
+        let (by_weight, failed) = lift(&weighted, &mut Timing::default()).unwrap();
+        assert!(!failed, "{by_weight}");
+        assert!(by_weight.contains("rarity weights"), "{by_weight}");
+        assert_ne!(by_weight, report);
         assert!(lift(&parsed("--lift --field nobody"), &mut Timing::default()).is_err());
     }
 

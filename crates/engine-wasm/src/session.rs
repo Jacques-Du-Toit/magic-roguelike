@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn a_whole_run_plays_through_the_handle() {
-        let mut session = RunSession::new("firebrand", "emblem_welcome", "5").unwrap();
+        let mut session = RunSession::new("firebrand", "", "5").unwrap();
         let mut log = Vec::new();
         for _ in 0..500 {
             let view = run_view_of(&session);

@@ -47,6 +47,18 @@ cargo run --release -p sim -- --explain report.json --last 3   # replays a bug r
                                 # --ai old|new picks who plays in any mode (new, the searching AI, is the default);
                                 # every sim report ends with how long the AIs took to decide
 
+# The balance lab (the Warden only; docs/BALANCE_REPORT.md says what each was used for)
+cargo run --release -p sim -- --lift --games 12000 --weighted --relics 1   # single duels of random decks: each card's
+                                # and relic's lift (win rate of the decks with it less that of those without)
+cargo run --release -p sim -- --ideal --games 100           # the ideal decks of data/sim/ideal_decks.json against each enemy
+cargo run --release -p sim -- --leave-out counters --games 40   # one ideal deck with each card in turn swapped for a filler
+cargo run --release -p sim -- --act --games 300             # each ideal deck through whole acts, taking no cards or relics
+cargo run --release -p sim -- --runs --games 600 --decks warden --no-relics   # whole runs of one character; also
+                                # --no-cards, --with-relic ID, --with-card ID
+                                # any mode: --field easy,normal,hard,elite,boss or enemy ids (the lab's enemies),
+                                # --data DIR (read data/ from a folder at run time, no rebuild),
+                                # --threads N (default: three quarters of the cores)
+
 # Card data (from repo root; needs the network the first time, then uses its cache)
 node tools/scryfall.mjs add "Card Name"   # writes data/cards/<id>.json from Scryfall, abilities left to write by hand
 node tools/scryfall.mjs check             # every card's name, cost, types, stats, keywords and text against Scryfall

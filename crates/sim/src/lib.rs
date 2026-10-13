@@ -932,6 +932,36 @@ mod tests {
     }
 
     #[test]
+    fn whole_runs_can_be_played_with_a_relic_from_the_start_and_nothing_taken() {
+        let options = parse_args(&args(
+            "--runs --games 1 --ai old --decks warden --with-relic rally_horn --no-relics --no-cards",
+        ))
+        .unwrap()
+        .unwrap();
+        assert_eq!(options.with_relics, ["rally_horn"]);
+        let (report, failed) = run_report(&options).unwrap();
+        assert!(!failed, "{report}");
+        // Only the Warden, with the one relic and the deck it began with.
+        assert!(report.contains("warden: 1 runs") && !report.contains("firebrand"));
+        assert!(report.contains("0.0 cards added, 1.0 relics"), "{report}");
+
+        let unknown = parse_args(&args("--runs --with-relic nothing"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            run_report(&unknown),
+            Err("--with-relic: no relic `nothing`".to_string())
+        );
+        let unknown = parse_args(&args("--runs --with-card nothing"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            run_report(&unknown),
+            Err("--with-card: no card `nothing`".to_string())
+        );
+    }
+
+    #[test]
     fn decks_can_be_left_out_for_a_quick_sample() {
         let options = parse_args(&args("--games 2 --decks deck_a,deck_c --ai old"))
             .unwrap()
