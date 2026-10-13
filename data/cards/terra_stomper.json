@@ -19,5 +19,8 @@
   ],
   "oracle_text": "This spell can't be countered.\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
   "cant_be_countered": true,
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "mana_cost": "{2}{G}{G}{G}"
+  }
 }

@@ -54,6 +54,8 @@ mod token_tests;
 mod trigger_tests;
 mod triggers;
 mod turn;
+#[cfg(test)]
+mod upgrade_tests;
 mod view;
 #[cfg(test)]
 mod view_tests;
@@ -61,7 +63,7 @@ mod view_tests;
 mod wound_tests;
 
 pub use action::{Action, BlockDeclared, CardFace, CardRef, GameEvent, Target};
-pub use config::{CardInstance, CardUpgrade, DuelConfig, PlayerConfig, RulesConfig};
+pub use config::{CardInstance, DuelConfig, PlayerConfig, RulesConfig};
 pub use error::{ActionError, ConfigError, InternalError};
 pub use ids::{CardId, ObjectId, PlayerId};
 pub use mana::ManaPool;

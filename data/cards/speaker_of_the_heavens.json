@@ -38,5 +38,27 @@
       },
       "sorcery_speed": true
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Vigilance, lifelink (Attacking doesn't cause this creature to tap. Damage dealt by this creature also causes you to gain that much life.)\n{T}: Create a 4/4 white Angel creature token with flying. Activate only if you have at least 5 life more than your starting life total and only as a sorcery.",
+    "abilities": [
+      {
+        "kind": "activated",
+        "cost": {
+          "tap": true
+        },
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "angel_token"
+          }
+        ],
+        "condition": {
+          "type": "life_above_starting",
+          "at_least": 5
+        },
+        "sorcery_speed": true
+      }
+    ]
+  }
 }

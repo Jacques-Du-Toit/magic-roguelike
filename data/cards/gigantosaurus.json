@@ -15,5 +15,11 @@
   "toughness": 10,
   "rarity": "rare",
   "oracle_text": "",
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "oracle_text": "Trample",
+    "keywords": [
+      "trample"
+    ]
+  }
 }

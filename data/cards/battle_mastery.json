@@ -23,5 +23,8 @@
       "affects": "enchanted",
       "keyword": "double_strike"
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{1}{W}"
+  }
 }

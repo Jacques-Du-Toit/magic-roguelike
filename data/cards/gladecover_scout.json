@@ -19,5 +19,9 @@
     "hexproof"
   ],
   "oracle_text": "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "power": 2,
+    "toughness": 1
+  }
 }

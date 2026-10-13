@@ -18,5 +18,9 @@
     "trample"
   ],
   "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "power": 5,
+    "toughness": 5
+  }
 }

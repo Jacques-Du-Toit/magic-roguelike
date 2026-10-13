@@ -96,9 +96,85 @@ pub struct CardDef {
     pub burden: bool,
     #[serde(default)]
     pub abilities: Vec<AbilityDef>,
+    /// The card's upgraded side, as its file writes it: only what differs.
+    /// The loader makes a card of its own from it, which `upgrade` names.
+    #[serde(default, skip_serializing)]
+    #[ts(skip)]
+    pub upgraded: Option<Box<UpgradedDef>>,
+    /// The upgraded side of this card, if it has one: a card of its own,
+    /// never offered, that an upgraded copy in a deck is played as. The
+    /// loader sets it, whatever the file says.
+    #[serde(default)]
+    pub upgrade: Option<CardDefId>,
+    /// On an upgraded side: the card it is the upgrade of. Set by the
+    /// loader too.
+    #[serde(default)]
+    pub upgrade_of: Option<CardDefId>,
 }
 
+/// What a card's upgraded side changes (`"upgraded"` in a card file). A
+/// field that is there replaces the card's whole field; the rest stay as
+/// they are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpgradedDef {
+    /// Left out when only the cost or the stats change.
+    #[serde(default)]
+    pub oracle_text: Option<String>,
+    #[serde(default)]
+    pub mana_cost: Option<ManaCost>,
+    #[serde(default)]
+    pub power: Option<i32>,
+    #[serde(default)]
+    pub toughness: Option<i32>,
+    #[serde(default)]
+    pub keywords: Option<Vec<Keyword>>,
+    #[serde(default)]
+    pub enchant: Option<TargetSpec>,
+    #[serde(default)]
+    pub enters_with_counters: Option<u32>,
+    #[serde(default)]
+    pub abilities: Option<Vec<AbilityDef>>,
+}
+
+/// What marks an upgraded side: the end of its id and of its name.
+pub const UPGRADE_MARK: &str = "+";
+
 impl CardDef {
+    /// This card's upgraded side as a card of its own, if its file has one.
+    /// It keeps this card's id, so that it can be validated like any card;
+    /// the loader gives it its own.
+    pub fn upgraded_side(&self) -> Option<CardDef> {
+        let changes = self.upgraded.as_deref()?;
+        let mut side = self.clone();
+        side.upgraded = None;
+        if let Some(oracle_text) = &changes.oracle_text {
+            side.oracle_text = oracle_text.clone();
+        }
+        if let Some(mana_cost) = &changes.mana_cost {
+            side.mana_cost = mana_cost.clone();
+        }
+        if changes.power.is_some() {
+            side.power = changes.power;
+        }
+        if changes.toughness.is_some() {
+            side.toughness = changes.toughness;
+        }
+        if let Some(keywords) = &changes.keywords {
+            side.keywords = keywords.clone();
+        }
+        if changes.enchant.is_some() {
+            side.enchant = changes.enchant;
+        }
+        if let Some(counters) = changes.enters_with_counters {
+            side.enters_with_counters = counters;
+        }
+        if let Some(abilities) = &changes.abilities {
+            side.abilities = abilities.clone();
+        }
+        Some(side)
+    }
+
     pub fn has_type(&self, card_type: CardType) -> bool {
         self.types.contains(&card_type)
     }

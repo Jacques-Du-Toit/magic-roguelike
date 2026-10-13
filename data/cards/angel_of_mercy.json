@@ -21,10 +21,20 @@
   "abilities": [
     {
       "kind": "triggered",
-      "trigger": { "type": "enters_battlefield", "subject": "self" },
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
       "effects": [
-        { "type": "gain_life", "player": "controller", "amount": 3 }
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 3
+        }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{3}{W}"
+  }
 }

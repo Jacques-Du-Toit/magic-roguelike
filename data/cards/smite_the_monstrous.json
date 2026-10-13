@@ -24,5 +24,23 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Destroy target creature with power 3 or greater.",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "destroy",
+            "target": {
+              "creature": {
+                "min_power": 3
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
 }

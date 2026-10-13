@@ -35,5 +35,27 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Constellation — Whenever this creature or another enchantment you control enters, target creature gets +2/+2 until end of turn.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "enchantment_you_control"
+        },
+        "effects": [
+          {
+            "type": "modify_pt_until_eot",
+            "target": {
+              "creature": {}
+            },
+            "power": 2,
+            "toughness": 2
+          }
+        ]
+      }
+    ]
+  }
 }

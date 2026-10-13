@@ -19,5 +19,9 @@
     "lifelink"
   ],
   "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "power": 1,
+    "toughness": 2
+  }
 }

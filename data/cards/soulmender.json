@@ -30,5 +30,23 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "{T}: You gain 2 life.",
+    "abilities": [
+      {
+        "kind": "activated",
+        "cost": {
+          "tap": true
+        },
+        "effects": [
+          {
+            "type": "gain_life",
+            "player": "controller",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  }
 }

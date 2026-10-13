@@ -43,5 +43,33 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Flying\nThis creature gets +1/+1 for each other creature you control with a +1/+1 counter on it.\n{2}{W}: Put a +1/+1 counter on target creature.",
+    "abilities": [
+      {
+        "kind": "static",
+        "type": "anthem",
+        "affects": "this",
+        "power": 1,
+        "toughness": 1,
+        "for_each": "other_creature_you_control_with_counter"
+      },
+      {
+        "kind": "activated",
+        "cost": {
+          "mana": "{2}{W}"
+        },
+        "effects": [
+          {
+            "type": "add_counters",
+            "target": {
+              "creature": {}
+            },
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  }
 }

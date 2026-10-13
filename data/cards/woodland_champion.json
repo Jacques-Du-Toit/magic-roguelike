@@ -33,5 +33,9 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "This creature enters with a +1/+1 counter on it.\nWhenever one or more tokens you control enter, put that many +1/+1 counters on this creature.",
+    "enters_with_counters": 1
+  }
 }

@@ -37,5 +37,37 @@
       "affects": "enchanted",
       "keyword": "trample"
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Enchant creature\nWhen this Aura enters, create two 1/1 green Saproling creature tokens.\nEnchanted creature gets +1/+1 and has trample.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "saproling_token",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "kind": "static",
+        "type": "anthem",
+        "affects": "enchanted",
+        "power": 1,
+        "toughness": 1
+      },
+      {
+        "kind": "static",
+        "type": "grant_keyword",
+        "affects": "enchanted",
+        "keyword": "trample"
+      }
+    ]
+  }
 }

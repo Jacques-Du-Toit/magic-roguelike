@@ -28,5 +28,28 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "At the beginning of each end step, if you gained 3 or more life this turn, create a 4/4 white Angel creature token with flying.",
+    "mana_cost": "{2}{W}",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "beginning_of_end_step",
+          "each_player": true
+        },
+        "condition": {
+          "type": "life_gained_this_turn",
+          "at_least": 3
+        },
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "angel_token"
+          }
+        ]
+      }
+    ]
+  }
 }

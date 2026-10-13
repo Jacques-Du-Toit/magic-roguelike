@@ -20,5 +20,9 @@
   ],
   "oracle_text": "First strike",
   "reserved": true,
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "power": 3,
+    "toughness": 2
+  }
 }

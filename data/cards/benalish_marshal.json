@@ -24,5 +24,9 @@
       "power": 1,
       "toughness": 1
     }
-  ]
+  ],
+  "upgraded": {
+    "power": 3,
+    "toughness": 4
+  }
 }

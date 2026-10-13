@@ -21,5 +21,20 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Create four 1/1 white Soldier creature tokens.",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "soldier_token",
+            "count": 4
+          }
+        ]
+      }
+    ]
+  }
 }

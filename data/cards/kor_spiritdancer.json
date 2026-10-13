@@ -40,5 +40,9 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "power": 0,
+    "toughness": 3
+  }
 }

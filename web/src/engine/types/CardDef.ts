@@ -52,4 +52,15 @@ reserved: boolean,
  * A permanent its controller is better off without, like a wound. It
  * changes no rule: the AI counts it against whoever controls it.
  */
-burden: boolean, abilities: Array<AbilityDef>, };
+burden: boolean, abilities: Array<AbilityDef>, 
+/**
+ * The upgraded side of this card, if it has one: a card of its own,
+ * never offered, that an upgraded copy in a deck is played as. The
+ * loader sets it, whatever the file says.
+ */
+upgrade: CardDefId | null, 
+/**
+ * On an upgraded side: the card it is the upgrade of. Set by the
+ * loader too.
+ */
+upgrade_of: CardDefId | null, };

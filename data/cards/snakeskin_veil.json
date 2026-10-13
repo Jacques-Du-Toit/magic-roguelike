@@ -32,5 +32,31 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Put two +1/+1 counters on target creature you control. It gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "add_counters",
+            "target": {
+              "creature": {
+                "controller": "you"
+              }
+            },
+            "amount": 2
+          },
+          {
+            "type": "grant_keyword_until_eot",
+            "target": {
+              "same": {}
+            },
+            "keyword": "hexproof"
+          }
+        ]
+      }
+    ]
+  }
 }

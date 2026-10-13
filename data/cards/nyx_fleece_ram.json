@@ -30,5 +30,23 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "At the beginning of your upkeep, you gain 2 life.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "beginning_of_upkeep"
+        },
+        "effects": [
+          {
+            "type": "gain_life",
+            "player": "controller",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  }
 }

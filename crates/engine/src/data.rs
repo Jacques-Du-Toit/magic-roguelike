@@ -12,8 +12,9 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 use crate::balance::{self, Balance, BalanceError};
-use crate::cards::{self, CardDef, CardDefId, CardError};
+use crate::cards::{self, CardDef, CardDefId, CardError, UPGRADE_MARK};
 use crate::decks::{self, DeckDef, DeckError, DeckId};
+use crate::duel::CardInstance;
 use crate::run::{
     self, EnemyDef, EventDef, FeatDef, ModifierDef, PlaneswalkerDef, RunData, RunDataError,
 };
@@ -47,16 +48,35 @@ pub fn replace_embedded(data: GameData) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CardDatabase {
     cards: BTreeMap<CardDefId, CardDef>,
+    /// The upgraded sides of the cards that have one, by their own ids.
+    upgraded: BTreeMap<CardDefId, CardDef>,
 }
 
 impl CardDatabase {
+    /// A card or an upgraded side.
     pub fn get(&self, id: &CardDefId) -> Option<&CardDef> {
-        self.cards.get(id)
+        self.cards.get(id).or_else(|| self.upgraded.get(id))
     }
 
-    /// Every card, in id order.
+    /// Every card, in id order. Upgraded sides are not among them: they
+    /// are never offered, counted or guessed at as cards of their own.
     pub fn iter(&self) -> impl Iterator<Item = &CardDef> {
         self.cards.values()
+    }
+
+    /// Every upgraded side, in id order.
+    pub fn upgraded_sides(&self) -> impl Iterator<Item = &CardDef> {
+        self.upgraded.values()
+    }
+
+    /// The definition a card in a deck is played as: its upgraded side if
+    /// it has been upgraded, the card itself otherwise.
+    pub fn played_as(&self, instance: &CardInstance) -> Option<&CardDef> {
+        let card = self.cards.get(&instance.card_id)?;
+        if !instance.upgraded {
+            return Some(card);
+        }
+        self.upgraded.get(card.upgrade.as_ref()?)
     }
 
     pub fn len(&self) -> usize {
@@ -122,6 +142,8 @@ pub enum DataError {
         name: String,
         other: CardDefId,
     },
+    #[error("{file}: {problem}")]
+    Upgrade { file: String, problem: &'static str },
     #[error("{file}: {source}")]
     Deck { file: String, source: DeckError },
     #[error("{file}: `create_token` names `{token}`, which is not a file in tokens/")]
@@ -164,14 +186,57 @@ impl GameData {
                     other,
                 });
             }
+            // The file doesn't say these: an upgraded side is made here.
+            card.upgrade = None;
+            card.upgrade_of = None;
+            if let Some(mut side) = card.upgraded_side() {
+                if token || card.is_land() {
+                    return Err(DataError::Upgrade {
+                        file,
+                        problem: "only a spell can have an upgraded side",
+                    });
+                }
+                if let Err(source) = cards::validate(&side) {
+                    return Err(DataError::Card {
+                        file: format!("{file} (upgraded)"),
+                        source,
+                    });
+                }
+                // A new text over the same card is no upgrade.
+                let mut same = side.clone();
+                same.oracle_text.clone_from(&card.oracle_text);
+                same.upgraded.clone_from(&card.upgraded);
+                if same == card {
+                    return Err(DataError::Upgrade {
+                        file,
+                        problem: "the upgraded side must change the card",
+                    });
+                }
+                // The deck's lands are worked out from the card as it was.
+                let colored = |def: &CardDef| def.mana_cost.colored().collect::<Vec<_>>();
+                if colored(&side) != colored(&card) {
+                    return Err(DataError::Upgrade {
+                        file,
+                        problem: "the upgraded side may change only the generic mana of the cost",
+                    });
+                }
+                side.id = CardDefId(format!("{}{UPGRADE_MARK}", card.id));
+                side.name = format!("{}{UPGRADE_MARK}", card.name);
+                side.upgrade_of = Some(card.id.clone());
+                card.upgrade = Some(side.id.clone());
+                cards.upgraded.insert(side.id.clone(), side);
+            }
             cards.cards.insert(card.id.clone(), card);
         }
         // Every token an effect creates has to exist.
-        for card in cards.iter() {
+        for card in cards.iter().chain(cards.upgraded_sides()) {
             for token in card.abilities.iter().flat_map(tokens_created) {
                 if !cards.get(token).is_some_and(|def| def.token) {
                     return Err(DataError::UnknownToken {
-                        file: format!("cards/{}.json", card.id),
+                        file: format!(
+                            "cards/{}.json",
+                            card.upgrade_of.as_ref().unwrap_or(&card.id)
+                        ),
                         token: token.clone(),
                     });
                 }
@@ -429,6 +494,90 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    fn with_upgrade(card: &str, upgraded: &str) -> String {
+        let body = card.trim_end().trim_end_matches('}');
+        format!("{body}, \"upgraded\": {upgraded} }}")
+    }
+
+    #[test]
+    fn an_upgraded_side_is_a_card_of_its_own_that_is_never_listed() {
+        let bears = with_upgrade(BEARS, r#"{ "oracle_text": "Bigger.", "power": 3 }"#);
+        let data = load_with(&[("grizzly_bears", &bears), CARDS[1]], DECK, BALANCE).unwrap();
+        let (id, side_id) = (
+            CardDefId("grizzly_bears".to_string()),
+            CardDefId("grizzly_bears+".to_string()),
+        );
+        let card = data.cards.get(&id).unwrap();
+        let side = data.cards.get(&side_id).unwrap();
+        assert_eq!(card.upgrade, Some(side_id.clone()));
+        assert_eq!((card.power, card.upgrade_of.as_ref()), (Some(2), None));
+        assert_eq!(side.name, "Grizzly Bears+");
+        assert_eq!((side.power, side.toughness), (Some(3), Some(2)));
+        assert_eq!(side.oracle_text, "Bigger.");
+        assert_eq!(
+            (side.upgrade_of.as_ref(), side.upgrade.as_ref()),
+            (Some(&id), None)
+        );
+        // It is not a card to offer, count or guess at.
+        assert_eq!(data.cards.len(), 2);
+        assert!(data.cards.iter().all(|card| card.upgrade_of.is_none()));
+        assert_eq!(data.cards.upgraded_sides().count(), 1);
+
+        // A copy in a deck is played as one or the other.
+        let mut copy = CardInstance::new(id.clone());
+        assert_eq!(data.cards.played_as(&copy).unwrap().id, id);
+        copy.upgraded = true;
+        assert_eq!(data.cards.played_as(&copy).unwrap().id, side_id);
+        // A card with no upgraded side has no upgraded copy.
+        let mut forest = CardInstance::new(CardDefId("forest".to_string()));
+        assert!(data.cards.played_as(&forest).is_some());
+        forest.upgraded = true;
+        assert!(data.cards.played_as(&forest).is_none());
+    }
+
+    #[test]
+    fn an_upgraded_side_must_be_a_valid_card_that_differs() {
+        let load = |card: &str, upgraded: &str| {
+            let (name, base) = match card {
+                "forest" => ("forest", FOREST),
+                _ => ("grizzly_bears", BEARS),
+            };
+            let changed = with_upgrade(base, upgraded);
+            let other = if name == "forest" { CARDS[0] } else { CARDS[1] };
+            load_with(&[(name, &changed), other], DECK, BALANCE).map(|_| ())
+        };
+        let problem = |result: Result<(), DataError>| match result {
+            Err(DataError::Upgrade { problem, .. }) => problem,
+            other => panic!("expected an upgrade error, got {other:?}"),
+        };
+        // The same card under a new text is no upgrade; new stats under the
+        // printed text are.
+        assert!(problem(load("bears", r#"{ "oracle_text": "Bigger." }"#)).contains("change"));
+        assert!(problem(load("bears", r#"{ "power": 2 }"#)).contains("change"));
+        assert_eq!(load("bears", r#"{ "power": 3 }"#), Ok(()));
+        // The coloured mana stays: the deck's lands are split by it.
+        let cheaper = r#"{ "oracle_text": "Cheaper.", "mana_cost": "{2}" }"#;
+        assert!(matches!(
+            load("bears", cheaper),
+            Err(DataError::Card {
+                source: CardError::ColorsMismatch(_),
+                ..
+            })
+        ));
+        let other_colour = r#"{ "oracle_text": "Wider.", "mana_cost": "{G}{G}" }"#;
+        assert!(problem(load("bears", other_colour)).contains("generic"));
+        let land = r#"{ "oracle_text": "More." }"#;
+        assert!(problem(load("forest", land)).contains("spell"));
+        // It is validated like any card, and typos are errors.
+        let no_power = r#"{ "oracle_text": "Odd.", "keywords": ["flying", "flying"] }"#;
+        assert!(matches!(
+            load("bears", no_power),
+            Err(DataError::Card { .. })
+        ));
+        let typo = r#"{ "oracle_text": "Odd.", "powr": 3 }"#;
+        assert!(matches!(load("bears", typo), Err(DataError::Parse { .. })));
     }
 
     #[test]

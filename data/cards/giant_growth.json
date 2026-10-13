@@ -25,5 +25,30 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Target creature gets +4/+4 and gains trample until end of turn.",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "modify_pt_until_eot",
+            "target": {
+              "creature": {}
+            },
+            "power": 4,
+            "toughness": 4
+          },
+          {
+            "type": "grant_keyword_until_eot",
+            "target": {
+              "same": {}
+            },
+            "keyword": "trample"
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -14,9 +14,37 @@
     {
       "kind": "spell",
       "effects": [
-        { "type": "gain_life", "player": "controller", "amount": 3 },
-        { "type": "draw_cards", "player": "controller", "amount": 1 }
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 3
+        },
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "You gain 5 life.\nDraw a card.",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "gain_life",
+            "player": "controller",
+            "amount": 5
+          },
+          {
+            "type": "draw_cards",
+            "player": "controller",
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  }
 }

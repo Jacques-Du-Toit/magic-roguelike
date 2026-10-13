@@ -19,5 +19,23 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nDraw a card.",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "fetch_basic_land"
+          },
+          {
+            "type": "draw_cards",
+            "player": "controller",
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  }
 }

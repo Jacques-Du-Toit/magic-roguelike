@@ -41,5 +41,9 @@
       "keyword": "lifelink",
       "with_counter": true
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "This creature enters with a +1/+1 counter on it.\nOutlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nEach creature you control with a +1/+1 counter on it has lifelink.",
+    "enters_with_counters": 1
+  }
 }

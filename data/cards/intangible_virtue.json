@@ -24,5 +24,8 @@
       "affects": "creature_tokens_you_control",
       "keyword": "vigilance"
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{W}"
+  }
 }

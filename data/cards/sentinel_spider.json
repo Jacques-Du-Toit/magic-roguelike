@@ -19,5 +19,8 @@
     "vigilance"
   ],
   "oracle_text": "Reach, vigilance",
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "mana_cost": "{2}{G}{G}"
+  }
 }

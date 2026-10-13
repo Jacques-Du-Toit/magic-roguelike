@@ -26,5 +26,9 @@
       "keyword": "trample",
       "with_counter": true
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Trample\nThis creature enters with a +1/+1 counter on it.\nEach creature you control with a +1/+1 counter on it has trample.",
+    "enters_with_counters": 1
+  }
 }

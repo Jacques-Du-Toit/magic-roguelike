@@ -46,22 +46,21 @@ pub struct RulesConfig {
     pub commander_tax: u32,
 }
 
-/// One card in a deck: a definition plus its run-specific upgrades.
+/// One card in a deck: a definition, and whether this copy has been
+/// upgraded. An upgraded copy is played as the card's upgraded side
+/// (`CardDatabase::played_as`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub struct CardInstance {
     pub card_id: CardDefId,
-    pub upgrades: Vec<CardUpgrade>,
+    #[serde(default)]
+    pub upgraded: bool,
 }
-
-/// No upgrades exist yet (M4).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-pub enum CardUpgrade {}
 
 impl CardInstance {
     pub fn new(card_id: CardDefId) -> CardInstance {
         CardInstance {
             card_id,
-            upgrades: Vec::new(),
+            upgraded: false,
         }
     }
 }

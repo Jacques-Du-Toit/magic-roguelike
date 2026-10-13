@@ -41,5 +41,9 @@
       "keyword": "trample",
       "with_counter": true
     }
-  ]
+  ],
+  "upgraded": {
+    "power": 3,
+    "toughness": 2
+  }
 }

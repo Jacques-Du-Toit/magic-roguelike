@@ -46,5 +46,36 @@
       "affects": "enchanted",
       "keyword": "first_strike"
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Enchant creature you control\nWhen this Aura enters, create a 1/1 white Warrior creature token with vigilance.\nEnchanted creature gets +2/+1 and has first strike. (It deals combat damage before creatures without first strike.)",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "warrior_token"
+          }
+        ]
+      },
+      {
+        "kind": "static",
+        "type": "anthem",
+        "affects": "enchanted",
+        "power": 2,
+        "toughness": 1
+      },
+      {
+        "kind": "static",
+        "type": "grant_keyword",
+        "affects": "enchanted",
+        "keyword": "first_strike"
+      }
+    ]
+  }
 }

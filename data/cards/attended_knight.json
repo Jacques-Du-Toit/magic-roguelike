@@ -33,5 +33,24 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "First strike\nWhen this creature enters, create two 1/1 white Soldier creature tokens.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "soldier_token",
+            "count": 2
+          }
+        ]
+      }
+    ]
+  }
 }

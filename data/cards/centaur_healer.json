@@ -32,5 +32,24 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "When this creature enters, you gain 5 life.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "gain_life",
+            "player": "controller",
+            "amount": 5
+          }
+        ]
+      }
+    ]
+  }
 }

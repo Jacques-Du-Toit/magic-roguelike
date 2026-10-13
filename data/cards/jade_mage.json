@@ -29,5 +29,22 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "{1}{G}: Create a 1/1 green Saproling creature token.",
+    "abilities": [
+      {
+        "kind": "activated",
+        "cost": {
+          "mana": "{1}{G}"
+        },
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "saproling_token"
+          }
+        ]
+      }
+    ]
+  }
 }

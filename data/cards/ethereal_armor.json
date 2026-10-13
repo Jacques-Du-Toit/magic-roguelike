@@ -31,5 +31,30 @@
       "affects": "enchanted",
       "keyword": "first_strike"
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 for each enchantment you control and has first strike and vigilance.",
+    "abilities": [
+      {
+        "kind": "static",
+        "type": "anthem",
+        "affects": "enchanted",
+        "power": 1,
+        "toughness": 1,
+        "for_each": "enchantment_you_control"
+      },
+      {
+        "kind": "static",
+        "type": "grant_keyword",
+        "affects": "enchanted",
+        "keyword": "first_strike"
+      },
+      {
+        "kind": "static",
+        "type": "grant_keyword",
+        "affects": "enchanted",
+        "keyword": "vigilance"
+      }
+    ]
+  }
 }

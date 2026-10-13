@@ -16,5 +16,13 @@
   "rarity": "common",
   "oracle_text": "",
   "reserved": true,
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "oracle_text": "Vigilance",
+    "power": 4,
+    "toughness": 6,
+    "keywords": [
+      "vigilance"
+    ]
+  }
 }

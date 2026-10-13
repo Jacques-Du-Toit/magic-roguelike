@@ -45,10 +45,15 @@ fn to_json<T: Serialize>(value: &T) -> Result<String, String> {
     serde_json::to_string(value).map_err(|error| error.to_string())
 }
 
-/// Every card definition, in id order, as a JSON array of `CardDef`.
+/// Every card definition, in id order, and then every upgraded side, as a
+/// JSON array of `CardDef`.
 pub fn card_defs_json() -> Result<String, String> {
     let data = data::embedded().map_err(|error| error.to_string())?;
-    let cards: Vec<&CardDef> = data.cards.iter().collect();
+    let cards: Vec<&CardDef> = data
+        .cards
+        .iter()
+        .chain(data.cards.upgraded_sides())
+        .collect();
     to_json(&cards)
 }
 
@@ -284,8 +289,23 @@ mod tests {
     #[test]
     fn card_definitions_and_decks_cross_as_json() {
         let cards: Vec<CardDef> = serde_json::from_str(&card_defs_json().unwrap()).unwrap();
-        assert_eq!(cards.len(), data::embedded().unwrap().cards.iter().count());
+        let all = &data::embedded().unwrap().cards;
+        assert_eq!(
+            cards.len(),
+            all.iter().count() + all.upgraded_sides().count()
+        );
         assert!(cards.iter().any(|card| card.name == "Vampire Nighthawk"));
+        // An upgraded side crosses as a card of its own, named by its card.
+        let bears = cards
+            .iter()
+            .find(|card| card.name == "Grizzly Bears")
+            .unwrap();
+        let side = cards
+            .iter()
+            .find(|card| card.name == "Grizzly Bears+")
+            .unwrap();
+        assert_eq!(bears.upgrade.as_ref(), Some(&side.id));
+        assert_eq!(side.upgrade_of.as_ref(), Some(&bears.id));
         // Costs cross in the same text form the card files use.
         assert!(
             card_defs_json()

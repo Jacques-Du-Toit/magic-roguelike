@@ -1,7 +1,7 @@
 //! Starting a duel: building the state and dealing opening hands.
 
 use super::action::GameEvent;
-use super::config::DuelConfig;
+use super::config::{CardInstance, DuelConfig};
 use super::error::{ConfigError, InternalError};
 use super::ids::{ObjectId, PlayerId};
 use super::rng::DuelRng;
@@ -43,8 +43,9 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
             .library
             .iter()
             .chain(&player_config.starting_permanents);
+        // An upgraded copy of a card with no upgraded side is unknown too.
         for instance in cards_named {
-            if cards.get(&instance.card_id).is_none() {
+            if cards.played_as(instance).is_none() {
                 return Err(ConfigError::UnknownCard {
                     player,
                     card: instance.card_id.clone(),
@@ -52,6 +53,11 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
             }
         }
     }
+    // What a card in a deck is played as: checked to be there just above.
+    let played_as = |instance: CardInstance| match cards.played_as(&instance) {
+        Some(def) => def.id.clone(),
+        None => instance.card_id,
+    };
 
     let mut rng = DuelRng::from_seed(seed);
     let starting_player = match rng.below(2) {
@@ -67,7 +73,7 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
     let mut extras = Vec::new();
     for (player, player_config) in PlayerId::ALL.into_iter().zip(config.players) {
         for instance in player_config.library {
-            state.create_card(player, instance.card_id, Zone::Library);
+            state.create_card(player, played_as(instance), Zone::Library);
         }
         extras.push((
             player,
@@ -85,7 +91,7 @@ pub fn new_duel(config: DuelConfig, seed: u64) -> Result<DuelState, ConfigError>
         for instance in permanents {
             // There from the start, so not summoning sick, and nothing
             // triggers on it entering.
-            let id = state.create_card(player, instance.card_id, Zone::Battlefield);
+            let id = state.create_card(player, played_as(instance), Zone::Battlefield);
             state.object_mut(id)?.summoning_sick = false;
         }
         for emblem in emblems {

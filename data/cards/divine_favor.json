@@ -38,5 +38,31 @@
       "power": 1,
       "toughness": 3
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Enchant creature\nWhen this Aura enters, you gain 3 life.\nEnchanted creature gets +2/+3.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "gain_life",
+            "player": "controller",
+            "amount": 3
+          }
+        ]
+      },
+      {
+        "kind": "static",
+        "type": "anthem",
+        "affects": "enchanted",
+        "power": 2,
+        "toughness": 3
+      }
+    ]
+  }
 }

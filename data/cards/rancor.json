@@ -41,5 +41,34 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+1 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "abilities": [
+      {
+        "kind": "static",
+        "type": "anthem",
+        "affects": "enchanted",
+        "power": 2,
+        "toughness": 1
+      },
+      {
+        "kind": "static",
+        "type": "grant_keyword",
+        "affects": "enchanted",
+        "keyword": "trample"
+      },
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "put_into_graveyard_from_battlefield"
+        },
+        "effects": [
+          {
+            "type": "return_this_to_hand"
+          }
+        ]
+      }
+    ]
+  }
 }

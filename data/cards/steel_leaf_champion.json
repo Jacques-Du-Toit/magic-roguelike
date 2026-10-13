@@ -22,5 +22,9 @@
       "type": "cant_be_blocked_by_power",
       "at_most": 2
     }
-  ]
+  ],
+  "upgraded": {
+    "power": 5,
+    "toughness": 5
+  }
 }

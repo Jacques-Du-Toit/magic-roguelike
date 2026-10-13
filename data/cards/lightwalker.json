@@ -24,5 +24,9 @@
       "keyword": "flying",
       "with_counter": true
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "This creature enters with a +1/+1 counter on it.\nThis creature has flying as long as it has a +1/+1 counter on it.",
+    "enters_with_counters": 1
+  }
 }

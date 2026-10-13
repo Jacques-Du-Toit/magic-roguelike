@@ -41,5 +41,9 @@
       "keyword": "flying",
       "with_counter": true
     }
-  ]
+  ],
+  "upgraded": {
+    "power": 3,
+    "toughness": 3
+  }
 }

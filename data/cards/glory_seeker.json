@@ -17,5 +17,9 @@
   "rarity": "common",
   "oracle_text": "",
   "reserved": true,
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "power": 3,
+    "toughness": 3
+  }
 }

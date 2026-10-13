@@ -16,5 +16,33 @@
       "type": "extra_counters",
       "amount": 1
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.\nWhen this enchantment enters, put a +1/+1 counter on target creature you control.",
+    "abilities": [
+      {
+        "kind": "static",
+        "type": "extra_counters",
+        "amount": 1
+      },
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "add_counters",
+            "target": {
+              "creature": {
+                "controller": "you"
+              }
+            },
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  }
 }

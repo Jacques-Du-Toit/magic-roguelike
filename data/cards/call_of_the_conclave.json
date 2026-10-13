@@ -21,5 +21,23 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "Create a 3/3 green Centaur creature token and a 1/1 white Soldier creature token.",
+    "abilities": [
+      {
+        "kind": "spell",
+        "effects": [
+          {
+            "type": "create_token",
+            "token": "centaur_token"
+          },
+          {
+            "type": "create_token",
+            "token": "soldier_token"
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -32,5 +32,26 @@
         }
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "oracle_text": "When this creature enters, put two +1/+1 counters on target creature.",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "trigger": {
+          "type": "enters_battlefield",
+          "subject": "self"
+        },
+        "effects": [
+          {
+            "type": "add_counters",
+            "target": {
+              "creature": {}
+            },
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  }
 }

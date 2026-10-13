@@ -19,5 +19,8 @@
       "power": 3,
       "toughness": 3
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{2}{G}{G}{W}"
+  }
 }

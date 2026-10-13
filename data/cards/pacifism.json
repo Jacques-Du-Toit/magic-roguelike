@@ -26,5 +26,8 @@
         "block"
       ]
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{W}"
+  }
 }

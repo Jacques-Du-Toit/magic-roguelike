@@ -25,5 +25,8 @@
       "toughness": 2,
       "for_each": "other_enchantment"
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{1}{G}"
+  }
 }

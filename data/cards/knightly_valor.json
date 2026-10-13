@@ -43,5 +43,8 @@
       "affects": "enchanted",
       "keyword": "vigilance"
     }
-  ]
+  ],
+  "upgraded": {
+    "mana_cost": "{3}{W}"
+  }
 }

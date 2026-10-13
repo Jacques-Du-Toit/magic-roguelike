@@ -16,5 +16,9 @@
   "toughness": 3,
   "rarity": "common",
   "reserved": true,
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "power": 4,
+    "toughness": 4
+  }
 }

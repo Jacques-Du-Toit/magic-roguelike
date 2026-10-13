@@ -15,5 +15,8 @@
   "toughness": 2,
   "rarity": "common",
   "reserved": true,
-  "abilities": []
+  "abilities": [],
+  "upgraded": {
+    "mana_cost": "{G}"
+  }
 }
