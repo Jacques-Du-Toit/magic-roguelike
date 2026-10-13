@@ -3,6 +3,7 @@ import type { AbilityDef } from "./AbilityDef";
 import type { CardDefId } from "./CardDefId";
 import type { CardType } from "./CardType";
 import type { Color } from "./Color";
+import type { Count } from "./Count";
 import type { Keyword } from "./Keyword";
 import type { Rarity } from "./Rarity";
 import type { Supertype } from "./Supertype";
@@ -22,6 +23,11 @@ enters_tapped: boolean,
  * `enters_tapped`.
  */
 enters_with_counters: number, 
+/**
+ * "This creature enters with a +1/+1 counter on it for each...": that
+ * many more, counted as it enters.
+ */
+enters_with_counters_for_each: Count | null, 
 /**
  * "This spell can't be countered."
  */

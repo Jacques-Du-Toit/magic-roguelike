@@ -199,6 +199,86 @@
     ]
   },
   {
+    "id": "anointing_oil",
+    "name": "Anointing Oil",
+    "text": "The first time you gain life each turn, put a +1/+1 counter on each creature you control that already has one.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": {
+              "type": "gain_life"
+            },
+            "once_each_turn": true,
+            "effects": [
+              {
+                "type": "add_counters_to_your_creatures",
+                "amount": 1,
+                "which": "with_counter"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "drovers_bell",
+    "name": "Drover's Bell",
+    "text": "Whenever a creature with power 4 or greater enters under your control, create a 1/1 Soldier token.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": {
+              "type": "enters_battlefield",
+              "subject": "creature_you_control",
+              "min_power": 4
+            },
+            "effects": [
+              {
+                "type": "create_token",
+                "token": "soldier_token",
+                "count": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "weavers_thread",
+    "name": "Weaver's Thread",
+    "text": "Whenever you cast your first Aura spell each turn, you gain 2 life.",
+    "effects": [
+      {
+        "type": "abilities",
+        "abilities": [
+          {
+            "kind": "triggered",
+            "trigger": {
+              "type": "cast_spell",
+              "kind": "aura"
+            },
+            "once_each_turn": true,
+            "effects": [
+              {
+                "type": "gain_life",
+                "player": "controller",
+                "amount": 2
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "war_banner",
     "name": "War Banner",
     "text": "Creatures you control get +1/+0.",

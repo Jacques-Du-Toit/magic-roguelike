@@ -27,4 +27,10 @@ controller: ControlledBy | null,
 /**
  * "With a +1/+1 counter on it".
  */
-with_counter: boolean, };
+with_counter: boolean, 
+/**
+ * "With another Aura attached to it": for what an Aura enchants. To
+ * be cast it needs a creature that has an Aura; to stay it needs one
+ * that has an Aura other than itself.
+ */
+enchanted: boolean, };

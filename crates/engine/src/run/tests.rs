@@ -2339,3 +2339,73 @@ fn a_relic_held_back_is_never_offered() {
         assert!(offered.iter().all(|relic| !held.contains(&relic)));
     }
 }
+
+#[test]
+fn anointing_oil_grows_the_creatures_that_have_a_counter_when_life_is_first_gained() {
+    let mut duel = duel_with_relics(&["anointing_oil"]);
+    put_lands(&mut duel, PLAYER, "plains", 6);
+    put_lands(&mut duel, PLAYER, "forest", 5);
+    cast_and_settle(&mut duel, "grizzly_bears");
+    let bears = newest_permanent(&duel);
+    cast_and_settle(&mut duel, "glory_seeker");
+    let seeker = newest_permanent(&duel);
+    let veil = put_in_hand(&mut duel, PLAYER, "snakeskin_veil");
+    let target = crate::duel::Target::Object { object: bears };
+    apply_action(
+        &mut duel,
+        PLAYER,
+        crate::duel::test_support::cast_at(veil, target),
+    )
+    .unwrap();
+    pass_both(&mut duel);
+    assert_eq!(duel.power(bears).unwrap(), 3);
+
+    // The Bears have a counter and get another; the Seeker has none.
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.power(bears).unwrap(), 4);
+    assert_eq!(duel.power(seeker).unwrap(), 2);
+    // Once a turn.
+    cast_and_settle(&mut duel, "revitalize");
+    assert_eq!(duel.power(bears).unwrap(), 4);
+}
+
+#[test]
+fn drovers_bell_makes_a_soldier_for_a_creature_of_power_four() {
+    let mut duel = duel_with_relics(&["drovers_bell"]);
+    put_lands(&mut duel, PLAYER, "forest", 6);
+    cast_and_settle(&mut duel, "grizzly_bears");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 0);
+    cast_and_settle(&mut duel, "rumbling_baloth");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
+    // The 1/1 Soldier it makes is no creature of power 4.
+    assert!(duel.stack.is_empty());
+    assert_eq!(count_of(&duel, ENEMY, "soldier_token"), 0);
+}
+
+#[test]
+fn weavers_thread_gains_two_life_for_the_first_aura_spell_each_turn() {
+    let mut duel = duel_with_relics(&["weavers_thread"]);
+    put_lands(&mut duel, PLAYER, "plains", 8);
+    let life = duel.player(PLAYER).life;
+    cast_and_settle(&mut duel, "glory_seeker");
+    let seeker = crate::duel::Target::Object {
+        object: newest_permanent(&duel),
+    };
+    // An enchantment that is no Aura gains nothing.
+    cast_and_settle(&mut duel, "intangible_virtue");
+    assert_eq!(duel.player(PLAYER).life, life);
+    // Pacifism is an Aura: 2 life as it is cast. A second Aura in the same
+    // turn gains none.
+    for expected in [life + 2, life + 2] {
+        let aura = put_in_hand(&mut duel, PLAYER, "pacifism");
+        apply_action(
+            &mut duel,
+            PLAYER,
+            crate::duel::test_support::cast_at(aura, seeker),
+        )
+        .unwrap();
+        pass_both(&mut duel);
+        pass_both(&mut duel);
+        assert_eq!(duel.player(PLAYER).life, expected);
+    }
+}

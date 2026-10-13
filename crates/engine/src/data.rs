@@ -584,7 +584,7 @@ mod tests {
         // The commanders: never in a deck, a reward or a shop.
         let legends = count(|card| card.is_legendary());
         assert_eq!((basics, lands - basics), (5, 10));
-        assert_eq!((creatures, others), (131, 69));
+        assert_eq!((creatures, others), (135, 72));
         assert_eq!(legends, 9);
         // 19 creature tokens and the wound.
         assert_eq!(data().cards.iter().filter(|card| card.token).count(), 20);
@@ -1009,8 +1009,8 @@ mod tests {
         use crate::run::EnemyTier;
         let run = &data().run;
         assert_eq!(run.planeswalkers.len(), 2);
-        // Twelve relics, two of them held back from every offer.
-        assert_eq!(run.relics.len(), 12);
+        // Fifteen relics, two of them held back from every offer.
+        assert_eq!(run.relics.len(), 15);
         assert_eq!(run.relics.iter().filter(|relic| relic.reserved).count(), 2);
         assert_eq!(run.events.len(), 5);
         assert_eq!(run.wounds.len(), 1);

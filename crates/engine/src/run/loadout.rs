@@ -293,6 +293,9 @@ mod tests {
                 "Pilgrim's Flask",
                 "Beast Tamer's Whistle",
                 "Votive Candle",
+                "Anointing Oil",
+                "Drover's Bell",
+                "Weaver's Thread",
                 "War Banner"
             ]
         );
