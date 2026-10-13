@@ -1073,9 +1073,12 @@ input[type='text'] {
   stroke-dasharray: 6 4;
 }
 
-.map-node {
+.map-spot {
   position: absolute;
   transform: translate(-50%, -50%);
+}
+
+.map-node {
   display: grid;
   justify-items: center;
   min-width: 68px;
@@ -1102,6 +1105,12 @@ input[type='text'] {
 .map-node-mark {
   font-size: 0.7rem;
   color: var(--muted);
+}
+
+/* Who waits at an elite's node or the boss's. */
+.map-node-enemy {
+  max-width: 150px;
+  font-size: 0.72rem;
 }
 
 .map-node-open {
@@ -1224,6 +1233,11 @@ button:disabled {
   padding: 10px;
   border: 1px solid var(--harm);
   border-radius: 8px;
+  text-align: left;
+}
+
+.run-side .boss-panel {
+  border-color: var(--harm);
   text-align: left;
 }
 

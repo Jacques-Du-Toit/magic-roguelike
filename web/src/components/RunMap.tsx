@@ -1,17 +1,104 @@
 // The act's map: rows of nodes from the first row at the bottom to the
-// boss at the top, with the paths between them.
+// boss at the top, with the paths between them. An elite's node names its
+// commander and the boss's node names the boss: the engine says who waits
+// at each (`MapNode.enemy`), and nobody waits at any other node.
 
+import type { CardDef } from '../engine/types/CardDef.ts'
+import type { EnemyDef } from '../engine/types/EnemyDef.ts'
 import type { MapNode } from '../engine/types/MapNode.ts'
 import type { RunView } from '../engine/types/RunView.ts'
 import { NODE_LABEL } from '../run/describe.ts'
+import { usePreview } from './usePreview.ts'
 
 interface RunMapProps {
   view: RunView
+  enemies: readonly EnemyDef[]
+  cards: ReadonlyMap<string, CardDef>
   /** Travel to a node the engine offers. */
   onTravel: (node: number) => void
 }
 
-export function RunMap({ view, onTravel }: RunMapProps) {
+type NodeState = 'here' | 'visited' | 'open' | 'far'
+
+const SAID: Record<NodeState, string> = {
+  here: ', you are here',
+  visited: ', visited',
+  open: ', can go here',
+  far: '',
+}
+
+interface MapSpotProps {
+  node: MapNode
+  state: NodeState
+  /** Who waits here, for an elite and the boss. */
+  enemy: EnemyDef | undefined
+  commander: CardDef | undefined
+  left: string
+  top: string
+  onTravel: (node: number) => void
+}
+
+function MapSpot({ node, state, enemy, commander, left, top, onTravel }: MapSpotProps) {
+  const label = NODE_LABEL[node.kind]
+  // Hovering shows the commander's card. The handlers are on the spot, not
+  // the button: a node that can't be gone to yet is a disabled button,
+  // which hears no mouse.
+  const preview = usePreview(commander)
+  // The boss is known by its own name, an elite by its commander's.
+  const shown = node.kind === 'boss' ? enemy?.name : commander?.name
+  const who = enemy
+    ? [
+        `${enemy.name}.`,
+        commander ? `Commander: ${commander.name}.` : '',
+        ...enemy.modifiers.map((modifier) => `${modifier.name}: ${modifier.text}`),
+      ]
+        .filter((part) => part !== '')
+        .join(' ')
+    : ''
+  return (
+    <div
+      className="map-spot"
+      style={{ left, top }}
+      title={who ? `${who} ${label.about}` : label.about}
+      {...preview}
+    >
+      <button
+        type="button"
+        className={`map-node map-node-${node.kind} map-node-${state}`}
+        disabled={state !== 'open'}
+        onClick={() => onTravel(node.id)}
+        aria-label={`${label.name}${who ? `: ${who}` : ''}${SAID[state]}`}
+        data-node={node.id}
+        data-kind={node.kind}
+        data-state={state}
+        data-enemy={enemy?.id}
+        data-commander={commander?.id}
+      >
+        {shown ? (
+          <>
+            <span className="map-node-name">
+              <span aria-hidden="true">{label.symbol}</span> {label.name}
+            </span>
+            <span className="map-node-enemy" data-testid="map-enemy">
+              {shown}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="map-node-symbol" aria-hidden="true">
+              {label.symbol}
+            </span>
+            <span className="map-node-name">{label.name}</span>
+          </>
+        )}
+        {state === 'here' && <span className="map-node-mark">You</span>}
+        {state === 'visited' && <span className="map-node-mark">Done</span>}
+      </button>
+    </div>
+  )
+}
+
+export function RunMap({ view, enemies, cards, onTravel }: RunMapProps) {
   const { map, path } = view
   const reachable = new Set(
     view.actions.flatMap((action) => (action.type === 'travel' ? [action.node] : [])),
@@ -58,41 +145,26 @@ export function RunMap({ view, onTravel }: RunMapProps) {
         )}
       </svg>
       {map.nodes.map((node) => {
-        const label = NODE_LABEL[node.kind]
-        const canGo = reachable.has(node.id)
-        const state = node.id === here ? 'here' : visited.has(node.id) ? 'visited' : canGo ? 'open' : 'far'
-        const said =
-          state === 'here'
-            ? ', you are here'
-            : state === 'visited'
-              ? ', visited'
-              : state === 'open'
-                ? ', can go here'
-                : ''
+        const state: NodeState =
+          node.id === here
+            ? 'here'
+            : visited.has(node.id)
+              ? 'visited'
+              : reachable.has(node.id)
+                ? 'open'
+                : 'far'
+        const enemy = enemies.find((def) => def.id === node.enemy)
         return (
-          <button
+          <MapSpot
             key={node.id}
-            type="button"
-            className={`map-node map-node-${node.kind} map-node-${state}`}
-            style={{
-              left: `${(x(node) / map.columns) * 100}%`,
-              top: `${(y(node) / map.rows) * 100}%`,
-            }}
-            disabled={!canGo}
-            onClick={() => onTravel(node.id)}
-            title={label.about}
-            aria-label={`${label.name}${said}`}
-            data-node={node.id}
-            data-kind={node.kind}
-            data-state={state}
-          >
-            <span className="map-node-symbol" aria-hidden="true">
-              {label.symbol}
-            </span>
-            <span className="map-node-name">{label.name}</span>
-            {state === 'here' && <span className="map-node-mark">You</span>}
-            {state === 'visited' && <span className="map-node-mark">Done</span>}
-          </button>
+            node={node}
+            state={state}
+            enemy={enemy}
+            commander={enemy?.commander ? cards.get(enemy.commander) : undefined}
+            left={`${(x(node) / map.columns) * 100}%`}
+            top={`${(y(node) / map.rows) * 100}%`}
+            onTravel={onTravel}
+          />
         )
       })}
     </div>

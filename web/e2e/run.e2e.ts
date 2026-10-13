@@ -429,6 +429,91 @@ test('a run played badly ends with one wound too many', async ({ page }) => {
   await expect(page.getByTestId('seed')).not.toHaveText('Seed 1')
 })
 
+// The map says who the boss is from the start and who each elite is before
+// the player goes there. ELITE_SEED=n tries another run: it needs an elite
+// on the way that always takes the first node on offer.
+test('an elite shows its commander on the map, and that is who the duel is against', async ({
+  page,
+}) => {
+  test.setTimeout(300_000)
+  const errors = watchForErrors(page)
+  const seed = process.env.ELITE_SEED ?? '2'
+  await page.goto(`/?run=warden&seed=${seed}&speed=instant`)
+  await expect(run(page)).toHaveAttribute('data-phase', 'map')
+
+  // The boss, before a step is taken: on its node and in the side panel.
+  const panel = page.getByTestId('boss-panel')
+  await expect(panel.getByTestId('boss-name')).toHaveText('The Pyre Tyrant')
+  await expect(panel.getByTestId('boss-life')).toHaveText('50')
+  await expect(panel.getByTestId('enemy-commander')).toContainText('Borborygmos')
+  await expect(panel.getByTestId('enemy-emblem')).toHaveCount(2)
+  await expect(panel).toContainText('The Pyre')
+  const bossNode = page.locator('.map-node[data-kind="boss"]')
+  await expect(bossNode.getByTestId('map-enemy')).toHaveText('The Pyre Tyrant')
+  await expect(bossNode).toHaveAttribute('data-commander', 'borborygmos')
+
+  // Every elite names its commander, no two of them the same one, and no
+  // other node names anybody.
+  const elites = page.locator('.map-node[data-kind="elite"]')
+  const named = await elites.getByTestId('map-enemy').allInnerTexts()
+  expect(named.length).toBeGreaterThan(0)
+  expect(named.length).toBe(await elites.count())
+  expect(new Set(named).size).toBe(named.length)
+  await expect(page.locator('.map-node[data-enemy]')).toHaveCount(named.length + 1)
+  await shot(page, 'run-map-ahead')
+
+  // Walk to the first elite on offer. The duels on the way are conceded:
+  // two wounds can be carried.
+  const seen: Seen = {
+    phases: new Set(),
+    nodes: new Set(),
+    duels: 0,
+    duelsWithFeats: 0,
+    wounded: false,
+    upgraded: false,
+    enemyCommanders: 0,
+    events: [],
+  }
+  let commander = ''
+  for (let step = 0; step < 60 && commander === ''; step += 1) {
+    await expect(run(page).or(duel(page))).toBeVisible()
+    if (await duel(page).isVisible()) {
+      await page.getByRole('button', { name: 'Concede' }).click()
+      await page.getByTestId('concede').click()
+      await expect(run(page)).toHaveAttribute('data-phase', 'reward')
+      continue
+    }
+    if ((await run(page).getAttribute('data-phase')) !== 'map') {
+      expect(await runStep(page, seen), 'the run ended before an elite').toBe(true)
+      continue
+    }
+    const elite = page.locator('.map-node-open[data-kind="elite"]').first()
+    if ((await elite.count()) === 0) {
+      await page.locator('.map-node-open').first().click()
+      continue
+    }
+    commander = await elite.getByTestId('map-enemy').innerText()
+    const card = (await elite.getAttribute('data-commander')) ?? ''
+    expect(named).toContain(commander)
+    // Hovering the node shows the commander's card.
+    await elite.hover()
+    await expect(page.getByTestId('card-preview')).toContainText(commander)
+    await shot(page, 'run-map-elite-hover')
+    await elite.click()
+
+    // The feats screen agrees with the map, and so does the duel.
+    const brief = page.getByTestId('feats-enemy').getByTestId('enemy-commander')
+    await expect(brief).toHaveAttribute('data-card', card)
+    await expect(brief).toContainText(commander)
+    await pickFeats(page)
+    await idle(page).waitFor()
+    const theirs = page.locator('[data-player="P2"] [data-testid="commander"]')
+    await expect(theirs).toContainText(commander)
+  }
+  expect(commander, 'no elite was met').not.toBe('')
+  expect(errors).toEqual([])
+})
+
 // Whole acts, played as well as the engine's own AI plays: every row of the
 // map, the feats before each duel, and the boss.
 // Each seed leads through every kind of node, and to one of the two events
@@ -440,7 +525,7 @@ const ACTS: [string, number, string?][] = process.env.ACTS
     })
   : [
       ['warden', 17, "The Devil's Bargain"],
-      ['firebrand', 62, 'The Wandering Smith'],
+      ['firebrand', 22, 'The Wandering Smith'],
     ]
 
 for (const [planeswalker, seed, event] of ACTS) {

@@ -10,6 +10,7 @@ import { usePreview } from '../components/usePreview.ts'
 import { DuelController, type Sleep } from '../duel/controller.ts'
 import type { Run } from '../engine/index.ts'
 import type { CardDef } from '../engine/types/CardDef.ts'
+import type { EnemyDef } from '../engine/types/EnemyDef.ts'
 import type { ModifierDef } from '../engine/types/ModifierDef.ts'
 import type { RunAction } from '../engine/types/RunAction.ts'
 import type { RunContent } from '../engine/types/RunContent.ts'
@@ -51,6 +52,32 @@ function Modifier({ def, kind }: { def: ModifierDef; kind: string }) {
     <li className="modifier" data-testid={kind}>
       <strong>{def.name}</strong> {def.text}
     </li>
+  )
+}
+
+/**
+ * An enemy's commander and emblems: the same on the feats screen before a
+ * duel and in the side panel for the boss.
+ */
+function EnemyDetails({ enemy, commander }: { enemy: EnemyDef; commander: CardDef | undefined }) {
+  const preview = usePreview(commander)
+  return (
+    <>
+      {commander && (
+        <p data-testid="enemy-commander" data-card={commander.id} {...preview}>
+          Its commander is <strong>{commander.name}</strong> <ManaCost cost={commander.mana_cost} />{' '}
+          {commander.power}/{commander.toughness}
+          {commander.oracle_text && <> · {commander.oracle_text}</>}
+        </p>
+      )}
+      {enemy.modifiers.length > 0 && (
+        <ul className="modifiers">
+          {enemy.modifiers.map((modifier) => (
+            <Modifier key={modifier.id} def={modifier} kind="enemy-emblem" />
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
 
@@ -210,6 +237,9 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
   )
   const basics = view.basic_lands.reduce((sum, entry) => sum + entry.count, 0)
   const here =view.map.nodes.find((node) => node.id === view.path.at(-1))
+  // The act's boss, which the engine names from the start.
+  const boss = content.enemies.find((def) => def.id === view.boss?.enemy)
+  const bossCommander = boss?.commander ? cards.get(boss.commander) : undefined
 
   let title: string
   let body: ReactNode
@@ -218,7 +248,12 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
       title = view.path.length === 0 ? 'Choose where to start' : 'Choose where to go next'
       body = (
         <>
-          <RunMap view={view} onTravel={(node) => send({ type: 'travel', node })} />
+          <RunMap
+            view={view}
+            enemies={content.enemies}
+            cards={cards}
+            onTravel={(node) => send({ type: 'travel', node })}
+          />
           <ul className="map-legend">
             {(['duel', 'elite', 'draft', 'treasure', 'event', 'rest', 'shop', 'boss'] as const).map((kind) => (
               <li key={kind}>
@@ -258,21 +293,7 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
               {phase.kind === 'elite' ? 'Elite: ' : 'Against '}
               {enemy?.name ?? phase.enemy}
             </h3>
-            {enemyCommander && (
-              <p>
-                Its commander is <strong>{enemyCommander.name}</strong>{' '}
-                <ManaCost cost={enemyCommander.mana_cost} /> {enemyCommander.power}/
-                {enemyCommander.toughness}
-                {enemyCommander.oracle_text && <> · {enemyCommander.oracle_text}</>}
-              </p>
-            )}
-            {enemy && enemy.modifiers.length > 0 && (
-              <ul className="modifiers">
-                {enemy.modifiers.map((modifier) => (
-                  <Modifier key={modifier.id} def={modifier} kind="enemy-emblem" />
-                ))}
-              </ul>
-            )}
+            {enemy && <EnemyDetails enemy={enemy} commander={enemyCommander} />}
           </section>
           <p className="muted">
             Each feat scores a point for each of its numbers you meet, if you win. The points of
@@ -686,6 +707,16 @@ export function RunScreen({ run, content, cards, sleep, speed, onSpeed, onExit }
         </main>
 
         <aside className="run-side">
+          {boss && view.boss && phase.type !== 'over' && (
+            <section className="panel boss-panel" data-testid="boss-panel">
+              <h2>The boss</h2>
+              <p>
+                <strong data-testid="boss-name">{boss.name}</strong> starts with{' '}
+                <span data-testid="boss-life">{view.boss.life}</span> life.
+              </p>
+              <EnemyDetails enemy={boss} commander={bossCommander} />
+            </section>
+          )}
           {commander && (
             <section className="panel">
               <h2>Commander</h2>
