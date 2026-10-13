@@ -2404,3 +2404,89 @@ fn whetstone_puts_a_counter_on_the_first_creature_token_each_turn() {
     cast_and_settle(&mut duel, "raise_the_alarm");
     assert_eq!(powers(&duel), [1, 1, 1, 1, 2, 2]);
 }
+
+// ---- The balance pass: hard enemies late in the act, and cards held back ----
+
+#[test]
+fn the_acts_duels_get_harder_easy_then_normal_then_hard() {
+    let data = data::embedded().unwrap();
+    let mut seen = std::collections::BTreeSet::new();
+    for seed in 0..12 {
+        let mut state = run("warden", seed);
+        for _ in 0..200 {
+            match state.phase.clone() {
+                Phase::Over { .. } => break,
+                Phase::Map => {
+                    let node = travels(&state)[0];
+                    act(&mut state, RunAction::Travel { node });
+                }
+                Phase::Duel { enemy, kind } => {
+                    let row = state.map.node(state.position().unwrap()).unwrap().row;
+                    let tier = data.run.enemy(&enemy).unwrap().tier;
+                    let expected = match (kind, row) {
+                        (DuelKind::Boss, _) => EnemyTier::Boss,
+                        (DuelKind::Elite, _) => EnemyTier::Elite,
+                        (DuelKind::Normal, 0..=1) => EnemyTier::Easy,
+                        (DuelKind::Normal, 2..=7) => EnemyTier::Normal,
+                        (DuelKind::Normal, _) => EnemyTier::Hard,
+                    };
+                    assert_eq!(tier, expected, "seed {seed}, row {row}: {enemy}");
+                    seen.insert(tier);
+                    finish(&mut state, win());
+                }
+                // Anything else is left by its last action: skip, leave,
+                // or a treasure's gold.
+                _ => {
+                    let leave = run_legal_actions(&state).pop().unwrap();
+                    act(&mut state, leave);
+                }
+            }
+        }
+        assert_eq!(state.phase, Phase::Over { won: true }, "seed {seed}");
+    }
+    // A dozen acts between them meet every tier.
+    assert_eq!(seen.len(), 5, "{seen:?}");
+}
+
+#[test]
+fn a_card_held_back_is_never_offered() {
+    let data = data::embedded().unwrap();
+    let warden = data
+        .run
+        .planeswalker(&PlaneswalkerId("warden".to_string()))
+        .unwrap();
+    let held: Vec<&CardDefId> = data
+        .cards
+        .iter()
+        .filter(|card| card.reserved)
+        .map(|card| &card.id)
+        .collect();
+    // The starting deck's own cards are among them: a starter card is
+    // never a reward.
+    assert!(held.len() >= 20);
+    for entry in &warden.spells {
+        assert!(held.contains(&&entry.card), "{}", entry.card);
+    }
+    let pool = super::rewards::offered_spells(&data.cards, &warden.colors);
+    assert!(pool.iter().all(|card| !card.reserved));
+    for seed in 0..40 {
+        let mut rng = DuelRng::from_seed(seed);
+        let weights = &data.balance.run.rewards.top;
+        let mut offered = super::rewards::card_reward(&mut rng, data, &warden.colors, weights, 4);
+        offered.extend(super::rewards::draft_pack(&mut rng, data, &warden.colors));
+        offered.extend(super::rewards::event_cards(
+            &mut rng,
+            data,
+            &warden.colors,
+            3,
+        ));
+        for item in super::rewards::shop_stock(&mut rng, data, &warden.colors, &[]) {
+            if let Ware::Card { card } = item.ware {
+                offered.push(card);
+            }
+        }
+        for card in &offered {
+            assert!(!held.contains(&card), "seed {seed} offers {card}");
+        }
+    }
+}
