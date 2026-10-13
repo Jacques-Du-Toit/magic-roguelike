@@ -15,9 +15,9 @@ export type RunView = {
  */
 seed: string, planeswalker: PlaneswalkerId, 
 /**
- * The starting emblem chosen for the run.
+ * The starting emblem the run was begun with, if any.
  */
-emblem: ModifierId, 
+emblem: ModifierId | null, 
 /**
  * The wounds carried, oldest first. `RunAction::HealWound` indexes it.
  */

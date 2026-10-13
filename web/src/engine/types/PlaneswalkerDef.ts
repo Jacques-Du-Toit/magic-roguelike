@@ -20,6 +20,7 @@ spells: Array<DeckEntry>,
 commander: CardDefId | null, 
 /**
  * The starting emblem (one of `data/run/emblems.json`) this character
- * takes when the player doesn't choose another.
+ * takes when the player doesn't choose another. None: it starts
+ * without one.
  */
-emblem: ModifierId, };
+emblem: ModifierId | null, };

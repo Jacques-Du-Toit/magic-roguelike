@@ -7,6 +7,7 @@ import type { PlaneswalkerId } from "./PlaneswalkerId";
  */
 export type RunConfig = { planeswalker: PlaneswalkerId, 
 /**
- * The starting emblem to take; `None` for the planeswalker's usual one.
+ * The starting emblem to take; `None` for the planeswalker's usual one,
+ * if it has one.
  */
 emblem: ModifierId | null, };

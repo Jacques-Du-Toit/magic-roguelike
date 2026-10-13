@@ -10,6 +10,7 @@
   ],
   "rarity": "common",
   "oracle_text": "Target creature gets +3/+3 until end of turn.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "spell",

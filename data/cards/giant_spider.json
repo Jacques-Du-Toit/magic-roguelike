@@ -18,5 +18,6 @@
     "reach"
   ],
   "oracle_text": "Reach (This creature can block creatures with flying.)",
+  "reserved": true,
   "abilities": []
 }

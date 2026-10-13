@@ -14,7 +14,7 @@
   ],
   "power": 2,
   "toughness": 2,
-  "rarity": "common",
+  "rarity": "uncommon",
   "oracle_text": "Whenever another creature you control enters, you gain 1 life.",
   "abilities": [
     {

@@ -19,5 +19,6 @@
     "double_strike"
   ],
   "oracle_text": "Double strike (This creature deals both first-strike and regular combat damage.)",
+  "reserved": true,
   "abilities": []
 }

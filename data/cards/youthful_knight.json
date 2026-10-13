@@ -19,5 +19,6 @@
     "first_strike"
   ],
   "oracle_text": "First strike",
+  "reserved": true,
   "abilities": []
 }

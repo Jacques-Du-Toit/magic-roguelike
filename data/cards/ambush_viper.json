@@ -19,5 +19,6 @@
     "flash"
   ],
   "oracle_text": "Flash\nDeathtouch",
+  "reserved": true,
   "abilities": []
 }

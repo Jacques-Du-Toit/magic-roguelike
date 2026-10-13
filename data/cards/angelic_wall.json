@@ -19,5 +19,6 @@
     "flying"
   ],
   "oracle_text": "Defender (This creature can't attack.)\nFlying",
+  "reserved": true,
   "abilities": []
 }

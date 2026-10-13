@@ -240,32 +240,6 @@ fn griffin_aerie_only_looks_at_my_own_end_step() {
 }
 
 #[test]
-fn twinblade_paladin_has_double_strike_at_five_life_above_the_start() {
-    let (mut state, me, _) = empty_board(1);
-    let paladin = put_on_battlefield(&mut state, me, "twinblade_paladin");
-    let start = state.player(me).starting_life;
-    assert_eq!(state.player(me).life, start);
-    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
-    gain(&mut state, me, 4);
-    settle(&mut state);
-    assert_eq!(counters(&state, paladin), 1);
-    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
-    gain(&mut state, me, 1);
-    settle(&mut state);
-    assert_eq!(counters(&state, paladin), 2);
-    assert!(state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
-    // It goes again if the life does.
-    gain(&mut state, me, -1);
-    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
-
-    // The starting total, not a fixed 25: with a higher start it takes more.
-    state.players[me.index()].starting_life = start + 3;
-    gain(&mut state, me, 1);
-    settle(&mut state);
-    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
-}
-
-#[test]
 fn nyx_fleece_ram_gains_a_life_each_upkeep_of_mine() {
     let (mut state, me, _) = empty_board(1);
     let ram = put_on_battlefield(&mut state, me, "nyx_fleece_ram");

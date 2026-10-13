@@ -16,5 +16,6 @@
   "toughness": 2,
   "rarity": "common",
   "oracle_text": "",
+  "reserved": true,
   "abilities": []
 }

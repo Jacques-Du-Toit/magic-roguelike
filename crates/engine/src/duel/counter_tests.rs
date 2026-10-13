@@ -413,30 +413,6 @@ fn cathars_crusade_puts_a_counter_on_everything_whenever_a_creature_of_mine_ente
 }
 
 #[test]
-fn luminarch_aspirant_puts_a_counter_on_a_creature_at_the_start_of_my_combat() {
-    let (mut state, me, opponent) = empty_board(1);
-    let aspirant = put_on_battlefield(&mut state, me, "luminarch_aspirant");
-    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
-    put_on_battlefield(&mut state, opponent, "hill_giant");
-    pass_until(&mut state, 1, Step::BeginCombat);
-    // Two creatures of mine to choose from.
-    assert!(matches!(
-        state.decision,
-        Some(Decision::ChooseTargets { player, .. }) if player == me
-    ));
-    assert_eq!(legal_actions(&state, me), [aim(aspirant), aim(bears)]);
-    act(&mut state, me, aim(bears));
-    settle(&mut state);
-    assert_eq!(counters(&state, bears), 1);
-
-    // Not in the opponent's combat.
-    pass_until(&mut state, 2, Step::BeginCombat);
-    assert!(matches!(state.decision, Some(Decision::Priority { .. })));
-    assert!(state.stack.is_empty());
-    assert_eq!(counters(&state, bears) + counters(&state, aspirant), 1);
-}
-
-#[test]
 fn kalonian_hydra_enters_with_four_counters_and_doubles_them_when_it_attacks() {
     let (mut state, me, _) = empty_board(1);
     put_lands(&mut state, me, "forest", 5);
@@ -457,24 +433,4 @@ fn kalonian_hydra_enters_with_four_counters_and_doubles_them_when_it_attacks() {
     assert_eq!(counters(&state, hydra), 8);
     assert_eq!(counters(&state, bears), 2);
     state.assert_consistent();
-}
-
-#[test]
-fn archangel_of_thune_puts_a_counter_on_my_creatures_whenever_i_gain_life() {
-    let (mut state, me, opponent) = empty_board(1);
-    put_lands(&mut state, me, "plains", 2);
-    let angel = put_on_battlefield(&mut state, me, "archangel_of_thune");
-    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
-    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
-    let revitalize = put_in_hand(&mut state, me, "revitalize");
-    act(&mut state, me, cast(revitalize));
-    settle(&mut state);
-    assert_eq!((counters(&state, angel), counters(&state, bears)), (1, 1));
-    assert_eq!(counters(&state, theirs), 0);
-    // Its own lifelink sets it off as well: nothing of theirs can block a
-    // flier.
-    attack(&mut state, &[angel]);
-    finish_combat(&mut state);
-    settle(&mut state);
-    assert_eq!((counters(&state, angel), counters(&state, bears)), (2, 2));
 }

@@ -1,0 +1,28 @@
+{
+  "id": "benalish_marshal",
+  "name": "Benalish Marshal",
+  "mana_cost": "{W}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Knight"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "rare",
+  "oracle_text": "Other creatures you control get +1/+1.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "other_creatures_you_control",
+      "power": 1,
+      "toughness": 1
+    }
+  ]
+}

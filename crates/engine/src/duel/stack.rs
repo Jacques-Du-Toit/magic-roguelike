@@ -216,6 +216,9 @@ fn creature_passes(
     {
         return Ok(false);
     }
+    if filter.with_counter && state.object(creature)?.plus_counters == 0 {
+        return Ok(false);
+    }
     if let Some(controller) = filter.controller {
         let yours = state.object(creature)?.owner == player;
         if yours != (controller == ControlledBy::You) {

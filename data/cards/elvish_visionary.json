@@ -16,6 +16,7 @@
   "toughness": 1,
   "rarity": "common",
   "oracle_text": "When this creature enters, draw a card.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "triggered",

@@ -15,5 +15,6 @@
   "power": 3,
   "toughness": 3,
   "rarity": "common",
+  "reserved": true,
   "abilities": []
 }

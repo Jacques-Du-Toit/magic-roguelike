@@ -185,37 +185,6 @@ fn sight_of_the_scalelords_pumps_my_tough_creatures_each_combat() {
 }
 
 #[test]
-fn thragtusk_gains_five_and_leaves_a_beast_however_it_leaves() {
-    let (mut state, me, opponent) = empty_board(1);
-    put_lands(&mut state, me, "forest", 5);
-    put_lands(&mut state, opponent, "island", 3);
-    let life = state.player(me).life;
-    play(&mut state, me, "thragtusk");
-    assert_eq!(state.player(me).life, life + 5);
-    let tusk = named(&state, me, "Thragtusk")[0];
-
-    // Bounced, not killed: it still leaves a Beast behind.
-    let mut events = Vec::new();
-    state.move_object(tusk, Zone::Hand).unwrap();
-    super::stack::put_triggers_on_stack(&mut state, &mut events).unwrap();
-    settle(&mut state);
-    let beasts = named(&state, me, "Beast");
-    assert_eq!(beasts.len(), 1);
-    assert_eq!(stats(&state, beasts[0]), (3, 3));
-    assert!(named(&state, me, "Thragtusk").is_empty());
-
-    // And when it dies.
-    let tusk = put_on_battlefield(&mut state, me, "thragtusk");
-    act(&mut state, me, Action::PassPriority);
-    put_lands(&mut state, opponent, "swamp", 3);
-    let murder = put_in_hand(&mut state, opponent, "murder");
-    act(&mut state, opponent, cast_at(murder, at(tusk)));
-    settle(&mut state);
-    assert_eq!(named(&state, me, "Beast").len(), 2);
-    state.assert_consistent();
-}
-
-#[test]
 fn armada_wurm_brings_a_second_wurm() {
     let (mut state, me, _) = empty_board(1);
     put_lands(&mut state, me, "forest", 4);

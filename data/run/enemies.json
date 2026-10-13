@@ -5,15 +5,14 @@
     "tier": "easy",
     "cards": [
       {"card":"llanowar_elves","count":2},
-      {"card":"gladecover_scout","count":1},
-      {"card":"grizzly_bears","count":2},
-      {"card":"ambush_viper","count":1},
+      {"card":"gladecover_scout","count":2},
+      {"card":"grizzly_bears","count":3},
       {"card":"elvish_visionary","count":2},
       {"card":"ironshell_beetle","count":2},
-      {"card":"centaur_courser","count":2},
+      {"card":"ambush_viper","count":1},
+      {"card":"centaur_courser","count":1},
       {"card":"giant_spider","count":1},
       {"card":"giant_growth","count":1},
-      {"card":"titanic_growth","count":1},
       {"card":"forest","count":10}
     ]
   },
@@ -22,15 +21,13 @@
     "name": "Sky Patrol",
     "tier": "easy",
     "cards": [
-      {"card":"coral_merfolk","count":2},
-      {"card":"kraken_hatchling","count":1},
+      {"card":"coral_merfolk","count":3},
+      {"card":"kraken_hatchling","count":2},
       {"card":"wind_drake","count":3},
       {"card":"cloudkin_seer","count":2},
       {"card":"angelic_wall","count":1},
       {"card":"assault_griffin","count":2},
       {"card":"snapping_drake","count":1},
-      {"card":"air_elemental","count":1},
-      {"card":"pacifism","count":1},
       {"card":"unsummon","count":1},
       {"card":"plains","count":5},
       {"card":"island","count":5}
@@ -41,14 +38,13 @@
     "name": "Grave Robbers",
     "tier": "easy",
     "cards": [
-      {"card":"walking_corpse","count":3},
+      {"card":"walking_corpse","count":4},
       {"card":"typhoid_rats","count":2},
       {"card":"burglar_rat","count":2},
       {"card":"doomed_dissenter","count":2},
       {"card":"black_cat","count":2},
       {"card":"stitchers_supplier","count":1},
       {"card":"gravedigger","count":1},
-      {"card":"disfigure","count":1},
       {"card":"dead_weight","count":1},
       {"card":"swamp","count":10}
     ]
@@ -75,13 +71,13 @@
     "tier": "easy",
     "cards": [
       {"card":"monastery_swiftspear","count":2},
-      {"card":"wee_dragonauts","count":2},
+      {"card":"wee_dragonauts","count":1},
       {"card":"wind_drake","count":2},
+      {"card":"coral_merfolk","count":2},
       {"card":"frost_lynx","count":1},
       {"card":"opt","count":2},
       {"card":"divination","count":1},
       {"card":"shock","count":2},
-      {"card":"lightning_strike","count":1},
       {"card":"cancel","count":1},
       {"card":"sure_strike","count":1},
       {"card":"island","count":5},
@@ -96,15 +92,14 @@
       {"card":"savannah_lions","count":2},
       {"card":"youthful_knight","count":2},
       {"card":"borderland_marauder","count":2},
-      {"card":"swiftblade_vindicator","count":1},
       {"card":"skyknight_legionnaire","count":1},
-      {"card":"goblin_piker","count":1},
+      {"card":"goblin_piker","count":2},
       {"card":"boggart_brute","count":1},
       {"card":"hill_giant","count":1},
       {"card":"lightning_strike","count":1},
-      {"card":"lightning_helix","count":1},
       {"card":"sure_strike","count":1},
       {"card":"shock","count":1},
+      {"card":"glory_seeker","count":1},
       {"card":"mountain","count":5},
       {"card":"plains","count":5}
     ]
@@ -122,9 +117,9 @@
       {"card":"dragon_fodder","count":1},
       {"card":"audacious_thief","count":1},
       {"card":"shivan_dragon","count":1},
-      {"card":"murder","count":1},
       {"card":"lightning_strike","count":1},
       {"card":"phyrexian_arena","count":1},
+      {"card":"walking_corpse","count":1},
       {"card":"swamp","count":5},
       {"card":"mountain","count":5}
     ]
@@ -141,12 +136,12 @@
       {"card":"spectral_sailor","count":1},
       {"card":"burglar_rat","count":2},
       {"card":"mire_triton","count":1},
-      {"card":"ravenous_chupacabra","count":1},
       {"card":"notion_rain","count":1},
-      {"card":"doom_blade","count":1},
       {"card":"essence_scatter","count":1},
       {"card":"negate","count":1},
-      {"card":"mind_rot","count":1},
+      {"card":"coral_merfolk","count":1},
+      {"card":"wind_drake","count":1},
+      {"card":"opt","count":1},
       {"card":"island","count":5},
       {"card":"swamp","count":5}
     ]
@@ -159,13 +154,10 @@
       {"card":"raging_goblin","count":1},
       {"card":"goblin_instigator","count":2},
       {"card":"borderland_marauder","count":1},
-      {"card":"goblin_piker","count":1},
+      {"card":"goblin_piker","count":3},
       {"card":"boggart_brute","count":2},
       {"card":"furnace_whelp","count":2},
-      {"card":"hill_giant","count":1},
-      {"card":"thundering_giant","count":1},
-      {"card":"volcanic_dragon","count":1},
-      {"card":"lightning_bolt","count":1},
+      {"card":"hill_giant","count":2},
       {"card":"lightning_strike","count":1},
       {"card":"shock","count":1},
       {"card":"mountain","count":10}
@@ -178,7 +170,7 @@
     "cards": [
       {"card":"typhoid_rats","count":2},
       {"card":"thornweald_archer","count":1},
-      {"card":"walking_corpse","count":1},
+      {"card":"walking_corpse","count":2},
       {"card":"ambush_viper","count":1},
       {"card":"mire_triton","count":1},
       {"card":"gravedigger","count":1},
@@ -187,7 +179,6 @@
       {"card":"centaur_courser","count":2},
       {"card":"rumbling_baloth","count":1},
       {"card":"rabid_bite","count":1},
-      {"card":"murder","count":1},
       {"card":"raise_dead","count":1},
       {"card":"swamp","count":5},
       {"card":"forest","count":5}
@@ -208,8 +199,8 @@
       {"card":"rumbling_baloth","count":2},
       {"card":"stampeding_rhino","count":1},
       {"card":"colossal_dreadmaw","count":1},
-      {"card":"gigantosaurus","count":1},
       {"card":"plummet","count":1},
+      {"card":"centaur_courser","count":1},
       {"card":"forest","count":7},
       {"card":"island","count":3}
     ]
@@ -227,10 +218,10 @@
       {"card":"raise_the_alarm","count":1},
       {"card":"centaur_courser","count":2},
       {"card":"bestial_menace","count":1},
-      {"card":"sentinel_spider","count":1},
       {"card":"giant_spider","count":1},
       {"card":"glorious_anthem","count":1},
-      {"card":"pacifism","count":1},
+      {"card":"grizzly_bears","count":1},
+      {"card":"giant_growth","count":1},
       {"card":"forest","count":5},
       {"card":"plains","count":5}
     ]
@@ -241,16 +232,14 @@
     "tier": "hard",
     "cards": [
       {"card":"typhoid_rats","count":1},
-      {"card":"walking_corpse","count":2},
+      {"card":"walking_corpse","count":3},
       {"card":"phyrexian_rager","count":2},
       {"card":"skymarch_bloodletter","count":2},
       {"card":"vampire_spawn","count":2},
-      {"card":"barony_vampire","count":1},
+      {"card":"barony_vampire","count":2},
       {"card":"gravedigger","count":1},
       {"card":"epicure_of_blood","count":1},
       {"card":"vampire_sovereign","count":1},
-      {"card":"doom_blade","count":1},
-      {"card":"eviscerate","count":1},
       {"card":"swamp","count":10}
     ]
   },
@@ -262,14 +251,13 @@
       {"card":"boggart_brute","count":2},
       {"card":"prodigal_pyromancer","count":1},
       {"card":"hill_giant","count":2},
-      {"card":"flametongue_kavu","count":1},
       {"card":"pitchburn_devils","count":1},
       {"card":"thundering_giant","count":2},
       {"card":"fire_elemental","count":2},
-      {"card":"charging_monstrosaur","count":1},
       {"card":"shivan_dragon","count":1},
       {"card":"lightning_strike","count":1},
       {"card":"pyroclasm","count":1},
+      {"card":"goblin_piker","count":2},
       {"card":"mountain","count":10}
     ]
   },
@@ -319,16 +307,16 @@
     "tier": "elite",
     "commander": "radiant_archangel",
     "cards": [
-      {"card":"healers_hawk","count":2},
+      {"card":"healers_hawk","count":1},
       {"card":"angelic_wall","count":1},
       {"card":"wind_drake","count":2},
-      {"card":"empyrean_eagle","count":1},
-      {"card":"inspiring_overseer","count":1},
       {"card":"cloudkin_seer","count":2},
+      {"card":"inspiring_overseer","count":1},
       {"card":"angel_of_mercy","count":1},
-      {"card":"coral_merfolk","count":1},
+      {"card":"coral_merfolk","count":2},
+      {"card":"kraken_hatchling","count":1},
       {"card":"snapping_drake","count":1},
-      {"card":"serra_angel","count":1},
+      {"card":"assault_griffin","count":1},
       {"card":"sheltering_light","count":1},
       {"card":"unsummon","count":1},
       {"card":"plains","count":6},
@@ -362,34 +350,17 @@
     "tier": "boss",
     "commander": "borborygmos",
     "cards": [
-      {"card":"llanowar_elves","count":2},
-      {"card":"druid_of_the_cowl","count":1},
-      {"card":"boggart_brute","count":1},
+      {"card":"goblin_instigator","count":2},
+      {"card":"goblin_piker","count":3},
+      {"card":"grizzly_bears","count":3},
+      {"card":"boggart_brute","count":2},
       {"card":"centaur_courser","count":2},
-      {"card":"rumbling_baloth","count":2},
-      {"card":"thundering_giant","count":1},
-      {"card":"stampeding_rhino","count":1},
-      {"card":"fire_elemental","count":1},
-      {"card":"charging_monstrosaur","count":1},
-      {"card":"colossal_dreadmaw","count":1},
-      {"card":"lightning_strike","count":1},
-      {"card":"rabid_bite","count":1},
+      {"card":"hill_giant","count":2},
+      {"card":"rumbling_baloth","count":1},
       {"card":"mountain","count":4},
       {"card":"forest","count":6}
     ],
     "modifiers": [
-      {
-        "id": "tyrants_vigour",
-        "name": "Tyrant's Vigour",
-        "text": "The Pyre Tyrant starts with 5 more life.",
-        "effects": [
-          {
-            "type": "starting_life",
-            "who": "owner",
-            "change": 5
-          }
-        ]
-      },
       {
         "id": "tyrants_pyre",
         "name": "The Pyre",

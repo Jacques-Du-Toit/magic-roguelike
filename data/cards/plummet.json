@@ -10,6 +10,7 @@
   ],
   "rarity": "common",
   "oracle_text": "Destroy target creature with flying.",
+  "reserved": true,
   "abilities": [
     {
       "kind": "spell",

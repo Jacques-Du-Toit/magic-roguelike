@@ -446,3 +446,129 @@ fn hardened_scales_adds_a_counter_and_adds_up_with_conclave_mentor() {
     settle(&mut state);
     assert_eq!(stats(&state, theirs), (4, 4));
 }
+
+// ---- Cards whose text the balance pass changed (`altered` in their files) ----
+
+#[test]
+fn thragtusk_gains_five_only_beside_another_big_creature_and_always_leaves_a_beast() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_lands(&mut state, me, "forest", 10);
+    let life = state.player(me).life;
+    // Alone, or beside a 3/3, it gains nothing: its own power doesn't count.
+    put_on_battlefield(&mut state, me, "centaur_courser");
+    play(&mut state, me, "thragtusk");
+    assert_eq!(state.player(me).life, life);
+    // Beside another creature of power 4 or more, 5 life.
+    play(&mut state, me, "thragtusk");
+    assert_eq!(state.player(me).life, life + 5);
+    let tusks = named(&state, me, "Thragtusk");
+    assert_eq!(stats(&state, tusks[0]), (5, 3));
+
+    // Bounced, not killed: it still leaves a Beast behind.
+    let mut events = Vec::new();
+    state
+        .move_object(tusks[0], super::state::Zone::Hand)
+        .unwrap();
+    super::stack::put_triggers_on_stack(&mut state, &mut events).unwrap();
+    settle(&mut state);
+    let beasts = named(&state, me, "Beast");
+    assert_eq!(beasts.len(), 1);
+    assert_eq!(stats(&state, beasts[0]), (3, 3));
+
+    // And when it dies.
+    act(&mut state, me, Action::PassPriority);
+    put_lands(&mut state, opponent, "swamp", 3);
+    let murder = put_in_hand(&mut state, opponent, "murder");
+    act(&mut state, opponent, cast_at(murder, at(tusks[1])));
+    settle(&mut state);
+    assert_eq!(named(&state, me, "Beast").len(), 2);
+    state.assert_consistent();
+}
+
+#[test]
+fn twinblade_paladin_has_double_strike_at_five_life_above_the_start_and_no_counters() {
+    let (mut state, me, _) = empty_board(1);
+    let paladin = put_on_battlefield(&mut state, me, "twinblade_paladin");
+    let start = state.player(me).starting_life;
+    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
+    gain(&mut state, me, 4);
+    settle(&mut state);
+    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
+    gain(&mut state, me, 1);
+    settle(&mut state);
+    assert!(state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
+    // Gaining life no longer puts counters on it.
+    assert_eq!(stats(&state, paladin), (3, 3));
+    // The double strike goes again if the life does.
+    gain(&mut state, me, -1);
+    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
+    // The starting total, not a fixed 25: with a higher start it takes more.
+    state.players[me.index()].starting_life = start + 3;
+    gain(&mut state, me, 1);
+    settle(&mut state);
+    assert!(!state.has_keyword(paladin, Keyword::DoubleStrike).unwrap());
+}
+
+#[test]
+fn archangel_of_thune_puts_counters_at_my_end_step_after_three_life_in_the_turn() {
+    let (mut state, me, opponent) = empty_board(1);
+    let angel = put_on_battlefield(&mut state, me, "archangel_of_thune");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    // Two life is not enough, and gaining life does nothing by itself.
+    gain(&mut state, me, 2);
+    settle(&mut state);
+    assert_eq!(stats(&state, bears), (2, 2));
+    pass_until(&mut state, 1, Step::End);
+    settle(&mut state);
+    assert_eq!(stats(&state, bears), (2, 2));
+
+    // Its own lifelink is three life: nothing of theirs blocks a flier.
+    pass_until(&mut state, 3, Step::PrecombatMain);
+    attack(&mut state, &[angel]);
+    pass_until(&mut state, 3, Step::End);
+    settle(&mut state);
+    assert_eq!(stats(&state, angel), (4, 5));
+    assert_eq!(stats(&state, bears), (3, 3));
+    assert_eq!(stats(&state, theirs), (3, 3));
+    // Once a turn, at the end step, and not in the opponent's.
+    pass_until(&mut state, 4, Step::PrecombatMain);
+    gain(&mut state, me, 5);
+    pass_until(&mut state, 5, Step::Upkeep);
+    assert_eq!(stats(&state, bears), (3, 3));
+}
+
+#[test]
+fn luminarch_aspirant_only_grows_a_creature_that_already_has_a_counter() {
+    let (mut state, me, opponent) = empty_board(1);
+    put_on_battlefield(&mut state, me, "luminarch_aspirant");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let seeker = put_on_battlefield(&mut state, me, "glory_seeker");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    state.object_mut(theirs).unwrap().plus_counters = 1;
+    // Nothing of mine has a counter: the ability has no target and never
+    // goes on the stack.
+    pass_until(&mut state, 1, Step::BeginCombat);
+    assert!(state.stack.is_empty());
+    assert!(matches!(state.decision, Some(Decision::Priority { .. })));
+
+    // With a counter on the Bears, they are the one target, taken without
+    // asking; the Seeker and the opponent's creature are not.
+    counter_on(&mut state, me, bears);
+    pass_until(&mut state, 3, Step::BeginCombat);
+    settle(&mut state);
+    assert_eq!(stats(&state, bears), (4, 4));
+    assert_eq!(stats(&state, seeker), (2, 2));
+    assert_eq!(stats(&state, theirs), (4, 4));
+}
+
+#[test]
+fn benalish_marshal_gives_my_other_creatures_one_and_one() {
+    let (mut state, me, opponent) = empty_board(1);
+    let marshal = put_on_battlefield(&mut state, me, "benalish_marshal");
+    let bears = put_on_battlefield(&mut state, me, "grizzly_bears");
+    let theirs = put_on_battlefield(&mut state, opponent, "hill_giant");
+    assert_eq!(stats(&state, marshal), (3, 3));
+    assert_eq!(stats(&state, bears), (3, 3));
+    assert_eq!(stats(&state, theirs), (3, 3));
+}

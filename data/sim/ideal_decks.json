@@ -14,7 +14,7 @@
       {"card":"phantom_general","count":1},
       {"card":"champion_of_lambholt","count":1},
       {"card":"glorious_anthem","count":1},
-      {"card":"inspired_charge","count":1},
+      {"card":"benalish_marshal","count":1},
       {"card":"collective_blessing","count":1}
     ]
   },
@@ -24,18 +24,16 @@
     "spells": [
       {"card":"conclave_mentor","count":2},
       {"card":"abzan_battle_priest","count":2},
-      {"card":"abzan_falconer","count":1},
-      {"card":"good_fortune_unicorn","count":1},
+      {"card":"abzan_falconer","count":2},
+      {"card":"good_fortune_unicorn","count":2},
       {"card":"ridgescale_tusker","count":2},
       {"card":"ironshell_beetle","count":2},
       {"card":"pridemalkin","count":1},
       {"card":"crowned_ceratok","count":1},
-      {"card":"armorcraft_judge","count":1},
-      {"card":"basris_solidarity","count":1},
-      {"card":"invigorating_surge","count":1},
-      {"card":"hardened_scales","count":1},
+      {"card":"champion_of_lambholt","count":1},
+      {"card":"luminarch_aspirant","count":1},
       {"card":"kalonian_hydra","count":1},
-      {"card":"high_sentinels_of_arashin","count":1}
+      {"card":"archangel_of_thune","count":1}
     ]
   },
   {

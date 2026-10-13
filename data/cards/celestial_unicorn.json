@@ -13,7 +13,7 @@
   ],
   "power": 3,
   "toughness": 2,
-  "rarity": "common",
+  "rarity": "uncommon",
   "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
   "abilities": [
     {

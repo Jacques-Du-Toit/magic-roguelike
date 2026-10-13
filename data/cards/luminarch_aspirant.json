@@ -15,8 +15,8 @@
   "power": 1,
   "toughness": 1,
   "rarity": "rare",
-  "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control.",
-  "reserved": true,
+  "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control with a +1/+1 counter on it.",
+  "altered": true,
   "abilities": [
     {
       "kind": "triggered",
@@ -28,7 +28,8 @@
           "type": "add_counters",
           "target": {
             "creature": {
-              "controller": "you"
+              "controller": "you",
+              "with_counter": true
             }
           },
           "amount": 1

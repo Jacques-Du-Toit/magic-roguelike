@@ -749,6 +749,9 @@ pub struct CreatureFilter {
     /// controls the spell or ability.
     #[serde(default)]
     pub controller: Option<ControlledBy>,
+    /// "With a +1/+1 counter on it".
+    #[serde(default)]
+    pub with_counter: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
