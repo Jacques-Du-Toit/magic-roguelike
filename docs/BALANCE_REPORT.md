@@ -10,11 +10,11 @@ The Warden starts with a weaker deck and no emblem. The pool is 104 cards in fiv
 |---|---|---|---|
 | 1. Floor: the random picker, with relics | about 33% | **34.2%** (600 runs, +/- 3.8) | Yes |
 | 2. Ceiling: each package's ideal deck, no relics | 85 to 95%, within about 10 points | wide **89.3**, lifegain **86.0**, big **82.7**, auras **80.3**, counters **77.7** (300 runs each, +/- 3.5 to 4.7) | Partly: two in the band, three 2 to 7 points under it; the spread is 11.6 |
-| 3. The gap comes from the whole act | | The random picker takes 1.67 wounds a run, dies before the boss in 17% of runs and beats it 41% of the time. Ideal decks take 0.6 to 0.9, die before it in 1 to 7% and beat it 83 to 91% | Partly: about a third of the gap is made before the boss |
+| 3. The gap comes from the whole act | through wounds and feats | The random picker takes 1.67 wounds a run, dies before the boss in 17% of runs and beats it 41% of the time. Ideal decks take 0.6 to 0.9, die before it in 1 to 7% and beat it 83 to 91% | Partly: most of the gap is still made in the boss duel |
 | 4. No relic, common or uncommon worth more than about 5 points | 5 | All relics together are worth 7 points of act win rate (34.2 against 27.0). Card by card, see section 3 | See section 3 |
 | 5. Strong and versatile cards are out | | A deck of the best 18 cards of every package wins 58% of single duels where the package decks win 81 to 86% | Yes |
 | 6. Tiers | | Applied; four judgement calls listed | Mostly |
-| 7. Relics small, conditional, glue, in tiers | | 13 offered, 8 of them tied to a package or a pair; two strong ones held back; tiers proposed, not built | Partly |
+| 7. Relics small, conditional, glue, in tiers | | 13 offered, 10 of them tied to a package and 6 of those to a pair; two strong ones held back; tiers proposed, not built | Partly |
 | 8 to 12. Fun | | Not measurable by the sim; what was done for each is in section 3 | For you to play |
 
 What is plainly **not met**: three of the five ceilings; the 10-point spread (by 1.6); relic tiers as a mechanism. What I could not judge at all: the fun criteria.
@@ -75,7 +75,7 @@ The lever that would close the gap, if you want it closed in the sim: boss life.
 
 Nobody arrives with two wounds: the last row is a rest, and it heals one.
 
-Of the gap between 34% and about 83%, the boss duel is the larger part and the road to it the smaller. Feats barely count yet: the picker's blind picks score 1.60 points a duel won (2.3 on main), because weaker decks meet fewer tiers, and the AI does not play for them. Feat and wound numbers were not changed.
+Of the gap between 34% and about 83%, the boss duel is much the larger part. Give the random picker the ideal decks' road to the boss and it would win about 40% of acts; give it their boss duel and it would win about 71%. The road counts for more than that sum shows, since the deck that meets the boss was built on it and a quarter of pickers arrive wounded, but the criterion as you wrote it is only partly met. Feats barely count yet: the picker's blind picks score 1.60 points a duel won (2.3 on main), because weaker decks meet fewer tiers, and the AI does not play for them. Feat and wound numbers were not changed.
 
 If you want more of the gap to come before the boss, the lever is the wound itself (it deals 1 damage a turn; a harsher one, or a second kind, hurts the deck that loses more). I did not touch it.
 
@@ -123,11 +123,11 @@ Section 8.
 
 Not measured. What was done with each in mind:
 
-- **8 (change direction; a wasted offer):** 22 cards that belong to no package are no longer offered, so every offer is a package card. About a third of the offered cards belong to two packages. The starting deck's cards are not offered again.
+- **8 (change direction; a wasted offer):** 22 cards are no longer offered (the starting deck's eight, eleven that belong to no package, three that are strong anywhere), so every offer but Pacifism and Smite the Monstrous is a package card. 28 of the 104 offered cards belong to two packages.
 - **9 (a combination takes assembling):** Luminarch Aspirant now needs another counter source to start; Archangel of Thune needs 3 life in the turn; Thragtusk needs another big creature; Daybreak Coronet needs another Aura. The one to watch: Archangel's own lifelink is 3 life, so once it connects it feeds itself.
 - **10 (nothing changes how a duel is played):** two things come close and are yours to judge: the boss at 50 life with a drain is a long race, and Fire Giants holds one Pyroclasm.
 - **11 (plain commons):** 34 commons, none measured above +4.4 in a random deck.
-- **12 (unique rares):** 14 rares added, each with a condition or a scale of its own (section 4). I looked more widely than I built: section 11 lists what I passed over and why.
+- **12 (unique rares):** 12 rares added, each with a condition or a scale of its own (section 4). I looked more widely than I built: section 11 lists what I passed over and why.
 
 ## 4. The proposed pool, card by card
 
@@ -452,7 +452,7 @@ No rule marked Out or Later in `RULES_SCOPE.md` was built. Hardened Scales reuse
 
 ### Numbers
 
-- `balance.json`: rows 9 and 10 of the map meet `hard` enemies (`duel_tier`). Nothing else in it changed: wounds, feats, gold, rewards, weights, prices and the map's shape are as they were.
+- `balance.json`: rows 9 and 10 of the map meet `hard` enemies (`duel_tier`). One number is new and is the sim's own: `sim.board_cap` (90), which stops a single-duel game with more than 90 permanents on the battlefield and counts it like one past the turn cap. One game in a lift run stalled on such a board for over 20 minutes of AI thinking. Nothing else in the file changed: wounds, feats, gold, rewards, weights, prices and the map's shape are as they were.
 - `enemies.json`: the boss's Tyrant's Vigour is **30** more life (was 5), so it starts at 50.
 - `planeswalkers.json`: the Warden's starting deck is 2 Glory Seeker, 2 Grizzly Bears, Youthful Knight, Elvish Visionary, Centaur Courser, Giant Spider, Siege Mastodon, Giant Growth. **Out:** Savannah Lions, Pacifism, Rumbling Baloth. Still 10 spells and 7 lands.
 - `emblems.json`: empty (Warm Welcome and Battle Fury removed, as decided).
