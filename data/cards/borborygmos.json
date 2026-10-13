@@ -1,0 +1,39 @@
+{
+  "id": "borborygmos",
+  "name": "Borborygmos",
+  "mana_cost": "{3}{R}{R}{G}{G}",
+  "colors": [
+    "R",
+    "G"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Cyclops"
+  ],
+  "power": 6,
+  "toughness": 7,
+  "rarity": "rare",
+  "keywords": [
+    "trample"
+  ],
+  "oracle_text": "Trample\nWhenever Borborygmos deals combat damage to a player, put a +1/+1 counter on each creature you control.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "deals_damage_to_opponent"
+      },
+      "effects": [
+        {
+          "type": "add_counters_to_your_creatures",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "borderland_marauder",
+  "name": "Borderland Marauder",
+  "mana_cost": "{1}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Human",
+    "Warrior"
+  ],
+  "power": 1,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "Whenever this creature attacks, it gets +2/+0 until end of turn.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "attacks"
+      },
+      "effects": [
+        {
+          "type": "modify_pt_until_eot",
+          "target": {
+            "this": {}
+          },
+          "power": 2,
+          "toughness": 0
+        }
+      ]
+    }
+  ]
+}

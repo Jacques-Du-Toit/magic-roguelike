@@ -92,6 +92,7 @@ fn tier(name: &str) -> Option<EnemyTier> {
     match name {
         "easy" => Some(EnemyTier::Easy),
         "normal" => Some(EnemyTier::Normal),
+        "hard" => Some(EnemyTier::Hard),
         "elite" => Some(EnemyTier::Elite),
         "boss" => Some(EnemyTier::Boss),
         _ => None,

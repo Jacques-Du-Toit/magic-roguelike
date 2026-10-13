@@ -1,0 +1,43 @@
+{
+  "id": "vampire_sovereign",
+  "name": "Vampire Sovereign",
+  "mana_cost": "{3}{B}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Vampire",
+    "Noble"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, target opponent loses 3 life and you gain 3 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "lose_life",
+          "player": "target_opponent",
+          "amount": 3
+        },
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 3
+        }
+      ]
+    }
+  ]
+}

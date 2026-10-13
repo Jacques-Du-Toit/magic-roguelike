@@ -431,6 +431,10 @@ pub enum Effect {
         amount: u32,
         target: TargetSpec,
     },
+    /// Deals `amount` damage to each creature, whoever controls it.
+    DealDamageToEachCreature {
+        amount: u32,
+    },
     /// The controller creates `count` of the token `token`, a file in
     /// `data/tokens/`.
     /// With `for_each`, that many for each thing counted.
@@ -558,6 +562,7 @@ impl Effect {
             Effect::CounterSpell { .. } => "counter_spell",
             Effect::CreateToken { .. } => "create_token",
             Effect::DealDamage { .. } => "deal_damage",
+            Effect::DealDamageToEachCreature { .. } => "deal_damage_to_each_creature",
             Effect::DealPowerDamage { .. } => "deal_power_damage",
             Effect::Destroy { .. } => "destroy",
             Effect::Discard { .. } => "discard",
@@ -601,6 +606,7 @@ impl Effect {
             | Effect::Mill { player, .. } => player.target().into_iter().collect(),
             Effect::CreateToken { .. }
             | Effect::AddCountersToYourCreatures { .. }
+            | Effect::DealDamageToEachCreature { .. }
             | Effect::DoubleCountersOnYourCreatures {}
             | Effect::GainLifeEqualTo { .. }
             | Effect::FetchBasicLand {}
@@ -634,6 +640,9 @@ pub enum Count {
     /// The enchantments on the battlefield, whoever controls them, other
     /// than the one the ability is on.
     OtherEnchantment,
+    /// The creatures with flying on the battlefield, whoever controls
+    /// them, other than the one the ability is on.
+    OtherCreatureWithFlying,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -1157,6 +1166,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         }
         Effect::CreateToken { .. }
         | Effect::AddCountersToYourCreatures { .. }
+        | Effect::DealDamageToEachCreature { .. }
         | Effect::DoubleCountersOnYourCreatures {}
         | Effect::GainLifeEqualTo { .. }
         | Effect::FetchBasicLand {}
@@ -1181,6 +1191,7 @@ pub(crate) fn validate_effect(effect: &Effect) -> Result<(), CardError> {
         Effect::AddCounters { amount: 0, .. }
         | Effect::AddCountersToYourCreatures { amount: 0, .. }
         | Effect::DealDamage { amount: 0, .. }
+        | Effect::DealDamageToEachCreature { amount: 0 }
         | Effect::Discard { amount: 0, .. }
         | Effect::DrawCards { amount: 0, .. }
         | Effect::GainLife { amount: 0, .. }

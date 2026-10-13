@@ -347,12 +347,18 @@ fn player_modifiers<'a>(
     Ok(modifiers)
 }
 
-/// Picks an enemy of the tier, one not met before if possible.
+/// Picks an enemy of the tier, one not met before if possible. With no
+/// hard enemies in the data, a normal one stands in.
 fn pick_enemy<'a>(
     state: &mut RunState,
     data: &'a GameData,
     tier: EnemyTier,
 ) -> Result<&'a EnemyDef, InternalError> {
+    let tier = if tier == EnemyTier::Hard && data.run.enemies_of(tier).next().is_none() {
+        EnemyTier::Normal
+    } else {
+        tier
+    };
     let all: Vec<&EnemyDef> = data.run.enemies_of(tier).collect();
     let fresh: Vec<&EnemyDef> = all
         .iter()

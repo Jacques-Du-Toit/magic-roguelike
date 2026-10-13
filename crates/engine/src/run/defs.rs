@@ -173,6 +173,8 @@ pub struct PlaneswalkerDef {
 pub enum EnemyTier {
     Easy,
     Normal,
+    /// The duels of the act's later rows.
+    Hard,
     Elite,
     Boss,
 }
@@ -676,6 +678,8 @@ pub fn validate(run: &RunData, cards: &CardDatabase) -> Result<(), RunDataError>
         validate_feat(feat, run)?;
     }
 
+    // Hard is not asked for: with no hard enemy a later row meets a normal
+    // one.
     for tier in [
         EnemyTier::Easy,
         EnemyTier::Normal,

@@ -1,0 +1,24 @@
+{
+  "id": "pyroclasm",
+  "name": "Pyroclasm",
+  "mana_cost": "{1}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Pyroclasm deals 2 damage to each creature.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "deal_damage_to_each_creature",
+          "amount": 2
+        }
+      ]
+    }
+  ]
+}

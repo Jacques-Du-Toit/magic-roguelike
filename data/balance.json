@@ -61,8 +61,8 @@
         { "shop": 2, "rest": 1, "event": 2, "duel_tier": "normal" },
         { "duel": 2, "shop": 1, "rest": 1, "duel_tier": "normal" },
         { "treasure": 1, "event": 1, "duel_tier": "normal" },
-        { "duel": 1, "elite": 1, "duel_tier": "normal" },
-        { "duel": 2, "shop": 2, "draft": 2, "duel_tier": "normal" },
+        { "duel": 1, "elite": 1, "duel_tier": "hard" },
+        { "duel": 2, "shop": 2, "draft": 2, "duel_tier": "hard" },
         { "rest": 1, "duel_tier": "normal" }
       ]
     },

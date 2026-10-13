@@ -1,0 +1,24 @@
+{
+  "id": "gifted_aetherborn",
+  "name": "Gifted Aetherborn",
+  "mana_cost": "{B}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Aetherborn",
+    "Vampire"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rarity": "uncommon",
+  "keywords": [
+    "deathtouch",
+    "lifelink"
+  ],
+  "oracle_text": "Deathtouch, lifelink",
+  "abilities": []
+}

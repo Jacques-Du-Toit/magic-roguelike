@@ -802,6 +802,16 @@ impl DuelState {
                     }
                 }
             }
+            Count::OtherCreatureWithFlying => {
+                for &id in &self.battlefield {
+                    if source != Some(id)
+                        && self.def(id)?.is_creature()
+                        && self.has_keyword(id, Keyword::Flying)?
+                    {
+                        total += 1;
+                    }
+                }
+            }
             Count::EnchantmentYouControl | Count::OtherEnchantment => {
                 for &id in &self.battlefield {
                     let counted = if count == Count::EnchantmentYouControl {

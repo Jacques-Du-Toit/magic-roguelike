@@ -1,0 +1,36 @@
+{
+  "id": "flametongue_kavu",
+  "name": "Flametongue Kavu",
+  "mana_cost": "{3}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Kavu"
+  ],
+  "power": 4,
+  "toughness": 2,
+  "rarity": "uncommon",
+  "oracle_text": "When this creature enters, it deals 4 damage to target creature.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 4,
+          "target": {
+            "creature": {}
+          }
+        }
+      ]
+    }
+  ]
+}

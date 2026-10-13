@@ -1,0 +1,26 @@
+{
+  "id": "eviscerate",
+  "name": "Eviscerate",
+  "mana_cost": "{3}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Sorcery"
+  ],
+  "rarity": "common",
+  "oracle_text": "Destroy target creature.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "destroy",
+          "target": {
+            "creature": {}
+          }
+        }
+      ]
+    }
+  ]
+}

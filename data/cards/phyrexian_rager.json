@@ -1,0 +1,40 @@
+{
+  "id": "phyrexian_rager",
+  "name": "Phyrexian Rager",
+  "mana_cost": "{2}{B}",
+  "colors": [
+    "B"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Phyrexian",
+    "Horror"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rarity": "common",
+  "oracle_text": "When this creature enters, you draw a card and you lose 1 life.",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "trigger": {
+        "type": "enters_battlefield",
+        "subject": "self"
+      },
+      "effects": [
+        {
+          "type": "draw_cards",
+          "player": "controller",
+          "amount": 1
+        },
+        {
+          "type": "lose_life",
+          "player": "controller",
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -82,6 +82,23 @@ pub(crate) fn apply_effect(
             let amount = i32::try_from(amount).unwrap_or(i32::MAX);
             deal_damage(state, events, source, needed(effect, targets, 0)?, amount)?;
         }
+        Effect::DealDamageToEachCreature { amount } => {
+            let amount = i32::try_from(amount).unwrap_or(i32::MAX);
+            let creatures: Vec<ObjectId> = PlayerId::ALL
+                .into_iter()
+                .map(|player| state.creatures_of(player))
+                .collect::<Result<Vec<_>, _>>()?
+                .concat();
+            for creature in creatures {
+                deal_damage(
+                    state,
+                    events,
+                    source,
+                    Target::Object { object: creature },
+                    amount,
+                )?;
+            }
+        }
         Effect::DealPowerDamage { .. } => {
             let biter = object(effect, targets, 0)?;
             if state.is_creature(biter)? {

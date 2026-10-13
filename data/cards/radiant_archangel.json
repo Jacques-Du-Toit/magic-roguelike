@@ -1,0 +1,35 @@
+{
+  "id": "radiant_archangel",
+  "name": "Radiant, Archangel",
+  "mana_cost": "{3}{W}{W}",
+  "colors": [
+    "W"
+  ],
+  "supertypes": [
+    "Legendary"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Angel"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rarity": "rare",
+  "keywords": [
+    "flying",
+    "vigilance"
+  ],
+  "oracle_text": "Flying, vigilance\nRadiant gets +1/+1 for each other creature on the battlefield with flying.",
+  "abilities": [
+    {
+      "kind": "static",
+      "type": "anthem",
+      "affects": "this",
+      "power": 1,
+      "toughness": 1,
+      "for_each": "other_creature_with_flying"
+    }
+  ]
+}

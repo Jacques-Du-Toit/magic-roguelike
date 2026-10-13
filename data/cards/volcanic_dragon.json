@@ -1,0 +1,23 @@
+{
+  "id": "volcanic_dragon",
+  "name": "Volcanic Dragon",
+  "mana_cost": "{4}{R}{R}",
+  "colors": [
+    "R"
+  ],
+  "types": [
+    "Creature"
+  ],
+  "subtypes": [
+    "Dragon"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rarity": "uncommon",
+  "keywords": [
+    "flying",
+    "haste"
+  ],
+  "oracle_text": "Flying, haste",
+  "abilities": []
+}

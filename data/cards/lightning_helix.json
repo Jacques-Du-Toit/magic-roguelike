@@ -1,0 +1,33 @@
+{
+  "id": "lightning_helix",
+  "name": "Lightning Helix",
+  "mana_cost": "{R}{W}",
+  "colors": [
+    "W",
+    "R"
+  ],
+  "types": [
+    "Instant"
+  ],
+  "rarity": "uncommon",
+  "oracle_text": "Lightning Helix deals 3 damage to any target and you gain 3 life.",
+  "abilities": [
+    {
+      "kind": "spell",
+      "effects": [
+        {
+          "type": "deal_damage",
+          "amount": 3,
+          "target": {
+            "any_target": {}
+          }
+        },
+        {
+          "type": "gain_life",
+          "player": "controller",
+          "amount": 3
+        }
+      ]
+    }
+  ]
+}
