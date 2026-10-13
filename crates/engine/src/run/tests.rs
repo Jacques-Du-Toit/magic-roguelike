@@ -864,7 +864,7 @@ fn a_relic_shapes_the_next_duel_and_the_gold_relic_pays_per_win() {
     let node = travels(&state)[0];
     act(&mut state, RunAction::Travel { node });
     let duel = state.duel.as_ref().unwrap();
-    assert_eq!(duel.player(PLAYER).life, 23);
+    assert_eq!(duel.player(PLAYER).life, 22);
     assert_eq!(duel.player(ENEMY).life, 20);
     let names: Vec<&str> = duel
         .emblems
@@ -2299,35 +2299,38 @@ fn anointing_oil_grows_the_creatures_that_have_a_counter_when_life_is_first_gain
 }
 
 #[test]
-fn drovers_bell_makes_a_soldier_for_the_first_creature_of_power_four_each_turn() {
+fn drovers_bell_makes_a_soldier_for_the_first_creature_of_power_five_each_turn() {
     let mut duel = duel_with_relics(&["drovers_bell"]);
-    put_lands(&mut duel, PLAYER, "forest", 10);
-    cast_and_settle(&mut duel, "grizzly_bears");
-    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 0);
+    put_lands(&mut duel, PLAYER, "forest", 16);
+    // A 4/4 is not big enough (nor is the commander, a 4/5).
     cast_and_settle(&mut duel, "rumbling_baloth");
+    assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 0);
+    cast_and_settle(&mut duel, "colossal_dreadmaw");
     assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
     assert!(duel.stack.is_empty());
     assert_eq!(count_of(&duel, ENEMY, "soldier_token"), 0);
     // Once a turn: a second big creature makes none.
-    cast_and_settle(&mut duel, "rumbling_baloth");
+    cast_and_settle(&mut duel, "colossal_dreadmaw");
     assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
 }
 
-/// The Bell's Soldier can itself be a creature of power 4 (under Collective
-/// Blessing it enters as a 4/4). Were the Bell not once a turn, each
-/// Soldier would ring it again without end.
+/// The Bell's Soldier can itself be a creature of power 5 (under two
+/// Collective Blessings it enters as a 7/7). Were the Bell not once a turn,
+/// each Soldier would ring it again without end.
 #[test]
 fn drovers_bell_does_not_ring_itself_for_ever() {
     let mut duel = duel_with_relics(&["drovers_bell"]);
     put_lands(&mut duel, PLAYER, "forest", 6);
-    crate::duel::test_support::put_on_battlefield(&mut duel, PLAYER, "collective_blessing");
-    cast_and_settle(&mut duel, "rumbling_baloth");
+    for _ in 0..2 {
+        crate::duel::test_support::put_on_battlefield(&mut duel, PLAYER, "collective_blessing");
+    }
+    cast_and_settle(&mut duel, "grizzly_bears");
     assert_eq!(count_of(&duel, PLAYER, "soldier_token"), 1);
     assert!(duel.stack.is_empty());
 }
 
 #[test]
-fn weavers_thread_gains_two_life_for_the_first_aura_spell_each_turn() {
+fn weavers_thread_gains_a_life_for_the_first_aura_spell_each_turn() {
     let mut duel = duel_with_relics(&["weavers_thread"]);
     put_lands(&mut duel, PLAYER, "plains", 8);
     let life = duel.player(PLAYER).life;
@@ -2338,9 +2341,9 @@ fn weavers_thread_gains_two_life_for_the_first_aura_spell_each_turn() {
     // An enchantment that is no Aura gains nothing.
     cast_and_settle(&mut duel, "intangible_virtue");
     assert_eq!(duel.player(PLAYER).life, life);
-    // Pacifism is an Aura: 2 life as it is cast. A second Aura in the same
+    // Pacifism is an Aura: 1 life as it is cast. A second Aura in the same
     // turn gains none.
-    for expected in [life + 2, life + 2] {
+    for expected in [life + 1, life + 1] {
         let aura = put_in_hand(&mut duel, PLAYER, "pacifism");
         apply_action(
             &mut duel,

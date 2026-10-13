@@ -260,8 +260,8 @@ mod tests {
             &data.balance,
         );
         let [player, boss] = &config.players;
-        // +3 from the relic.
-        assert_eq!(player.starting_life, 23);
+        // +2 from the relic.
+        assert_eq!(player.starting_life, 22);
         assert_eq!(player.opening_hand_size, 7);
         // The boss's own +30.
         assert_eq!(boss.starting_life, 50);

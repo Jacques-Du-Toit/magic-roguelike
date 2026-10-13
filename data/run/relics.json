@@ -2,12 +2,12 @@
   {
     "id": "travellers_rations",
     "name": "Traveller's Rations",
-    "text": "You start each duel with 3 more life.",
+    "text": "You start each duel with 2 more life.",
     "effects": [
       {
         "type": "starting_life",
         "who": "owner",
-        "change": 3
+        "change": 2
       }
     ]
   },
@@ -242,7 +242,7 @@
   {
     "id": "drovers_bell",
     "name": "Drover's Bell",
-    "text": "The first time a creature with power 4 or greater enters under your control each turn, create a 1/1 Soldier token.",
+    "text": "The first time a creature with power 5 or greater enters under your control each turn, create a 1/1 Soldier token.",
     "effects": [
       {
         "type": "abilities",
@@ -252,7 +252,7 @@
             "trigger": {
               "type": "enters_battlefield",
               "subject": "creature_you_control",
-              "min_power": 4
+              "min_power": 5
             },
             "once_each_turn": true,
             "effects": [
@@ -270,7 +270,7 @@
   {
     "id": "weavers_thread",
     "name": "Weaver's Thread",
-    "text": "Whenever you cast your first Aura spell each turn, you gain 2 life.",
+    "text": "Whenever you cast your first Aura spell each turn, you gain 1 life.",
     "effects": [
       {
         "type": "abilities",
@@ -286,7 +286,7 @@
               {
                 "type": "gain_life",
                 "player": "controller",
-                "amount": 2
+                "amount": 1
               }
             ]
           }
