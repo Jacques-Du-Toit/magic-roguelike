@@ -27,7 +27,13 @@ In-duel life and run health are **separate**. (Hearts and boons were the first v
 
 - Every duel starts at **20 life** for both players, regardless of how the last one went.
 - **Losing a duel or an elite** leaves a **wound**, and still pays a little: some gold and a pick from 2 cards. An elite lost gives no relic.
-- A wound follows the player into **every duel** until a rest site heals it. The first kind is the Festering Wound: an artifact on the player's battlefield that deals 1 damage to them each turn until they pay {2} to be rid of it for that duel.
+- A wound follows the player into **every duel** until a rest site heals it. **Healing removes every wound carried**, not one (`DECISIONS.md` #75).
+- There are **five kinds**, each a small nuisance, and a lost duel gives one at random of a kind not carried already:
+  - **Festering Wound**: an artifact on the player's battlefield that deals 1 damage to them at the beginning of their end step, until they pay {2} to be rid of it for that duel. The only one that can be paid off.
+  - **Open Gash**: at the beginning of combat on the enemy's turn, a random creature the enemy controls gets +1/+1 until end of turn.
+  - **Concussion**: you start each duel with one card fewer.
+  - **Shaken**: the enemy starts each duel with 2 more life.
+  - **Hunted**: the enemy starts each duel with a 1/1 Soldier token on the battlefield.
 - **The third wound** ends the run.
 - **Losing a boss duel**: run over, however few wounds are carried. The boss is fought with the deck, the relics and the wounds: nothing else.
 - Later wounds may be harsher, and acts may differ in which they give.
@@ -92,7 +98,7 @@ These are original characters (or generic archetypes) — not MTG's named planes
 | **Boss** | Ends the act. Has emblems (see §8). Win: rare/mythic pick + relic. Loss: run over. |
 | **Draft** | Open a pack of five cards in your colours and keep up to two. Built (`DECISIONS.md` #57). |
 | **Shop** | Buy cards, lands (incl. duals), relics. Pay to remove a card. |
-| **Rest** | Choose: heal a wound, or upgrade a card (§6.1). Removing a card is the shop's service. |
+| **Rest** | Choose: heal every wound you carry, or upgrade a card (§6.1). Removing a card is the shop's service. |
 | **Event** | Short text event with a trade-off choice (e.g. "add a powerful card with a drawback", "sacrifice a relic for two cards"). Built with five events, each of which can be walked away from (`DECISIONS.md` #66). |
 | **Treasure** | Choose one of two relics you don't own, or take gold instead. Built (`DECISIONS.md` #64). |
 
@@ -100,7 +106,7 @@ These are original characters (or generic archetypes) — not MTG's named planes
 
 MTG cards don't have upgrades, so an upgrade is the run's own. Built as in Slay the Spire (`DECISIONS.md` #72): **every card has one upgraded side of its own**, written by hand, and upgrading a copy turns it into that side for the rest of the run. "Raise the Alarm+" makes three Soldiers; "Grizzly Bears+" costs {G}; "Lightwalker+" enters with a +1/+1 counter.
 
-- **Where**: a rest site, in place of healing a wound. One card a rest, one upgrade a card. Nothing else gives one yet.
+- **Where**: a rest site, in place of healing your wounds. One card a rest, one upgrade a card. Nothing else gives one yet.
 - **What a side changes**, in rough order of how common it is: generic mana off the cost, power and toughness, a number in the text (tokens made, life gained, counters put, a threshold), a counter to enter with, a keyword, or a line of text. Coloured mana never changes.
 - **How much**: the weaker the card, the better its upgrade. Commons and the starting deck get the big ones (+1/+1 on a two-drop, a third token, a card drawn); uncommons a mana or a point of toughness; rares a small one (+0/+1, a cheaper ability). So the best card to upgrade is often not the rarest, and a starting card kept and upgraded is a real card.
 - **By cost**: a cheap card's upgrade is small in absolute terms and large for the card; a six- or seven-drop gets a whole mana off or two points of size.
@@ -203,6 +209,6 @@ From the owner's M3 playtest (2026-10-11), the direction to explore once saving 
 
 - Self-mill in a 25-card deck runs into fatigue (seen in the M4a sim). What makes a graveyard deck worth it here?
 
-Settled for the one-act prototype (see `DECISIONS.md`): rest sites heal a wound or upgrade a card (#72); elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols; the player takes the first turn of every duel in a run, and hands are smoothed for land count and for colours (#74).
+Settled for the one-act prototype (see `DECISIONS.md`): rest sites heal every wound or upgrade a card (#72, #75); wounds are of five kinds (#75); elites are always optional; a drawn duel costs nothing; basic lands are 40% of the deck, split by mana symbols; the player takes the first turn of every duel in a run, and hands are smoothed for land count and for colours (#74).
 
-Under discussion after the owner's playtest of 2026-10-13, each with a brief in `ROADMAP.md`: a rest healing every wound, and wounds of several kinds; the boss and the elites' commanders shown on the map; easier early elites; a different question from the Pyre, and more bosses; more life for later enemies and for the player; potions; lands apart from card rewards, with a way to adjust them.
+Under discussion after the owner's playtest of 2026-10-13, each with a brief in `ROADMAP.md`: the boss and the elites' commanders shown on the map; easier early elites; a different question from the Pyre, and more bosses; more life for later enemies and for the player; potions; lands apart from card rewards, with a way to adjust them.

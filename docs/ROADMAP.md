@@ -21,8 +21,9 @@ What is built, what comes next, and what is further off. The record of each mile
 | The balance pass | A weaker start, five enemy tiers, a boss at 50 life (#70, `BALANCE_REPORT.md`) | Done, played; some questions open |
 | Card upgrades | Every Warden card has an upgraded side; a rest site upgrades one (#72) | Done, to be tuned |
 | The player starts; stronger smoothing | The player takes the first turn of a run's duels; hands are dealt until the lands fit and every colour has a source, up to 5 (#74) | Done, to be played |
+| Healing all; five wounds | A rest site and the Moneylender heal every wound; a lost duel gives one of five kinds, never one already carried (#75) | Done, to be played; numbers untuned |
 
-Where the numbers stand, with the AI on both sides (`sim --runs --games 600 --decks warden`): the random picker wins 29.3% of acts (+/- 3.6), reaches the boss in 81% and beats it 36% of the time; it wins 76% of its ordinary duels and 15% of its elites. Each package's ideal deck won 83 to 91% of acts before upgrades (not measured since).
+Where the numbers stand, with the AI on both sides (`sim --runs --games 600 --decks warden`): the random picker wins 34.3% of acts (+/- 3.8), reaches the boss in 88% and beats it 39% of the time; it wins 78% of its ordinary duels and 18% of its elites. It now heals at a rest when one loss from the end, and it never meets the boss wounded. The floor was 29.3% before healing removed every wound (`HISTORY.md`, slice 14): the field has not been retuned for that. Each package's ideal deck won 83 to 91% of acts before upgrades (not measured since).
 
 ## Next: the backlog
 
@@ -30,31 +31,17 @@ From the owner's playtest of 2026-10-13. Each item is meant to be done on its ow
 
 For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test for every rule, the docs in the same change, and `sim --runs --games 600 --decks warden` before and after (the baseline is the table above; say what moved, with the margin, and don't retune the field without asking).
 
-### 1. A rest heals every wound; wounds of more than one kind
-
-**Asked:** healing at a rest removes all wounds, not one: as it is, the upgrade is much the better choice. Wounds should differ and be small nuisances: lose 1 life a turn, a random enemy creature gets +1/+1 each turn, and so on.
-
-**Now:** `HealWound { wound }` heals one. There is one wound, the Festering Wound (`data/run/wounds.json`): an artifact that deals 1 damage to you at your end step and is sacrificed for {2}. The third wound ends the run (`run.max_wounds`). The Moneylender heals the latest wound for 70 gold; the Devil's Bargain and the Moneylender give one. A lost duel takes a wound "at random" from the file.
-
-**Notes:**
-- Agreed on healing all: the sim saw the same thing from the other side. A picker that upgrades instead of healing reaches the boss 6 points less often, so one wound healed is not worth a rest.
-- Since the last row is always a rest, a player who heals there meets the boss with no wounds, whatever happened before. That is already nearly true (nobody arrives with two). If wounds should reach the boss sometimes, the last rest is the place to think about.
-- "+1/+1 on a random enemy creature each turn" is until end of turn, not a counter (the owner, 2026-10-13), so it doesn't compound: a small combat nuisance. The random pick must come from the duel's seeded RNG. Other small ones to offer: the enemy starts with 2 more life; you start with one card fewer; your maximum hand size is one less.
-- A wound that isn't a permanent can't be paid off the way the Festering Wound can. That is fine, but then it wants to be weaker.
-
-**To settle:** the list of wounds (four or five, proposed with their numbers), whether the Moneylender heals one or all, and whether a wound is drawn at random or follows from who beat you.
-
-### 2. Seeing what is ahead: the boss on the map, and each elite's commander
+### 1. Seeing what is ahead: the boss on the map, and each elite's commander
 
 **Asked:** the boss should be visible from the start so the player can plan for it, and an elite node should show the elite's commander so the player can choose the elites that suit their deck.
 
 **Now:** an enemy is picked when the player travels to its node (`flow.rs`, with the run's RNG and the `fought` list), so the map can't show it. There is one boss. The feats screen, after travelling, shows the enemy, its commander and its emblems.
 
-**Notes:** this means picking the boss when the run starts and each elite when the map is made, and keeping them in `RunState`; a seed will then give different enemies than it does now, so the end-to-end seeds may need to move. Ordinary duels can stay hidden. It pays off most once there is more than one boss (item 4).
+**Notes:** this means picking the boss when the run starts and each elite when the map is made, and keeping them in `RunState`; a seed will then give different enemies than it does now, so the end-to-end seeds may need to move. Ordinary duels can stay hidden. It pays off most once there is more than one boss (item 3).
 
 **To settle:** only the commander's name and card, or the enemy's emblems too? Elites only, or hard-tier duels as well?
 
-### 3. Elites are very hard
+### 2. Elites are very hard
 
 **Asked:** "elites are really hard: what do the stats show?"
 
@@ -70,9 +57,9 @@ For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test
 
 So they are hard for everyone and close to unwinnable for an unfinished deck. The cause is mostly where they sit: an elite can be met on row 5, after two easy duels, a draft and a treasure or an event, with the starting deck and about four more cards; the same four elites are also the pool for row 9. An elite is always optional, and losing one leaves a wound and no relic.
 
-**Options:** (a) item 2, so that the player picks the fight; (b) two elite tiers, an early pool for row 5 built like the normal tier with a commander, and the present four for row 9; (c) keep one pool and move the first elite row later; (d) pay more for an elite, so the risk is worth it. I would do (a) and (b).
+**Options:** (a) item 1, so that the player picks the fight; (b) two elite tiers, an early pool for row 5 built like the normal tier with a commander, and the present four for row 9; (c) keep one pool and move the first elite row later; (d) pay more for an elite, so the risk is worth it. I would do (a) and (b).
 
-### 4. The Pyre, and more bosses
+### 3. The Pyre, and more bosses
 
 **Asked:** the Pyre is fine as it stands (and so is the boss at 50 life: `DECISIONS.md` #73). Perhaps make its emblem more conditional, or have it attack with a 1/1 each turn in place of the drain.
 
@@ -85,7 +72,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle:** after the measurements, which version the Pyre keeps, and what the second and third bosses ask (proposals wanted: one that punishes going wide, one that punishes one big threat, for instance).
 
-### 5. More life as the act goes on
+### 4. More life as the act goes on
 
 **Asked:** later enemies should have more life, and the player's life might rise at points in the run too.
 
@@ -98,7 +85,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle:** by row or by tier, and how much (suggest a `life` number per map row or per tier in `balance.json`); where the player's life comes from.
 
-### 6. Potions (propose first)
+### 5. Potions (propose first)
 
 **Asked:** single-use potions as in Slay the Spire, common to rare: "destroy target creature with flying", "destroy all creatures", "gain 5 life". They are attrition too, in that one spent is gone.
 
@@ -112,7 +99,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle (the proposal):** how many can be carried, where they come from, the timing rule, the first ten or so with rarities, and what the sim does with them.
 
-### 7. Lands apart from card rewards (propose first)
+### 6. Lands apart from card rewards (propose first)
 
 **Asked:** separate lands from the normal rewards, and let the player adjust their lands, for example to pivot into one colour.
 
@@ -122,7 +109,7 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **To settle (the proposal):** where non-basic lands come from once rewards don't hold them, whether the number of lands can change or only their colours, and whether the choice is made on the deck screen at any time or at certain nodes.
 
-### 8. Quality of life
+### 7. Quality of life
 
 Small and separate; any of them fits beside another item.
 
@@ -131,10 +118,11 @@ Small and separate; any of them fits beside another item.
 - **A red outline on cards in hand when discarding,** to show that the click is a loss.
 - **Reordering cards in hand.** The order is the UI's own: the engine's hand order means nothing to the rules.
 
-### 9. Left from earlier work
+### 8. Left from earlier work
 
 - **Tune the upgraded sides.** All 112 are first guesses (`GAME_DESIGN.md` §6.1). To look at first: Lightwalker+ (a 3/2 flier for two), Pacifism+ ({W}), Glorious Anthem+ ({W}{W}), Gigantosaurus+ (trample).
 - **An event that removes a card,** now that a rest doesn't (#72).
+- **After healing all (#75).** The floor rose 5 points (to 34.3%) and nobody reaches the boss wounded: if that is too kind, the last rest could heal one wound only. The four new wounds' numbers are first guesses and none was measured on its own. A wound from the Moneylender (100 gold) or the Devil's Bargain (a relic) is cheaper than it was, since the next rest wipes it: watch both.
 - **Feat numbers.** Tempered and Adorned are met in about 6% of wins; Dominant, Decisive and Legion nearly always at their first tier.
 - **The balance report's open questions** (§11, numbers 3 to 13): the starting deck, Hardened Scales, the three altered rares, the 22 cards held back and which of them an event might give, Glorious Anthem or Benalish Marshal, relic tiers, the rares passed over.
 - **`ARCHITECTURE.md` §4** has grown a paragraph per package. It wants to be reference tables (triggers, effects, statics, conditions, counts, card properties), checked against the Rust enums.

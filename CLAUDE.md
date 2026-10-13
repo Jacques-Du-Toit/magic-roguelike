@@ -120,7 +120,7 @@ Update this section if commands change.
 
 - **Run**: one full playthrough, three acts.
 - **Act**: one map ending in a boss.
-- **Wound**: run-level health, separate from in-duel life (20 by default). A lost duel leaves one; it follows the player into every duel until a rest site heals it, and the third ends the run. It replaced hearts (`DECISIONS.md` #68).
+- **Wound**: run-level health, separate from in-duel life (20 by default). A lost duel leaves one, of five kinds (`data/run/wounds.json`); it follows the player into every duel until a rest site heals them all, and the third ends the run. It replaced hearts (`DECISIONS.md` #68, #75).
 - **Feat**: something to do in a duel beyond winning it ("never fall below 12 / 15 / 18 life"). Two are picked before each duel; their points set the card reward (`DECISIONS.md` #69).
 - **Smoothing**: the engine deals candidate hands, for an opening hand and for every mulligan, until one is right: its land count fits the deck's land ratio and every colour among its spells has a land that makes it. After 5 it keeps the one that misses least. Lands are in the library, as in normal Magic.
 - **Fatigue**: drawing from an empty library costs life (1, then 2, then 3...) instead of losing the game.

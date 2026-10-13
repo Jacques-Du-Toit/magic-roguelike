@@ -219,6 +219,26 @@ Checks: `.\tools\check-all.ps1` passes all ten steps. 698 engine tests: 10 new (
 
 The floor moved by a point, well inside its margin and under the 5 points that would have called for a look at the field, so nothing was retuned. One thing moved outside its margin: ordinary duels are won 4.4 points more often (the margin treats the 2,340 duels as independent, which duels of one run are not quite, so read it as likely, not certain), and with it fewer wounds are taken and more runs reach the boss. The boss and the elites did not get easier; if anything the elites got a little harder, inside the margin. A reading, not a measurement: going first helps most against the decks that race, which are the ordinary ones, and the smoothing gives the enemy its colours and lands as well, which is worth most to the elites and the boss, whose decks are the strongest and have a commander to cast. Going first alone looked like +3.2 points of acts won and the smoothing like -2.2 on top, but each of those steps is well inside +/- 5.1 and neither can be told from no change. Not measured: the feats that count turns (Swift, Towering) against the runs before, each enemy apart, the ideal decks, and how often a deal ends with no right hand (in the tests, the two-colour deck's opening hands are right more than 85% of the time with five hands and less than 60% with one).
 
+**Slice 14 (2026-10-13): healing removes every wound, and five kinds of wound.** The first item of the backlog as it then stood (`DECISIONS.md` #75; the owner took every recommendation of the proposal). `HealWounds` at a rest site and `heal_wounds` in an event take off every wound carried; the Moneylender still asks 70 gold. `data/run/wounds.json` has five wounds: the Festering Wound, Open Gash (at the beginning of combat on the enemy's turn, a random creature the enemy controls gets +1/+1 until end of turn), Concussion (one card fewer to start with), Shaken (the enemy starts with 2 more life) and Hunted (the enemy starts with a 1/1 Soldier token). A wound taken is picked with the run's RNG among the kinds not carried. Three things were added for them: `beginning_of_combat` can fire on the opponent's turn (`"opponents_turn": true`), the target spec `random_opponent_creature` picks with the duel's RNG as the effect resolves, and `starting_token` can be the opponent's (`"who"`). The rest screen says "Heal all your wounds" and names them; the side panel lists each wound with its text, and so does the duel screen, above the feats, since three of the five leave nothing on the player's own side to see.
+
+The sim's player at a rest now heals when one more wound would end the run, heals any wound at the rest before the boss, and otherwise upgrades its rarest card as before.
+
+Checks: `.\tools\check-all.ps1` passes all ten steps. 705 engine tests, 7 of them new: the pump in the enemy's combat only, on one random creature, until end of turn, the same for the same seed and not always the same creature; the pump with no creature to pick, which draws nothing from the RNG; one for each of the four new wounds in a run's duel; and a wound taken being of a kind not carried. The rest-site and Moneylender tests were rewritten for healing all. 39 sim tests (the rest policy's test covers the new rule), 12 wasm-crate tests, 73 web tests, 22 end-to-end tests. The end-to-end tests no longer name the Festering Wound: they read the wound's name from the side panel and look for it in the news and in the next duel. No seed had to move.
+
+`sim --runs --games 600 --decks warden`, 172 s. The middle column is the same code with only the Festering Wound in the data (`--data`), to tell the rule from the new wounds:
+
+| | Before (slice 13) | Healing all, Festering Wound only | And the five wounds | Change in all |
+|---|---|---|---|---|
+| Won the act | 29.3% (+/- 3.6) | 34.0% (+/- 3.8) | 34.3% (+/- 3.8) | +5.0 (+/- 5.3) |
+| Reached the boss | 81.0% | 85.3% | 87.8% | +6.8 (+/- 4.1) |
+| Beat the boss, having arrived | 36.2% | 39.8% | 39.1% | +2.9 (+/- 6.0) |
+| Arrived with no wound / one wound | 52.5% / 28.5% | 85.3% / 0% | 87.8% / 0% | |
+| Wounds taken per run | 1.57 | 1.57 | 1.50 | |
+| Normal duels won | 76.4% | 76.7% | 78.1% | +1.7 (+/- 2.4) |
+| Elites won | 15.1% | 15.6% | 17.6% | +2.5 (+/- 4.7) |
+
+The floor rose 5.0 points, which is at the line that calls for a word to the owner and just inside the margin of the difference; the field was not retuned. One thing is outside its margin: 6.8 points more runs reach the boss. That is the rule and the policy together, and they were not measured apart: a run with two wounds now heals both at the next rest where it used to carry on one loss from the end, so fewer runs die of a third wound on the way. Every run that reaches the boss now does so unwounded, where 28.5% arrived with a wound; the boss is beaten about as often as before by those who arrive. The five wounds together weigh about what the Festering Wound did alone: 34.3% against 34.0%, far inside the margin, so the new kinds neither eased nor hardened the act as a set. Not measured: any one wound on its own (Concussion is the guess for the heaviest, Shaken for the lightest), the policy change without the rule, and the ideal decks. The searching AI cannot foresee which creature Open Gash will pump: it looks ahead in imagined worlds that each have an RNG of their own. Open for the owner: whether the floor at 34% wants the field looked at, and whether the last rest should still heal everything now that nobody meets the boss wounded (`ROADMAP.md`, item 8).
+
 After the owner's M3 playtest (2026-10-11): rewards are locked to the character's colours and the win-margin gold bonuses are gone (`DECISIONS.md` #35, #36).
 
 **M4a status (2026-10-12):** done. The owner played a whole run and found the mechanics fine.
@@ -378,7 +398,7 @@ What the new AI still plays badly:
 
 - [ ] Cube of ~100 cards → toward 250–300, built around the 10 archetypes. (M4a: 114 spells and all ten Guildgates, as rules vehicles and generic cards. The archetype packages and the rest are M4d.)
 - [x] Scryfall import tool. (`tools/scryfall.mjs`: `add` and `check`.)
-- [ ] Draft node (built), Treasure node (built), Event node (built, five events), wounds and feats in place of hearts and boons (built, to be played), card upgrades (built, to be played and tuned).
+- [ ] Draft node (built), Treasure node (built), Event node (built, five events), wounds and feats in place of hearts and boons (built, to be played), five kinds of wound and healing them all (built, to be played), card upgrades (built, to be played and tuned).
 - [ ] 3 acts, 3 bosses, ~20 relics (15 so far, 13 of them offered), 4+ planeswalkers.
 - [x] Better AI (search/rollouts), able to play control decks properly. (M4b. It holds mana and counters spells; the blue decks are still weak decks.)
 - [ ] Balance passes using `sim`. Carried over from M1: Deck A is a bit overtuned (78/22 against Deck C), and the Deck B and Deck C mirrors often run to fatigue.

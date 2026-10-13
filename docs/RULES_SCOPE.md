@@ -136,6 +136,7 @@ Scry is an effect primitive rather than a keyword here, and is **In**, simplifie
 | Alternate win/lose conditions | Out |
 | Hidden information (hand, library order) | In |
 | Random discard, look at top N, reveal | In |
+| A random creature an opponent controls, picked as an effect resolves | In | Not a target, so hexproof doesn't matter. Built for one wound, Open Gash (`DECISIONS.md` #75); no card uses it. |
 | Mill (library to graveyard) | In |
 | Targets in a graveyard; returning a card from a graveyard to hand | In |
 | "You may" on a triggered ability | Simplified: decided when the ability would go on the stack (decline, or choose its targets), not when it resolves. |
