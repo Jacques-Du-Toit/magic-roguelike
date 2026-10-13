@@ -492,6 +492,7 @@ No rule marked Out or Later in `RULES_SCOPE.md` was built. Hardened Scales reuse
 - `enemies.json`: the boss's Tyrant's Vigour is **30** more life (was 5), so it starts at 50.
 - `planeswalkers.json`: the Warden's starting deck is 2 Glory Seeker, 2 Grizzly Bears, Youthful Knight, Elvish Visionary, Centaur Courser, Giant Spider, Siege Mastodon, Giant Growth. **Out:** Savannah Lions, Pacifism, Rumbling Baloth. Still 10 spells and 7 lands.
 - `emblems.json`: empty (Warm Welcome and Battle Fury removed, as decided).
+- `relics.json`: five relics changed, three added, two held back (section 8). The numbers in them: Beast Tamer's Whistle gains 1 life (was 2); Weaver's Thread gains 2.
 
 ### Cards
 
@@ -535,7 +536,8 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 ## 12. State of the branch
 
 - `balance-lab`, small commits, nothing pushed, nothing on `main`.
-- `.\tools\check-all.ps1`: @@CHECK@@
+- `.\tools\check-all.ps1`, the full run with the end-to-end tests: **all ten steps pass** on the last commit. 657 engine tests, 38 sim tests, 12 wasm-crate tests, 72 web tests, 22 end-to-end tests; 231 cards match Scryfall. Every new card, rule and relic has a test (`pool_tests.rs`, `enemy_card_tests.rs`, and the relic tests in `run/tests.rs`).
+- 28 commits; 38 card files added and 31 changed.
 - `docs/ARCHITECTURE.md` and `CLAUDE.md` describe the new data fields, the tier and the sim modes, because the code on this branch needs them. `DECISIONS.md`, `ROADMAP.md`, `RULES_SCOPE.md` and `GAME_DESIGN.md` are untouched.
 - Not done: relic tiers in the engine; any tuning of feats or wounds; a second look at the easy tier; the Firebrand.
 - Not verified by anything but the sim and the tests: I did not play a duel. The end-to-end tests click through two whole acts on the new data and pass.
