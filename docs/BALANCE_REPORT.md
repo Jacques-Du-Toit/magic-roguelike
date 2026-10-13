@@ -410,7 +410,7 @@ Thirteen are offered; two are held back. Tiers are my suggestion and exist nowhe
 | Rally Horn | The first creature token to enter each turn brings a 1/1 Soldier with it | wide | common | **Was** a 1/1 Soldier at the start of every duel (+10, +/- 4, in a single duel: the strongest of the small relics) |
 | Pilgrim's Flask | First life gained each turn: scry 1 | lifegain | common | |
 | Soothing Spring | The first time you gain life each turn, gain 1 more | lifegain | common | **Was** 1 life every upkeep (+16 points by your measure, +23 in a single duel) |
-| Beast Tamer's Whistle | A creature of power 4 or more enters: gain 2 | big + lifegain | common | |
+| Beast Tamer's Whistle | A creature of power 4 or more enters: gain 1 | big + lifegain | common | **Was** gain 2. Held from the first duel it took the picker from 27.7% to 41.3% of acts: the commander is a creature of power 4, so it is always on |
 | Votive Candle | First enchantment spell each turn: a 1/1 Soldier | auras + wide | common | |
 | Weaver's Thread | First Aura spell each turn: gain 2 | auras + lifegain | common | **New** |
 | Sentinel's Horn | Your creatures with a +1/+1 counter have vigilance | counters | common | **Was** vigilance for every creature |
