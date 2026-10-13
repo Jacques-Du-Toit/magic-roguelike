@@ -1,6 +1,6 @@
 //! The run's rules: what may be done in each phase and what it does.
 
-use crate::cards::CardDefId;
+use crate::cards::{CardDef, CardDefId};
 use crate::data::{self, GameData};
 use crate::duel::{
     Action, CardInstance, DuelRng, GameEvent, GameResult, InternalError, PlayerId, apply_action,
@@ -141,6 +141,15 @@ fn can_remove_a_card(state: &RunState, data: &GameData) -> bool {
     state.deck.len() > data.balance.run.min_deck_cards as usize
 }
 
+/// Whether `deck[card]` can be upgraded: it has an upgraded side and this
+/// copy isn't one yet.
+fn can_upgrade(state: &RunState, data: &GameData, card: usize) -> bool {
+    state.deck.get(card).is_some_and(|instance| {
+        let has_side = |def: &CardDef| def.upgrade.is_some();
+        !instance.upgraded && data.cards.get(&instance.card_id).is_some_and(has_side)
+    })
+}
+
 /// Every action the player may take in the run right now. While a duel is
 /// being played its own actions come from the duel; the run only offers to
 /// concede it, or to leave it once it is over. Empty when the run has
@@ -201,7 +210,11 @@ fn try_legal_actions(state: &RunState) -> Result<Vec<RunAction>, RunError> {
             let mut actions: Vec<RunAction> = (0..state.wounds.len())
                 .map(|wound| RunAction::HealWound { wound })
                 .collect();
-            actions.extend(removals());
+            actions.extend(
+                (0..state.deck.len())
+                    .filter(|&card| can_upgrade(state, data, card))
+                    .map(|card| RunAction::UpgradeCard { card }),
+            );
             actions.push(RunAction::Leave);
             actions
         }
@@ -862,8 +875,15 @@ fn perform(
             heal_wound(state, events, *wound)?;
             state.phase = Phase::Map;
         }
-        (RunAction::RemoveCard { card }, Phase::Rest) => {
-            remove_card(state, events, *card)?;
+        (RunAction::UpgradeCard { card }, Phase::Rest) => {
+            if !can_upgrade(state, data, *card) {
+                return Err(mismatch().into());
+            }
+            let instance = state.deck.get_mut(*card).ok_or_else(mismatch)?;
+            instance.upgraded = true;
+            events.push(RunEvent::CardUpgraded {
+                card: instance.card_id.clone(),
+            });
             state.phase = Phase::Map;
         }
         (

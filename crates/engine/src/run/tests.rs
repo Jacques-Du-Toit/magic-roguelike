@@ -6,8 +6,8 @@ use crate::cards::CardDefId;
 use crate::data;
 use crate::duel::test_support::{cast, empty_hand, pass_both, pass_until, put_in_hand, put_lands};
 use crate::duel::{
-    Action, Decision, DuelRng, DuelState, GameEvent, GameResult, PlayerId, Step, WinReason,
-    apply_action,
+    Action, CardInstance, Decision, DuelRng, DuelState, GameEvent, GameResult, PlayerId, Step,
+    WinReason, apply_action,
 };
 
 fn run(planeswalker: &str, seed: u64) -> RunState {
@@ -891,15 +891,22 @@ fn a_relic_shapes_the_next_duel_and_the_gold_relic_pays_per_win() {
 // ---- Rest sites ----
 
 #[test]
-fn a_rest_site_heals_a_wound_removes_a_card_or_is_left() {
+fn a_rest_site_heals_a_wound_upgrades_a_card_or_is_left() {
     let mut arrived = run_at("warden", NodeKind::Rest);
     assert_eq!(arrived.phase, Phase::Rest);
     // With no wound there is nothing to heal.
     let heal = RunAction::HealWound { wound: 0 };
     assert!(!run_legal_actions(&arrived).contains(&heal));
     assert!(run_legal_actions(&arrived).contains(&RunAction::Leave));
-    assert!(run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 9 }));
-    assert!(!run_legal_actions(&arrived).contains(&RunAction::RemoveCard { card: 10 }));
+    assert!(run_legal_actions(&arrived).contains(&RunAction::UpgradeCard { card: 9 }));
+    assert!(!run_legal_actions(&arrived).contains(&RunAction::UpgradeCard { card: 10 }));
+    // Removing a card is a shop's service, not a rest's.
+    let remove = RunAction::RemoveCard { card: 0 };
+    assert!(!run_legal_actions(&arrived).contains(&remove));
+    assert_eq!(
+        apply_run_action(&mut arrived.clone(), remove.clone()),
+        Err(RunError::IllegalAction(remove))
+    );
     arrived.wounds = vec![wound(), wound()];
 
     let mut healed = arrived.clone();
@@ -911,21 +918,19 @@ fn a_rest_site_heals_a_wound_removes_a_card_or_is_left() {
     assert_eq!(healed.wounds, [wound()]);
     assert_eq!(healed.phase, Phase::Map);
 
-    let mut trimmed = arrived.clone();
-    let removed = trimmed.deck[4].card_id.clone();
-    let copies = deck_count(&trimmed, removed.as_str());
-    let events = act(&mut trimmed, RunAction::RemoveCard { card: 4 });
-    assert_eq!(
-        events,
-        [RunEvent::CardRemoved {
-            card: removed.clone()
-        }]
-    );
-    assert_eq!(trimmed.deck.len(), 9);
-    assert_eq!(deck_count(&trimmed, removed.as_str()), copies - 1);
+    // The first of the two Glory Seekers is upgraded; the second is not.
+    let mut upgraded = arrived.clone();
+    let card = upgraded.deck[0].card_id.clone();
+    assert_eq!(upgraded.deck[1].card_id, card);
+    let events = act(&mut upgraded, RunAction::UpgradeCard { card: 0 });
+    assert_eq!(events, [RunEvent::CardUpgraded { card: card.clone() }]);
+    assert_eq!(upgraded.deck.len(), 10);
+    assert!(upgraded.deck[0].upgraded);
+    assert_eq!(upgraded.deck[0].card_id, card);
+    assert!(upgraded.deck[1..].iter().all(|copy| !copy.upgraded));
     // Only one thing may be done.
-    assert_eq!(trimmed.phase, Phase::Map);
-    assert_eq!(trimmed.wounds.len(), 2);
+    assert_eq!(upgraded.phase, Phase::Map);
+    assert_eq!(upgraded.wounds.len(), 2);
 
     let mut left = arrived.clone();
     assert_eq!(act(&mut left, RunAction::Leave), []);
@@ -934,14 +939,77 @@ fn a_rest_site_heals_a_wound_removes_a_card_or_is_left() {
 }
 
 #[test]
+fn a_card_is_upgraded_once_and_only_if_it_has_an_upgraded_side() {
+    let mut state = run_at("warden", NodeKind::Rest);
+    state.deck[0].upgraded = true;
+    // A commander's card has no upgraded side.
+    state
+        .deck
+        .push(CardInstance::new(CardDefId("jasmine_boreal".to_string())));
+    let last = state.deck.len() - 1;
+    let actions = run_legal_actions(&state);
+    for card in [0, last] {
+        let upgrade = RunAction::UpgradeCard { card };
+        assert!(!actions.contains(&upgrade));
+        assert_eq!(
+            apply_run_action(&mut state, upgrade.clone()),
+            Err(RunError::IllegalAction(upgrade))
+        );
+    }
+    assert!(actions.contains(&RunAction::UpgradeCard { card: 1 }));
+}
+
+#[test]
+fn an_upgraded_card_is_played_as_its_upgraded_side() {
+    let mut state = run("warden", 1);
+    // Both Glory Seekers and nothing else: one upgraded, one not.
+    state.deck.truncate(2);
+    state.deck[0].upgraded = true;
+    let node = travels(&state)[0];
+    act(&mut state, RunAction::Travel { node });
+    let duel = state.duel.as_ref().unwrap();
+    let mine = |id: &str| {
+        duel.objects
+            .values()
+            .filter(|object| {
+                object.owner == PLAYER && duel.def(object.id).unwrap().id.as_str() == id
+            })
+            .count()
+    };
+    assert_eq!((mine("glory_seeker+"), mine("glory_seeker")), (1, 1));
+    let side = duel
+        .objects
+        .values()
+        .find(|object| duel.def(object.id).unwrap().id.as_str() == "glory_seeker+")
+        .unwrap();
+    let def = duel.def(side.id).unwrap();
+    assert_eq!(def.name, "Glory Seeker+");
+    assert_eq!((def.power, def.toughness), (Some(3), Some(3)));
+    // It is the only upgraded side in the duel: the enemy has none.
+    let sides = duel
+        .objects
+        .values()
+        .filter(|object| duel.def(object.id).unwrap().upgrade_of.is_some())
+        .count();
+    assert_eq!(sides, 1);
+    // The deck's lands are those of the cards as they were.
+    let lands = |state: &RunState| run_view(state).unwrap().basic_lands;
+    let mut plain = state.clone();
+    plain.deck[0].upgraded = false;
+    assert_eq!(lands(&state), lands(&plain));
+}
+
+#[test]
 fn a_small_deck_cannot_lose_more_cards() {
     let data = data::embedded().unwrap();
-    let mut state = run_at("warden", NodeKind::Rest);
+    let mut state = run_at("warden", NodeKind::Shop);
+    state.gold = 1000;
+    let remove = RunAction::RemoveCard { card: 0 };
+    assert!(run_legal_actions(&state).contains(&remove));
     state
         .deck
         .truncate(data.balance.run.min_deck_cards as usize);
-    assert_eq!(run_legal_actions(&state), [RunAction::Leave]);
-    let remove = RunAction::RemoveCard { card: 0 };
+    assert!(!run_legal_actions(&state).contains(&remove));
     assert_eq!(
         apply_run_action(&mut state, remove.clone()),
         Err(RunError::IllegalAction(remove))

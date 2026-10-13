@@ -105,7 +105,8 @@ pub enum Phase {
     Reward {
         choices: Vec<CardDefId>,
     },
-    /// At a rest site: one thing may be done.
+    /// At a rest site: one thing may be done, heal a wound or upgrade a
+    /// card.
     Rest,
     Shop {
         items: Vec<ShopItem>,
@@ -230,7 +231,12 @@ pub enum RunAction {
     HealWound {
         wound: usize,
     },
-    /// At a rest site or a shop: remove `deck[card]` from the deck.
+    /// At a rest site: upgrade `deck[card]`, which is from then on played
+    /// as its card's upgraded side.
+    UpgradeCard {
+        card: usize,
+    },
+    /// At a shop: remove `deck[card]` from the deck.
     RemoveCard {
         card: usize,
     },
@@ -331,6 +337,10 @@ pub enum RunEvent {
         card: CardDefId,
     },
     CardRemoved {
+        card: CardDefId,
+    },
+    /// A copy of `card` in the deck was upgraded.
+    CardUpgraded {
         card: CardDefId,
     },
     /// An event has left the player a modifier for their next duel.
