@@ -4,20 +4,20 @@ One overnight session (2026-10-13) on the branch `balance-lab`. Everything here 
 
 ## 1. In short
 
-The Warden starts with a weaker deck and no emblem. The pool is 104 cards in five packages, with the cards that are good in any deck held back. The enemies are rebuilt in five tiers, the late ones from decks that grow as the game goes on, and the boss has 50 life. Against that field a random pile wins a third of acts and a deck that commits to a package wins 83 to 91%.
+The Warden starts with a weaker deck and no emblem. The pool is 104 cards in five packages, with the cards that are good in any deck held back. The enemies are rebuilt in five tiers, the late ones from decks that grow as the game goes on, and the boss has 50 life. Against that field a random pile wins a third of acts (32%) and a deck that commits to a package wins 83 to 91%.
 
 | Criterion | Target | Measured | Met? |
 |---|---|---|---|
-| 1. Floor: the random picker, with relics | about 33% | **33.7%** (600 runs, +/- 3.8) | Yes |
+| 1. Floor: the random picker, with relics | about 33% | **32.0%** (600 runs, +/- 3.7) | Yes |
 | 2. Ceiling: each package's ideal deck, no relics | 85 to 95%, within about 10 points | lifegain **90.9**, wide **88.8**, counters **88.0**, auras **88.0**, big **83.2** (600 runs each, +/- 2.3 to 3.0) | Nearly: four in the band and within 3 points of each other; big is 2 under it; the spread is 7.7 |
-| 3. The gap comes from the whole act | through wounds and feats | The random picker takes 1.70 wounds a run, dies before the boss in 17% of runs and beats it 41% of the time. Ideal decks take 0.5 to 0.7, die before it in 1 to 3% and beat it 86 to 92% | Partly: most of the gap is still made in the boss duel |
-| 4. No relic, common or uncommon worth more than about 5 points | 5 | Cards: the highest common is +4.4 and the highest uncommon +3.8 (each +/- 3.2). Relics: all of them together are worth 6 points of act win rate; three measure 5 to 9 when held for the whole act | Cards yes. Relics close, not to the letter |
+| 3. The gap comes from the whole act | through wounds and feats | The random picker takes 1.73 wounds a run, dies before the boss in 17% of runs and beats it 39% of the time. Ideal decks take 0.5 to 0.7, die before it in 1 to 3% and beat it 86 to 92% | Partly: most of the gap is still made in the boss duel |
+| 4. No relic, common or uncommon worth more than about 5 points | 5 | Cards: the highest common is +4.4 and the highest uncommon +3.8 (each +/- 3.2). Relics: all of them together are worth 4 points of act win rate; held from the first duel to the last, the two strongest measure +6 and +5 (each +/- 5) | Cards yes. Relics about at the limit |
 | 5. Strong and versatile cards are out | | A deck of the best 18 cards of every package wins 58% of single duels where the package decks win 82 to 90% | Yes, with three rares to watch |
 | 6. Tiers | | Applied; four judgement calls listed | Mostly |
 | 7. Relics small, conditional, glue, in tiers | | 13 offered, 10 of them tied to a package and 6 of those to a pair; two strong ones held back; tiers proposed, not built | Partly |
 | 8 to 12. Fun | | Not measurable by the sim; what was done for each is in section 3 | For you to play |
 
-What is plainly **not met**: the big deck's ceiling, by 2 points, which is inside its margin; the 5-point limit for three relics (Traveller's Rations, Drover's Bell, Weaver's Thread); relic tiers as a mechanism; a gap that comes mostly from the road to the boss. What I could not judge at all: the fun criteria.
+What is plainly **not met**: the big deck's ceiling, by 2 points, which is inside its margin; relic tiers as a mechanism; a gap that comes mostly from the road to the boss. At the limit and too noisy to call: Traveller's Rations and Beast Tamer's Whistle. What I could not judge at all: the fun criteria.
 
 Two things to know before reading further:
 
@@ -40,7 +40,9 @@ New sim modes (all in `CLAUDE.md`): `--lift`, `--ideal`, `--leave-out`, `--act`;
 
 ### 1. Floor
 
-`sim --runs --games 600 --decks warden`: **33.7%** of acts won (+/- 3.8). It reaches the boss in 83.0% of runs and beats it 40.6% of the time. It wins 72% of its ordinary duels and 19% of its elites. Without relics it wins 27.7% (600 runs).
+`sim --runs --games 600 --decks warden`: **32.0%** of acts won (+/- 3.7). It reaches the boss in 83.0% of runs and beats it 38.6% of the time. It wins 72% of its ordinary duels and 18% of its elites. Without relics it wins 27.7% (600 runs).
+
+The same measurement at three earlier states of the relics gave 34.2, 34.5 and 33.7: the floor has sat between 32 and 35 since the boss went to 50 life.
 
 Where it came from, in order of size: the boss's life (each 5 life costs the random deck about 4.5 points at the boss and a focused deck about 1), the relics (the four strong ones were worth 12 to 26 points in a single duel), the starting deck (5 points in single duels), and holding back the 22 generic cards.
 
@@ -55,9 +57,9 @@ Where it came from, in order of size: the boss's life (each 5 life costs the ran
 | +1/+1 counters | 88.0 | 2.6 | 87.3 / 88.7 | 98.5 | 89.4 | 90.5 | 71.1 | 0.62 |
 | Auras | 88.0 | 2.6 | 89.0 / 87.0 | 97.2 | 90.6 | 89.7 | 78.2 | 0.59 |
 | Big creatures | 83.2 | 3.0 | 85.0 / 81.3 | 97.2 | 85.6 | 89.4 | 65.0 | 0.71 |
-| Random picker, with relics | 33.7 | 3.8 | (seeds 1 to 600) | 83.0 | 40.6 | 72.4 | 19.2 | 1.70 |
+| Random picker, with relics | 32.0 | 3.7 | (seeds 1 to 600) | 83.0 | 38.6 | 72.0 | 18.0 | 1.73 |
 
-On main's field these five won 56 to 81% of single duels and a random pile with a relic won 57%, so two of the "ideal" decks were worse than random. Now all five are 50 to 57 points above the floor.
+On main's field these five won 56 to 81% of single duels and a random pile with a relic won 57%, so two of the "ideal" decks were worse than random. Now all five are 51 to 59 points above the floor.
 
 **What got them there: the boss asks for lifegain and evasion.** Its emblem drains a life a turn, which a deck that gains life shrugs off. Every list rose when it took its package's bridge to lifegain:
 
@@ -80,45 +82,47 @@ The lever that moves all five at once is boss life: at 40 life instead of 50 the
 
 | | Random picker | Ideal decks |
 |---|---|---|
-| Wounds taken per run | 1.70 | 0.47 to 0.71 |
+| Wounds taken per run | 1.73 | 0.47 to 0.71 |
 | Dies before the boss (three wounds) | 17.0% | 1.0 to 2.8% |
-| Arrives with no wound / one wound | 57.2% / 25.8% | 89 to 95% / 4 to 8% |
-| Beats the boss, having arrived | 40.6% | 85.6 to 91.8% |
+| Arrives with no wound / one wound | 55.5% / 27.5% | 89 to 95% / 4 to 8% |
+| Beats the boss, having arrived | 38.6% | 85.6 to 91.8% |
 
 Nobody arrives with two wounds: the last row is a rest, and it heals one.
 
-Of the gap between 34% and about 88%, the boss duel is much the larger part. Give the random picker the ideal decks' road to the boss and it would win about 40% of acts; give it their boss duel and it would win about 74%. The road counts for more than that sum shows, since the deck that meets the boss was built on it and a quarter of pickers arrive wounded, but the criterion as you wrote it is only partly met. Feats barely count yet: the picker's blind picks score 1.60 points a duel won (2.3 on main), because weaker decks meet fewer tiers, and the AI does not play for them. Feat and wound numbers were not changed.
+Of the gap between 32% and about 88%, the boss duel is much the larger part. Give the random picker the ideal decks' road to the boss and it would win about 38% of acts; give it their boss duel and it would win about 74%. The road counts for more than that sum shows, since the deck that meets the boss was built on it and a quarter of pickers arrive wounded, but the criterion as you wrote it is only partly met. Feats barely count yet: the picker's blind picks score 1.60 points a duel won (2.3 on main), because weaker decks meet fewer tiers, and the AI does not play for them. Feat and wound numbers were not changed.
 
 If you want more of the gap to come before the boss, the lever is the wound itself (it deals 1 damage a turn; a harsher one, or a second kind, hurts the deck that loses more). I did not touch it.
 
 ### 4. No single relic, common or uncommon worth more than 5 points
 
-**Relics.** With the relics a run finds, the picker wins 33.7% of acts; with none, 27.7% (600 runs each, a difference of 6.0 +/- 5.2). It ends a run with 1.2 relics.
+**Relics.** With the relics a run finds, the picker wins 32.0% of acts; with none, 27.7% (600 runs each, a difference of 4.3 +/- 5.1). It ends a run with 1.2 relics.
 
 One relic at a time, at act level (`sim --runs --games 600 --no-relics --with-relic X`). The picker owns that relic from its first duel, which is more than a relic found at a treasure halfway is worth. Each figure is +/- 3.7 and each difference +/- 5.2:
 
 | Relic held all act | Won the act | Against no relic |
 |---|---|---|
 | None | 27.7 | |
-| Beast Tamer's Whistle at 1 life (as proposed) | 32.7 | +5.0 |
-| Traveller's Rations | 35.0 | +7.3 |
-| Drover's Bell | 37.0 | +9.3 |
-| Beast Tamer's Whistle at 2 life (as it was) | 41.3 | +13.6 |
+| Weaver's Thread (gain 1) | 27.5 | -0.2 |
+| Drover's Bell (power 5 or more) | 30.2 | +2.5 |
+| Beast Tamer's Whistle (gain 1) | 32.7 | +5.0 |
+| Traveller's Rations (2 life) | 33.8 | +6.1 |
+
+These four were the strongest on the first pass, as they then were: the Whistle at gain 2, 41.3 (+13.6); the Bell at power 4, 37.0 (+9.3); Rations at 3 life, 35.0 (+7.3).
 
 All thirteen, in single duels (`sim --lift --weighted --relics 1 --games 12000`: every random deck has one relic, each relic is in about 920 decks). The two relics that do nothing in a duel win 52.0%; against that, each +/- 4:
 
 | Relic | Lift | | Relic | Lift |
 |---|---|---|---|---|
-| Drover's Bell | +9.0 | | Rally Horn (new text) | +3.0 |
-| Traveller's Rations | +7.8 | | Sentinel's Horn | +2.3 |
-| Beast Tamer's Whistle (at 2 life) | +7.5 | | Anointing Oil | +2.3 |
-| Weaver's Thread | +6.5 | | Soothing Spring | +1.1 |
-| Whetstone | +4.1 | | Pilgrim's Flask | +1.1 |
-| Votive Candle | +3.7 | | | |
+| Weaver's Thread | +5.0 | | Rally Horn | +3.0 |
+| Traveller's Rations | +4.6 | | Sentinel's Horn | +2.3 |
+| Whetstone | +4.1 | | Anointing Oil | +2.3 |
+| Beast Tamer's Whistle | +3.9 | | Soothing Spring | +1.1 |
+| Votive Candle | +3.7 | | Pilgrim's Flask | +1.1 |
+| Drover's Bell | +3.7 | | | |
 
-Before the changes the same measure gave Whetstone +26, Surveyor's Map +25, Soothing Spring +23, War Banner +22 and Rally Horn +10.
+On main's relics the same measure gave Whetstone +26, Surveyor's Map +25, Soothing Spring +23, War Banner +22 and Rally Horn +10.
 
-Read together: **not met to the letter.** Traveller's Rations, Drover's Bell and Weaver's Thread measure between 5 and 9, with margins of 4 to 5; the Whistle is at 5 after its change; the other nine are under. The three that are over all give life or a body to any deck. The cheap fixes, not made: Rations at 2 life; the Bell and the Thread at "once each duel", which the engine can't say yet.
+Read together: **about at the limit.** No relic measures above 5 in a single duel. Held for a whole act, Traveller's Rations (+6.1) and Beast Tamer's Whistle (+5.0) are the two highest, with margins as large as the numbers. If you want them clearly under, Rations at 1 life and the Whistle for power 5 (so that the commander doesn't set it off) are the next steps.
 
 **Cards**, single duels:
 
@@ -353,7 +357,7 @@ Leaving cards out showed which carry a deck (40 duels a cell, 8 enemies, +/- 5 a
 | Inspiring Overseer | +4.0: a flier, a life and a card at common |
 | Unflinching Courage | +10.2 (+/- 3.6) on the new field: the one uncommon clearly over the limit |
 | Serra Angel | A strong plain body that belongs to no package |
-| War Banner (relic) | +22 to +26 in a single duel |
+| War Banner (relic) | +22 in a single duel |
 | Surveyor's Map (relic) | +25 in a single duel |
 
 **Given a condition instead of cut** (each file is marked `altered`, so the Scryfall check skips its text and nothing else):
@@ -366,7 +370,7 @@ Leaving cards out showed which carry a deck (40 duels a cell, 8 enemies, +/- 5 a
 | Twinblade Paladin | Counter whenever you gain life, and double strike | Double strike only (decided before the session) |
 | Kor Spiritdancer (new) | "you may draw a card" | "draw a card": the engine can't decline an ability that has no target |
 
-**Still in the pool and worth watching** (rares; the lift of a rare is measured on few decks, so read the margins):
+**Still in the pool and worth watching** (the rares at the top of the lift table of section 3):
 
 | Card | Lift in a random deck (+/- 3.2) | Note |
 |---|---|---|
@@ -442,16 +446,16 @@ Thirteen are offered; two are held back. Tiers are my suggestion and exist nowhe
 
 | Relic | Text | Glue | Suggested tier | Change |
 |---|---|---|---|---|
-| Traveller's Rations | Start each duel with 3 more life | any | common | |
+| Traveller's Rations | Start each duel with 2 more life | any | common | **Was** 3 more life |
 | Rally Horn | The first creature token to enter each turn brings a 1/1 Soldier with it | wide | common | **Was** a 1/1 Soldier at the start of every duel (+10, +/- 4, in a single duel: the strongest of the small relics) |
 | Pilgrim's Flask | First life gained each turn: scry 1 | lifegain | common | |
 | Soothing Spring | The first time you gain life each turn, gain 1 more | lifegain | common | **Was** 1 life every upkeep (+16 points by your measure, +23 in a single duel) |
 | Beast Tamer's Whistle | A creature of power 4 or more enters: gain 1 | big + lifegain | common | **Was** gain 2. Held from the first duel it took the picker from 27.7% to 41.3% of acts: the commander is a creature of power 4, so it is always on |
 | Votive Candle | First enchantment spell each turn: a 1/1 Soldier | auras + wide | common | |
-| Weaver's Thread | First Aura spell each turn: gain 2 | auras + lifegain | common | **New** |
+| Weaver's Thread | First Aura spell each turn: gain 1 | auras + lifegain | common | **New** |
 | Sentinel's Horn | Your creatures with a +1/+1 counter have vigilance | counters | common | **Was** vigilance for every creature |
 | Whetstone | The first creature token to enter each turn gets a +1/+1 counter | wide + counters | rare | **Was** the first creature of any kind (+26 in a single duel) |
-| Drover's Bell | The first creature of power 4 or more to enter each turn: a 1/1 Soldier | big + wide | rare | **New** |
+| Drover's Bell | The first creature of power 5 or more to enter each turn: a 1/1 Soldier | big + wide | rare | **New** |
 | Anointing Oil | First life gained each turn: a counter on each creature of yours that has one | lifegain + counters | rare | **New** |
 | Lucky Coin | 10 more gold a duel won | the run | common | |
 | Merchant's Ledger | Shop prices 20% lower | the run | common | |
@@ -492,7 +496,7 @@ No rule marked Out or Later in `RULES_SCOPE.md` was built. Hardened Scales reuse
 - `enemies.json`: the boss's Tyrant's Vigour is **30** more life (was 5), so it starts at 50.
 - `planeswalkers.json`: the Warden's starting deck is 2 Glory Seeker, 2 Grizzly Bears, Youthful Knight, Elvish Visionary, Centaur Courser, Giant Spider, Siege Mastodon, Giant Growth. **Out:** Savannah Lions, Pacifism, Rumbling Baloth. Still 10 spells and 7 lands.
 - `emblems.json`: empty (Warm Welcome and Battle Fury removed, as decided).
-- `relics.json`: five relics changed, three added, two held back (section 8). The numbers in them: Beast Tamer's Whistle gains 1 life (was 2); Weaver's Thread gains 2.
+- `relics.json`: six relics changed, three added, two held back (section 8). The numbers in them: Traveller's Rations gives 2 life (was 3); Beast Tamer's Whistle gains 1 (was 2); Weaver's Thread gains 1; Drover's Bell asks for power 5.
 
 ### Cards
 
@@ -528,7 +532,7 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 7. **Event candidates**: Aerial Responder, Inspiring Overseer, Unflinching Courage, Serra Angel, War Banner, Surveyor's Map.
 8. **Glorious Anthem or Benalish Marshal.** Same effect. I added the Marshal as the conditional one ({W}{W}{W}), and it measured as the stronger in a random deck (+5.1 against +1.9). Keep one.
 9. **Commanders.** Radiant, Archangel leads Angelic Host; Borborygmos leads the boss; The Lady of the Mountain moved to Wild Hunt. Sir Shandlar and Tobias Andrion are out of work.
-10. **Relics.** Tiers are a suggestion in section 8; building them means deciding where each tier comes from (treasure, elite, shop, event). Rally Horn and Beast Tamer's Whistle are yours from #65 and I changed both (the Horn's wording is mine). Three relics still measure over 5: do you want Rations at 2 life, and the Bell and the Thread once a duel?
+10. **Relics.** Tiers are a suggestion in section 8; building them means deciding where each tier comes from (treasure, elite, shop, event). Six of your relics from M3 and #65 are changed (Soothing Spring, Whetstone, Sentinel's Horn, Rally Horn, Beast Tamer's Whistle, Traveller's Rations); the new wordings of the first four are mine. Each is one edit in `relics.json` to put back.
 11. **Feats.** Untouched, and the picker's blind score fell from 2.3 to 1.60 a duel because its deck is weaker. Tempered and Adorned are met in 6 to 7% of wins. They want a pass once you have played this.
 12. **The Firebrand.** 2.7%. Do you want it kept playable while the Warden is balanced (an easier field for it, or its emblem back), or parked?
 13. **Rares I looked at and did not add**, for want of a rule or of time: Beastmaster Ascension (a threshold of 7 attacks, then +5/+5: needs a counter on an enchantment); Enduring Scalelord (grows whenever another creature gets counters: needs a trigger on counters being put); Crusader of Odric and Geist-Honored Monk (power equal to your creature count: the Scryfall tool refuses a `*` power); Serra Ascendant (a 6/6 flier at 30 life: a second Speaker of the Heavens); Craterhoof Behemoth (8 mana, never cast in a 30-card deck); Elite Scaleguard (needs bolster); Citadel Siege and Verdurous Gearhulk (modes, dividing counters). Say which you want.
@@ -537,7 +541,7 @@ Six of the enemy cards ended up in no deck when the field was weakened: Flameton
 
 - `balance-lab`, small commits, nothing pushed, nothing on `main`.
 - `.\tools\check-all.ps1`, the full run with the end-to-end tests: **all ten steps pass** on the last commit. 657 engine tests, 38 sim tests, 12 wasm-crate tests, 72 web tests, 22 end-to-end tests; 231 cards match Scryfall. Every new card, rule and relic has a test (`pool_tests.rs`, `enemy_card_tests.rs`, and the relic tests in `run/tests.rs`).
-- 28 commits; 38 card files added and 31 changed.
+- 31 commits; 38 card files added and 31 changed.
 - `docs/ARCHITECTURE.md` and `CLAUDE.md` describe the new data fields, the tier and the sim modes, because the code on this branch needs them. `DECISIONS.md`, `ROADMAP.md`, `RULES_SCOPE.md` and `GAME_DESIGN.md` are untouched.
 - Not done: relic tiers in the engine; any tuning of feats or wounds; a second look at the easy tier; the Firebrand.
 - Not verified by anything but the sim and the tests: I did not play a duel. The end-to-end tests click through two whole acts on the new data and pass.
@@ -562,4 +566,5 @@ Single duels unless it says acts. All with the new AI.
 | Acts | Wide and big take theirs | wide 90, big 84 |
 | Acts | Boss at 50; Unflinching Courage held back; Coronet and Spiritdancer in auras | 89.3, 77.7, 86.0, 82.7, 80.3; picker 34.2 |
 | Acts | Relics: Drover's Bell once a turn, Rally Horn conditional, the Whistle at 1 life | picker 33.7; without relics 27.7 |
-| Final, acts | Healer's Hawks in counters and auras; a second Orator and a Battle Priest in lifegain; a lower curve in big | **wide 88.8, counters 88.0, lifegain 90.9, big 83.2, auras 88.0 (600 runs each); picker 33.7** |
+| Acts | Healer's Hawks in counters and auras; a second Orator and a Battle Priest in lifegain; a lower curve in big | wide 88.8, counters 88.0, lifegain 90.9, big 83.2, auras 88.0 (600 runs each) |
+| Final, acts | Relics: Rations at 2 life, the Bell for power 5, the Thread at 1 life | **picker 32.0** |
