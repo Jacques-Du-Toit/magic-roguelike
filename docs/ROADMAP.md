@@ -51,7 +51,7 @@ For every item: logic in `crates/engine`, numbers in `data/balance.json`, a test
 **Notes:**
 - Agreed on healing all: the sim saw the same thing from the other side. A picker that upgrades instead of healing reaches the boss 6 points less often, so one wound healed is not worth a rest.
 - Since the last row is always a rest, a player who heals there meets the boss with no wounds, whatever happened before. That is already nearly true (nobody arrives with two). If wounds should reach the boss sometimes, the last rest is the place to think about.
-- "+1/+1 on a random enemy creature each turn" is not small: it compounds over a long duel and decides races. Smaller versions of the same idea: the enemy's first creature each duel enters with a +1/+1 counter; the enemy starts with 2 more life; you start with one card fewer; your maximum hand size is one less.
+- "+1/+1 on a random enemy creature each turn" is until end of turn, not a counter (the owner, 2026-10-13), so it doesn't compound: a small combat nuisance. The random pick must come from the duel's seeded RNG. Other small ones to offer: the enemy starts with 2 more life; you start with one card fewer; your maximum hand size is one less.
 - A wound that isn't a permanent can't be paid off the way the Festering Wound can. That is fine, but then it wants to be weaker.
 
 **To settle:** the list of wounds (four or five, proposed with their numbers), whether the Moneylender heals one or all, and whether a wound is drawn at random or follows from who beat you.
@@ -118,7 +118,8 @@ So they are hard for everyone and close to unwinnable for an unfinished deck. Th
 
 **Notes:**
 - A potion is a spell outside the deck, so the questions are Magic's: when can it be used (any time you have priority, or only in your main phase), does it use the stack, can it be countered, does it cost mana? Free and at instant speed is the strongest and the least like Magic.
-- "Destroy all creatures" with no cost changes how a duel is played more than anything else in the game: every duel becomes "do I need the potion?". I would keep rares to things that swing a turn, not the board.
+- "Destroy all creatures" with no cost would change how a duel is played more than anything else in the game. The owner's answer (2026-10-13): it is a very rare potion, and may cost mana, perhaps {5}. So a potion can have a mana cost, and the strong ones do.
+- Potions can't be countered, by default (the owner, 2026-10-13). `cant_be_countered` exists for cards.
 - The enemy AI doesn't know the player holds one, and the sim's player needs a rule for using them, or runs can't measure them.
 
 **To settle (the proposal):** how many can be carried, where they come from, the timing rule, the first ten or so with rarities, and what the sim does with them.
